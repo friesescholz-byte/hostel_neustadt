@@ -32,21 +32,23 @@ const TrustBar = () => {
   ];
 
   return (
-    <section className="trust-bar">
+    <div className="trust-bar-wrapper">
       <div className="container">
-        <div className="trust-grid">
-          {items.map((item, index) => (
-            <div className="trust-item" key={index}>
-              <div className="trust-icon-container">{item.icon}</div>
-              <div className="trust-text">
-                <h4>{item.title}</h4>
-                <p>{item.subtitle}</p>
+        <div className="trust-bar">
+          <div className="trust-grid">
+            {items.map((item, index) => (
+              <div className="trust-item" key={index}>
+                <div className="trust-icon-container">{item.icon}</div>
+                <div className="trust-text">
+                  <h4>{item.title}</h4>
+                  <p>{item.subtitle}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 };
 

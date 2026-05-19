@@ -17,7 +17,7 @@ const Hero = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <span className="hero-eyebrow">✨ Dein Zuhause in der Pfalz</span>
+            <span className="hero-eyebrow">✨ NEU ERÖFFNET: IDEAL FÜR HANDWERKER & MONTEURE</span>
             <h1>
               Dein Hostel in Neustadt<br/>
               <span className="highlight">Zentral. Unkompliziert. Bezahlbar.</span>
@@ -31,9 +31,10 @@ const Hero = () => {
               <a href="#buchen" className="btn-primary">
                 Jetzt Zimmer buchen
               </a>
-              <div className="hero-trust" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem', opacity: 0.8, fontSize: '0.9rem' }}>
-                <ShieldCheck size={20} className="trust-icon" />
-                <span>Schnell, sicher & zum besten Preis</span>
+              <div className="hero-trust" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1rem', opacity: 0.8, fontSize: '0.9rem', flexWrap: 'wrap' }}>
+                <span>✓ Flexible Stornierung</span>
+                <span>✓ 24/7 Self-Check-in</span>
+                <span>✓ Kostenlose Parkplätze</span>
               </div>
             </div>
           </motion.div>
