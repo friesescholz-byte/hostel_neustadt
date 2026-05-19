@@ -52,11 +52,12 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transform: perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1);
 }
 
 .review-card:hover {
-  transform: translateY(-5px);
+  transform: perspective(1000px) rotateX(4deg) rotateY(4deg) scale3d(1.02, 1.02, 1.02);
   box-shadow: var(--shadow-md);
 }
 

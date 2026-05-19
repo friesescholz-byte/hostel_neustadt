@@ -41,14 +41,16 @@ const Location = () => {
             transition={{ duration: 0.45, delay: 0.1 }}
           >
             <div className="map-placeholder">
-              <img 
-                src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=1200&q=80" 
-                alt="Standort Hostel Neustadt"
-                className="map-image"
-              />
-              <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" className="btn-primary map-btn">
-                Route planen
-              </a>
+              <iframe
+                title="Google Maps Location"
+                src="https://maps.google.com/maps?q=Bahnhofstra%C3%9Fe%2010,%2012345%20Neustadt&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                width="100%"
+                height="100%"
+                style={{ border: 0, position: 'absolute', top: 0, left: 0 }}
+                allowFullScreen=""
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              ></iframe>
             </div>
           </motion.div>
         </div>

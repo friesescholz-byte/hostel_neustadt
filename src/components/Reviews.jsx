@@ -59,7 +59,10 @@ const Reviews = () => {
         </div>
 
         <div className="text-center mt-4">
-          <a href="#bewertungen" className="btn-link">Alle Bewertungen ansehen &rarr;</a>
+          <a href="https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4" target="_blank" rel="noopener noreferrer" className="btn-primary" style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
+            <div className="google-icon" style={{ width: '20px', height: '20px', fontSize: '0.7rem' }}>G</div>
+            Auf Google bewerten
+          </a>
         </div>
       </div>
     </section>
