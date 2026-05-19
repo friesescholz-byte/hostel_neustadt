@@ -26,6 +26,16 @@ const Hero = () => {
               Moderne Zimmer, faire Preise und alles, was du für deinen Aufenthalt brauchst – 
               nur wenige Minuten vom Bahnhof und der Innenstadt entfernt.
             </p>
+            
+            <div className="hero-actions" style={{ marginTop: '2rem' }}>
+              <a href="#buchen" className="btn-primary">
+                Jetzt Zimmer buchen
+              </a>
+              <div className="hero-trust" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem', opacity: 0.8, fontSize: '0.9rem' }}>
+                <ShieldCheck size={20} className="trust-icon" />
+                <span>Schnell, sicher & zum besten Preis</span>
+              </div>
+            </div>
           </motion.div>
         </div>
 
