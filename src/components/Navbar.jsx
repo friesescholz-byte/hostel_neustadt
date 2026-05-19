@@ -29,7 +29,7 @@ const Navbar = () => {
       className={`navbar ${scrolled ? 'scrolled' : ''}`}
       initial={{ y: -100 }}
       animate={{ y: 0 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.4 }}
     >
       <div className="container nav-container">
         <a href="#" className="logo">
@@ -47,8 +47,8 @@ const Navbar = () => {
         </nav>
 
         <div className="nav-actions">
-          <a href="https://booking.com" target="_blank" rel="noopener noreferrer" className="btn-primary nav-btn">
-            Jetzt buchen<br/><small style={{fontSize: '0.7em', fontWeight: 'normal'}}>auf Booking.com</small>
+          <a href="#buchen" className="btn-primary nav-btn">
+            Jetzt buchen
           </a>
           <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
             {mobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
@@ -63,6 +63,7 @@ const Navbar = () => {
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.2 }}
         >
           <ul>
             {navLinks.map((link) => (
@@ -71,8 +72,8 @@ const Navbar = () => {
               </li>
             ))}
             <li>
-              <a href="https://booking.com" target="_blank" rel="noopener noreferrer" className="btn-primary mobile-book-btn">
-                Jetzt buchen auf Booking.com
+              <a href="#buchen" onClick={() => setMobileMenuOpen(false)} className="btn-primary mobile-book-btn">
+                Jetzt buchen
               </a>
             </li>
           </ul>

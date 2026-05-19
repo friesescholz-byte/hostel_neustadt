@@ -10,7 +10,7 @@ const Rooms = () => {
       name: "Mehrbettzimmer",
       desc: "Ideal für Backpacker & Gruppen",
       price: "ab 18 € / Nacht",
-      img: "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/website-datein/hostel_neustadt/room-1.jpg",
+      img: "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80",
       icons: [<Wifi key="w" size={20} />, <Users key="u" size={20} />]
     },
     {
@@ -18,7 +18,7 @@ const Rooms = () => {
       name: "Doppelzimmer",
       desc: "Ideal für Paare & Freunde",
       price: "ab 49 € / Nacht",
-      img: "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/website-datein/hostel_neustadt/room-2.jpg",
+      img: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80",
       icons: [<Wifi key="w" size={20} />, <User key="u1" size={20} />, <User key="u2" size={20} />]
     },
     {
@@ -26,7 +26,7 @@ const Rooms = () => {
       name: "Familienzimmer",
       desc: "Ideal für Familien",
       price: "ab 79 € / Nacht",
-      img: "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/website-datein/hostel_neustadt/room-3.jpg",
+      img: "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80",
       icons: [<Wifi key="w" size={20} />, <Users key="u" size={20} />]
     }
   ];
@@ -43,11 +43,12 @@ const Rooms = () => {
               key={room.id}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.5, delay: i * 0.1 }}
-              whileHover={{ y: -10 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.4, delay: i * 0.08 }}
             >
-              <div className="room-img" style={{ backgroundImage: `url(${room.img})` }}></div>
+              <div className="room-img-wrapper">
+                <div className="room-img" style={{ backgroundImage: `url(${room.img})` }}></div>
+              </div>
               <div className="room-content">
                 <h3>{room.name}</h3>
                 <p className="room-desc">{room.desc}</p>
@@ -56,8 +57,8 @@ const Rooms = () => {
                 </div>
                 <div className="room-footer">
                   <span className="room-price">{room.price}</span>
-                  <a href="https://booking.com" target="_blank" rel="noopener noreferrer" className="btn-primary w-100">
-                    Jetzt auf Booking.com buchen
+                  <a href="#buchen" className="btn-primary w-100">
+                    Jetzt buchen
                   </a>
                 </div>
               </div>
@@ -66,7 +67,7 @@ const Rooms = () => {
         </div>
 
         <div className="text-center mt-4">
-          <a href="#alle-zimmer" className="btn-link">Alle Zimmer ansehen &rarr;</a>
+          <a href="#zimmer" className="btn-link">Alle Zimmer ansehen &rarr;</a>
         </div>
       </div>
     </section>

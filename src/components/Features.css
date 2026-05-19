@@ -21,7 +21,7 @@
   margin-right: auto;
   background-color: rgba(15, 43, 92, 0.05);
   border-radius: 50%;
-  transition: var(--transition-normal);
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
 .feature-item:hover .feature-icon {

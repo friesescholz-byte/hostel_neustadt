@@ -47,10 +47,10 @@ const Features = () => {
             <motion.div 
               className="feature-item"
               key={i}
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: i * 0.1 }}
+              transition={{ duration: 0.35, delay: i * 0.06 }}
             >
               <div className="feature-icon">{feature.icon}</div>
               <h4>{feature.title}</h4>

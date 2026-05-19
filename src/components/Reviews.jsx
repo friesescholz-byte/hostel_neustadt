@@ -47,7 +47,7 @@ const Reviews = () => {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.1 }}
+              transition={{ duration: 0.35, delay: i * 0.06 }}
             >
               <p className="review-text">"{review.text}"</p>
               <div className="review-author">
@@ -59,7 +59,7 @@ const Reviews = () => {
         </div>
 
         <div className="text-center mt-4">
-          <a href="#alle-bewertungen" className="btn-link">Alle Bewertungen ansehen &rarr;</a>
+          <a href="#bewertungen" className="btn-link">Alle Bewertungen ansehen &rarr;</a>
         </div>
       </div>
     </section>

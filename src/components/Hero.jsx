@@ -6,7 +6,7 @@ import './Hero.css';
 const Hero = () => {
   return (
     <section className="hero">
-      <div className="hero-bg" style={{backgroundImage: 'url(https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/website-datein/hostel_neustadt/hero.jpg)'}}></div>
+      <div className="hero-bg" style={{backgroundImage: 'url(https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1920&q=80)'}}></div>
       <div className="hero-overlay"></div>
       
       <div className="container hero-content">
@@ -14,7 +14,7 @@ const Hero = () => {
           className="hero-text"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
+          transition={{ duration: 0.6 }}
         >
           <h1>Dein Hostel in Neustadt<br/>Zentral. Unkompliziert. Bezahlbar.</h1>
           <p>
@@ -23,8 +23,8 @@ const Hero = () => {
           </p>
           
           <div className="hero-actions">
-            <a href="https://booking.com" target="_blank" rel="noopener noreferrer" className="btn-primary">
-              Jetzt auf Booking.com buchen
+            <a href="#buchen" className="btn-primary">
+              Jetzt Zimmer buchen
             </a>
             <div className="hero-trust">
               <ShieldCheck size={20} className="trust-icon" />

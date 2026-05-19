@@ -42,18 +42,26 @@
 .map-placeholder {
   width: 100%;
   height: 400px;
-  background-color: #e5e7eb;
-  background-image: url('https://images.unsplash.com/photo-1524661135-423995f22d0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80');
-  background-size: cover;
-  background-position: center;
   position: relative;
   display: flex;
   align-items: flex-end;
   justify-content: flex-end;
-  padding: 2rem;
+  overflow: hidden;
+}
+
+.map-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .map-btn {
+  position: relative;
+  z-index: 2;
+  margin: 2rem;
   background-color: var(--primary);
   box-shadow: var(--shadow-md);
 }

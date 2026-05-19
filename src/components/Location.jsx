@@ -17,10 +17,10 @@ const Location = () => {
         <div className="location-wrapper">
           <motion.div 
             className="location-content"
-            initial={{ opacity: 0, x: -50 }}
+            initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.45 }}
           >
             <h2>Mitten in Neustadt</h2>
             <ul className="location-points">
@@ -35,13 +35,17 @@ const Location = () => {
           
           <motion.div 
             className="location-map"
-            initial={{ opacity: 0, x: 50 }}
+            initial={{ opacity: 0, x: 30 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
+            transition={{ duration: 0.45, delay: 0.1 }}
           >
-            {/* Placeholder for actual Google Maps iframe or Map image */}
             <div className="map-placeholder">
+              <img 
+                src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=1200&q=80" 
+                alt="Standort Hostel Neustadt"
+                className="map-image"
+              />
               <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" className="btn-primary map-btn">
                 Route planen
               </a>
