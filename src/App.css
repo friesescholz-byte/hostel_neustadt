@@ -1,0 +1,11 @@
+/* Add component-specific styles here if needed, or stick to index.css for globals and inline/module for specific */
+
+.app-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+section {
+  position: relative;
+}

@@ -1,0 +1,66 @@
+.trust-bar {
+  background-color: white;
+  padding: 2rem 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  position: relative;
+  z-index: 10;
+  margin-top: -30px;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.trust-grid {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.trust-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+  min-width: 200px;
+}
+
+.trust-icon-container {
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+}
+
+.stars {
+  display: flex;
+  gap: 2px;
+  color: var(--gold);
+}
+
+.stars svg {
+  width: 20px;
+  height: 20px;
+}
+
+.trust-text h4 {
+  font-size: 1rem;
+  margin-bottom: 0.2rem;
+  color: var(--text-dark);
+}
+
+.trust-text p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+@media (max-width: 992px) {
+  .trust-bar {
+    margin-top: 0;
+    width: 100%;
+    border-radius: 0;
+    padding: 2rem 1rem;
+  }
+}
