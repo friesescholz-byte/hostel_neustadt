@@ -1,5 +1,5 @@
 .trust-bar-wrapper {
-  background: linear-gradient(to bottom, transparent 50%, var(--bg-light) 50%);
+  background: linear-gradient(to bottom, transparent 60px, var(--bg-light) 60px);
   position: relative;
   z-index: 10;
   margin-top: -60px;
@@ -19,7 +19,7 @@
 
 .trust-grid {
   display: flex;
-  justify-content: space-evenly;
+  justify-content: center;
   align-items: center;
   flex-wrap: wrap;
   gap: 2rem;
@@ -29,7 +29,6 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  flex: 1;
   min-width: 200px;
 }
 
