@@ -4,15 +4,16 @@
   left: 0;
   width: 100%;
   z-index: 1000;
-  transition: background 0.18s ease, padding 0.18s ease, box-shadow 0.18s ease;
+  transition: background 0.3s ease, padding 0.3s ease, box-shadow 0.3s ease;
   background: transparent;
-  padding: 1.5rem 0;
+  padding: 1.8rem 0;
 }
 
 .navbar.scrolled {
-  background: white;
-  box-shadow: var(--shadow-sm);
-  padding: 0.8rem 0;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  padding: 1.2rem 0;
 }
 
 .nav-container {
@@ -22,23 +23,24 @@
 }
 
 .logo img {
-  height: 60px;
-  transition: height 0.18s ease;
+  height: 65px;
+  transition: height 0.3s ease;
 }
 
 .navbar.scrolled .logo img {
-  height: 50px;
+  height: 55px;
 }
 
 .desktop-nav ul {
   display: flex;
-  gap: 2rem;
+  gap: 2.5rem;
 }
 
 .desktop-nav a {
   font-weight: 500;
+  font-size: 1.05rem;
   color: var(--text-dark);
-  transition: color 0.12s ease;
+  transition: color 0.2s ease;
   position: relative;
 }
 

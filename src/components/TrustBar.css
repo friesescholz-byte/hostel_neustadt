@@ -19,17 +19,24 @@
 
 .trust-grid {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 2rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.trust-grid::-webkit-scrollbar {
+  display: none;
 }
 
 .trust-item {
   display: flex;
   align-items: center;
   gap: 1rem;
-  min-width: 200px;
+  min-width: max-content;
+  flex-shrink: 0;
 }
 
 .trust-icon-container {
