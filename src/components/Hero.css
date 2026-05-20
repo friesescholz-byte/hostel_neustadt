@@ -226,36 +226,76 @@
 }
 
 @media (max-width: 992px) {
+  .hero {
+    padding-bottom: 2rem;
+  }
+  .hero-overlay {
+    background: linear-gradient(to bottom, rgba(15, 43, 92, 0.95) 0%, rgba(15, 43, 92, 0.4) 50%, #e4ecf5 100%);
+  }
   .hero-container {
     flex-direction: column;
-    padding-top: 120px;
-    padding-bottom: 40px;
+    padding-top: 100px;
+    padding-bottom: 20px;
   }
   .hero-text h1 {
-    font-size: 2.8rem;
+    font-size: 2.5rem;
+    text-align: center;
   }
-  .hero-content-right {
-    display: none; /* Hide the form entirely on mobile for a cleaner look */
+  .text-rotate {
+    justify-content: center;
+  }
+  .hero-text p {
+    display: none; /* Hide paragraph on mobile */
+  }
+  .hero-actions {
+    display: none; /* Hide big button on mobile since we show the compact form */
   }
   .hero-content-left {
     text-align: center;
     align-items: center;
     display: flex;
     flex-direction: column;
+    margin-bottom: -1rem;
   }
-  .hero-text p {
-    text-align: center;
-    margin: 0 auto 2rem auto;
-  }
-  .hero-actions {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+  .hero-content-right {
     width: 100%;
+    flex: none;
+    max-width: 100%;
   }
-  .hero-trust {
-    justify-content: center;
-    margin-top: 1.5rem;
+  .booking-form-card {
+    padding: 1rem;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.95);
+  }
+  .form-header {
+    display: none;
+  }
+  .booking-form {
+    gap: 0.75rem;
+  }
+  .form-group label {
+    font-size: 0.8rem;
+    margin-bottom: 0.2rem;
+  }
+  .input-wrapper input, .input-wrapper select {
+    padding: 0.6rem 1rem 0.6rem 2.2rem;
+    font-size: 0.9rem;
+  }
+  .input-icon {
+    left: 0.6rem;
+    width: 16px;
+  }
+  .select-arrow {
+    right: 0.6rem;
+    width: 16px;
+  }
+  .form-submit-btn {
+    padding: 0.8rem;
+    font-size: 1rem;
+    margin-top: 0;
+  }
+  .form-footer {
+    display: none;
   }
 }
 
