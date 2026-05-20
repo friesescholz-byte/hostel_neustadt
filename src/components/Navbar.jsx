@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { Link, useLocation } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import './Navbar.css';
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const location = useLocation();
+  const isBookingPage = location.pathname === '/buchen';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -26,38 +29,44 @@ const Navbar = () => {
 
   return (
     <motion.header 
-      className={`navbar ${scrolled ? 'scrolled' : ''}`}
+      className={`navbar ${scrolled || isBookingPage ? 'scrolled' : ''}`}
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.4 }}
     >
       <div className="container nav-container">
-        <a href="#" className="logo">
+        <Link to="/" className="logo">
           <img src="https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Logo_Hostel_Neustadt_transparent.png" alt="Hostel Neustadt Logo" />
-        </a>
+        </Link>
 
-        <nav className="desktop-nav">
-          <ul>
-            {navLinks.map((link) => (
-              <li key={link.name}>
-                <a href={link.href}>{link.name}</a>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        {!isBookingPage && (
+          <nav className="desktop-nav">
+            <ul>
+              {navLinks.map((link) => (
+                <li key={link.name}>
+                  <a href={link.href}>{link.name}</a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
 
         <div className="nav-actions">
-          <a href="#buchen" className="btn-primary nav-btn">
-            Jetzt buchen
-          </a>
-          <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-            {mobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
-          </button>
+          {!isBookingPage && (
+            <Link to="/buchen" className="btn-primary nav-btn">
+              Jetzt buchen
+            </Link>
+          )}
+          {!isBookingPage && (
+            <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+              {mobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+            </button>
+          )}
         </div>
       </div>
 
       {/* Mobile Menu */}
-      {mobileMenuOpen && (
+      {mobileMenuOpen && !isBookingPage && (
         <motion.div 
           className="mobile-nav"
           initial={{ opacity: 0, height: 0 }}
@@ -72,9 +81,9 @@ const Navbar = () => {
               </li>
             ))}
             <li>
-              <a href="#buchen" onClick={() => setMobileMenuOpen(false)} className="btn-primary mobile-book-btn">
+              <Link to="/buchen" onClick={() => setMobileMenuOpen(false)} className="btn-primary mobile-book-btn">
                 Jetzt buchen
-              </a>
+              </Link>
             </li>
           </ul>
         </motion.div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import './CTA.css';
 
 const CTA = () => {
@@ -17,15 +18,14 @@ const CTA = () => {
           <h2>Bereit für deinen Aufenthalt in Neustadt?</h2>
           <p>Buche jetzt dein Zimmer direkt bei uns und sichere dir den besten Preis.</p>
           
-          <motion.a 
-            href="#buchen" 
-            className="btn-primary btn-large btn-light"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.97 }}
-            transition={{ duration: 0.1 }}
-          >
-            Jetzt Zimmer buchen
-          </motion.a>
+          <motion.div>
+            <Link 
+              to="/buchen" 
+              className="btn-primary btn-large btn-light"
+            >
+              Jetzt Zimmer buchen
+            </Link>
+          </motion.div>
         </motion.div>
       </div>
     </section>

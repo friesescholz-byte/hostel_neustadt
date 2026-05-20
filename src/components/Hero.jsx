@@ -1,10 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { Link, useNavigate } from 'react-router-dom';
 import { ShieldCheck, Calendar, User, Bed, ChevronDown } from 'lucide-react';
 import RotatingText from './RotatingText';
 import './Hero.css';
 
 const Hero = () => {
+  const navigate = useNavigate();
+  const [checkin, setCheckin] = useState('');
+  const [checkout, setCheckout] = useState('');
+  const [guests, setGuests] = useState('1');
+
+  const handleBookingSubmit = (e) => {
+    e.preventDefault();
+    navigate(`/buchen?checkin=${checkin}&checkout=${checkout}&guests=${guests}`);
+  };
   return (
     <section className="hero">
       <div className="hero-bg" style={{backgroundImage: 'url(https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1920&q=80)'}}></div>
@@ -35,9 +45,9 @@ const Hero = () => {
             </p>
             
             <div className="hero-actions" style={{ marginTop: '2rem' }}>
-              <a href="#buchen" className="btn-primary">
+              <Link to="/buchen" className="btn-primary">
                 Jetzt Zimmer buchen
-              </a>
+              </Link>
               <div className="hero-trust" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1rem', opacity: 0.8, fontSize: '0.9rem', flexWrap: 'wrap' }}>
                 <span>✓ Flexible Stornierung</span>
                 <span>✓ 24/7 Self-Check-in</span>
@@ -58,30 +68,30 @@ const Hero = () => {
               <h3>Jetzt buchen</h3>
               <Bed className="header-icon" size={28} />
             </div>
-            <form className="booking-form" onSubmit={(e) => e.preventDefault()}>
+            <form className="booking-form" onSubmit={handleBookingSubmit}>
               <div className="form-group">
                 <label>Anreise</label>
                 <div className="input-wrapper">
                   <Calendar size={18} className="input-icon" />
-                  <input type="text" placeholder="Datum wählen" readOnly />
+                  <input type="date" value={checkin} onChange={e => setCheckin(e.target.value)} required />
                 </div>
               </div>
               <div className="form-group">
                 <label>Abreise</label>
                 <div className="input-wrapper">
                   <Calendar size={18} className="input-icon" />
-                  <input type="text" placeholder="Datum wählen" readOnly />
+                  <input type="date" value={checkout} onChange={e => setCheckout(e.target.value)} required />
                 </div>
               </div>
               <div className="form-group">
                 <label>Gäste</label>
                 <div className="input-wrapper">
                   <User size={18} className="input-icon" />
-                  <select defaultValue="1 Gast">
-                    <option value="1 Gast">1 Gast</option>
-                    <option value="2 Gäste">2 Gäste</option>
-                    <option value="3 Gäste">3 Gäste</option>
-                    <option value="4+ Gäste">4+ Gäste</option>
+                  <select value={guests} onChange={e => setGuests(e.target.value)}>
+                    <option value="1">1 Gast</option>
+                    <option value="2">2 Gäste</option>
+                    <option value="3">3 Gäste</option>
+                    <option value="4">4+ Gäste</option>
                   </select>
                   <ChevronDown size={18} className="select-arrow" />
                 </div>

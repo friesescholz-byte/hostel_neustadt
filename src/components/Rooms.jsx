@@ -1,12 +1,13 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { Wifi, User, Users } from 'lucide-react';
 import './Rooms.css';
 
 const Rooms = () => {
   const rooms = [
     {
-      id: 1,
+      id: "mehrbettzimmer",
       name: "Mehrbettzimmer",
       desc: "Ideal für Backpacker & Gruppen",
       price: "ab 18 € / Nacht",
@@ -14,7 +15,7 @@ const Rooms = () => {
       icons: [<Wifi key="w" size={20} />, <Users key="u" size={20} />]
     },
     {
-      id: 2,
+      id: "doppelzimmer",
       name: "Doppelzimmer",
       desc: "Ideal für Paare & Freunde",
       price: "ab 49 € / Nacht",
@@ -22,7 +23,7 @@ const Rooms = () => {
       icons: [<Wifi key="w" size={20} />, <User key="u1" size={20} />, <User key="u2" size={20} />]
     },
     {
-      id: 3,
+      id: "familienzimmer",
       name: "Familienzimmer",
       desc: "Ideal für Familien",
       price: "ab 79 € / Nacht",
@@ -57,9 +58,9 @@ const Rooms = () => {
                 </div>
                 <div className="room-footer">
                   <span className="room-price">{room.price}</span>
-                  <a href="#buchen" className="btn-primary w-100">
+                  <Link to={`/buchen?room=${room.id}`} className="btn-primary w-100">
                     Jetzt buchen
-                  </a>
+                  </Link>
                 </div>
               </div>
             </motion.div>
