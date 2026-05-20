@@ -4,7 +4,29 @@
   display: flex;
   align-items: center;
   color: white;
-  padding-bottom: 8rem;
+  padding-bottom: 6rem;
+  overflow: hidden;
+}
+
+.custom-shape-divider-bottom {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 100%;
+  overflow: hidden;
+  line-height: 0;
+  z-index: 2;
+}
+
+.custom-shape-divider-bottom svg {
+  position: relative;
+  display: block;
+  width: calc(100% + 1.3px);
+  height: 80px;
+}
+
+.custom-shape-divider-bottom .shape-fill {
+  fill: #f7f9fa; /* Matches --bg-light */
 }
 
 .hero-bg {
@@ -34,14 +56,18 @@
   justify-content: space-between;
   position: relative;
   z-index: 3;
-  padding-top: 120px;
-  gap: 2rem;
+  padding-top: 140px;
+  gap: 3rem;
   width: 100%;
+  max-width: 1350px;
+  margin: 0 auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
 }
 
 .hero-content-left {
-  flex: 1;
-  max-width: 650px;
+  flex: 1.2;
+  max-width: 700px;
 }
 
 .hero-eyebrow {
@@ -84,7 +110,7 @@
 
 /* Form Styles */
 .hero-content-right {
-  flex: 0 0 400px;
+  flex: 0 0 420px;
 }
 
 .booking-form-card {
