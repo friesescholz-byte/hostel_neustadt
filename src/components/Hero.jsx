@@ -50,7 +50,7 @@ const Hero = () => {
               <Link to="/buchen" className="btn-hero-special">
                 Jetzt Zimmer buchen
               </Link>
-              <div className="hero-trust" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1rem', opacity: 0.8, fontSize: '0.9rem', flexWrap: 'wrap' }}>
+              <div className="hero-trust">
                 <span>✓ Flexible Stornierung</span>
                 <span>✓ 24/7 Self-Check-in</span>
                 <span>✓ Kostenlose Parkplätze</span>

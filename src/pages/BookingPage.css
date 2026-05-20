@@ -564,7 +564,7 @@
 
 @media (max-width: 768px) {
   .room-select-main {
-    flex-direction: column;
+    flex-direction: column !important;
   }
   
   .room-select-img {
@@ -574,7 +574,7 @@
 
   .room-select-info {
     width: 100%;
-    flex: none;
+    flex: 1;
   }
   
   .date-grid-2,
