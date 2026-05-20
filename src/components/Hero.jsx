@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck, Calendar, User, Bed, ChevronDown } from 'lucide-react';
-import TextRotate from './TextRotate';
+import RotatingText from './RotatingText';
 import './Hero.css';
 
 const Hero = () => {
@@ -21,9 +21,13 @@ const Hero = () => {
             <span className="hero-eyebrow">✨ NEU ERÖFFNET: IDEAL FÜR HANDWERKER & MONTEURE</span>
             <h1>
               Das perfekte Zuhause für<br/>
-              <span className="highlight">
-                <TextRotate words={["Handwerker.", "Monteure.", "Geschäftsreisende.", "Dich."]} />
-              </span>
+              <RotatingText
+                texts={["Handwerker.", "Monteure.", "Geschäftsreisende.", "Dich."]}
+                mainClassName="highlight"
+                staggerDuration={0.03}
+                staggerFrom="last"
+                rotationInterval={3000}
+              />
             </h1>
             <p>
               Moderne Zimmer, faire Preise und alles, was du für deinen Aufenthalt brauchst – 
