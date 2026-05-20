@@ -118,3 +118,18 @@ button {
 }
 
 /* Base Layout specific styles will be in App.jsx or CSS Modules, but we can put some here too */
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 1rem;
+  }
+  
+  .section-padding {
+    padding: 3rem 0;
+  }
+  
+  .section-title {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+  }
+}

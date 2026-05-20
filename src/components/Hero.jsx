@@ -28,7 +28,9 @@ const Hero = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <span className="hero-eyebrow">✨ NEU ERÖFFNET: IDEAL FÜR HANDWERKER & MONTEURE</span>
+            <span className="hero-eyebrow">
+              <span className="star-icon">★</span> NEU GEBAUT. MODERN GEDACHT.
+            </span>
             <h1>
               Das perfekte Zuhause für<br/>
               <RotatingText
