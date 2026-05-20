@@ -81,10 +81,6 @@ const FAQ = () => {
             <FAQItem key={index} question={faq.question} answer={faq.answer} />
           ))}
         </div>
-
-        <div className="text-center mt-4">
-          <a href="#alle-fragen" className="btn-link">Alle Fragen ansehen &rarr;</a>
-        </div>
       </div>
     </section>
   );

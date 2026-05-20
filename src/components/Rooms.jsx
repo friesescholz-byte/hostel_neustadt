@@ -66,10 +66,6 @@ const Rooms = () => {
             </motion.div>
           ))}
         </div>
-
-        <div className="text-center mt-4">
-          <a href="#zimmer" className="btn-link">Alle Zimmer ansehen &rarr;</a>
-        </div>
       </div>
     </section>
   );
