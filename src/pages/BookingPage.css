@@ -571,11 +571,16 @@
     width: 100%;
     height: 200px;
   }
+
+  .room-select-info {
+    width: 100%;
+    flex: none;
+  }
   
   .date-grid-2,
   .form-grid-2 {
     grid-template-columns: 1fr;
-    gap: 0;
+    gap: 1rem;
   }
   
   .booking-header-inner {

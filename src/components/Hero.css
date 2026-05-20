@@ -187,6 +187,18 @@
   padding: 1rem;
   border-radius: 8px;
   font-size: 1.1rem;
+  color: white !important;
+  background-color: var(--primary) !important;
+  border: none;
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.form-submit-btn:hover {
+  background-color: var(--primary-light) !important;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .form-footer {
@@ -223,6 +235,16 @@
   .hero-text h1 {
     font-size: 2.2rem;
   }
+  .hero-text p {
+    font-size: 1.1rem;
+    font-weight: 300;
+  }
+  .btn-hero-special {
+    width: 100%;
+    justify-content: center;
+    padding: 0.8rem 1rem;
+    font-size: 1rem;
+  }
 }
 
 /* ============ Special Hero Button ============ */
@@ -231,7 +253,7 @@
   align-items: center;
   gap: 0.5rem;
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: white;
+  color: white !important;
   font-weight: 700;
   font-size: 1.1rem;
   padding: 1rem 2.5rem;

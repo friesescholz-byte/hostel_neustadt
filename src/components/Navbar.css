@@ -121,6 +121,8 @@
 .mobile-book-btn {
   width: 100%;
   margin-top: 1rem;
+  color: white !important;
+  text-align: center;
 }
 
 @media (max-width: 992px) {
@@ -135,5 +137,11 @@
   }
   .logo img {
     height: 50px;
+  }
+  .navbar {
+    padding: 1rem 0;
+  }
+  .navbar.scrolled {
+    padding: 0.75rem 0;
   }
 }
