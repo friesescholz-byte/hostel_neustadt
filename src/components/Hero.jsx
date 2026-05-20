@@ -45,7 +45,7 @@ const Hero = () => {
             </p>
             
             <div className="hero-actions" style={{ marginTop: '2rem' }}>
-              <Link to="/buchen" className="btn-primary">
+              <Link to="/buchen" className="btn-hero-special">
                 Jetzt Zimmer buchen
               </Link>
               <div className="hero-trust" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1rem', opacity: 0.8, fontSize: '0.9rem', flexWrap: 'wrap' }}>

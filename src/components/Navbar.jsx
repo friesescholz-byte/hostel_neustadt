@@ -8,7 +8,7 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
-  const isBookingPage = location.pathname === '/buchen';
+  const isSubPage = location.pathname !== '/';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -29,7 +29,7 @@ const Navbar = () => {
 
   return (
     <motion.header 
-      className={`navbar ${scrolled || isBookingPage ? 'scrolled' : ''}`}
+      className={`navbar ${scrolled || isSubPage ? 'scrolled' : ''}`}
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.4 }}
@@ -39,7 +39,7 @@ const Navbar = () => {
           <img src="https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Logo_Hostel_Neustadt_transparent.png" alt="Hostel Neustadt Logo" />
         </Link>
 
-        {!isBookingPage && (
+        {!isSubPage && (
           <nav className="desktop-nav">
             <ul>
               {navLinks.map((link) => (
@@ -52,21 +52,25 @@ const Navbar = () => {
         )}
 
         <div className="nav-actions">
-          {!isBookingPage && (
-            <Link to="/buchen" className="btn-primary nav-btn">
-              Jetzt buchen
+          {!isSubPage ? (
+            <>
+              <Link to="/buchen" className="btn-primary nav-btn">
+                Jetzt buchen
+              </Link>
+              <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+                {mobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+              </button>
+            </>
+          ) : (
+            <Link to="/" className="btn-link" style={{ fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>
+              &larr; Zurück zur Startseite
             </Link>
-          )}
-          {!isBookingPage && (
-            <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-              {mobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
-            </button>
           )}
         </div>
       </div>
 
       {/* Mobile Menu */}
-      {mobileMenuOpen && !isBookingPage && (
+      {mobileMenuOpen && !isSubPage && (
         <motion.div 
           className="mobile-nav"
           initial={{ opacity: 0, height: 0 }}
