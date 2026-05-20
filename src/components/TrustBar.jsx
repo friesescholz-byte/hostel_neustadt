@@ -53,7 +53,7 @@ const TrustBar = () => {
         <div className="trust-grid">
           {items.map((item, index) => (
             <motion.div
-              className="trust-card"
+              className={`trust-card ${index === 0 ? 'trust-card-wide' : ''}`}
               key={index}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}

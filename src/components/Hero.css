@@ -248,7 +248,15 @@
     display: none; /* Hide paragraph on mobile */
   }
   .hero-actions {
-    display: none; /* Hide big button on mobile since we show the compact form */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 2.5rem;
+  }
+  .hero-trust {
+    justify-content: center;
+    margin-top: 1.5rem;
   }
   .hero-content-left {
     text-align: center;

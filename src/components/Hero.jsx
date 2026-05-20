@@ -32,7 +32,8 @@ const Hero = () => {
               <span className="star-icon">★</span> NEU GEBAUT. MODERN GEDACHT.
             </span>
             <h1>
-              Das perfekte Zuhause für<br/>
+              Das Perfekte<br/>
+              Zuhause für<br/>
               <RotatingText
                 texts={["Handwerker.", "Monteure.", "Geschäftsreisende.", "Dich."]}
                 mainClassName="highlight"

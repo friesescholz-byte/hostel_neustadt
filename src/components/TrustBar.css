@@ -192,6 +192,9 @@
   .trust-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+  .trust-card-wide {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 480px) {
