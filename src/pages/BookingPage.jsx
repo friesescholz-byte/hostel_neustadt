@@ -2,9 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Calendar, User, Users, Wifi, Coffee, ShowerHead, Tv, Lock,
-  ChevronDown, ChevronRight, ChevronLeft, Check, ShieldCheck,
-  Building2, MapPin, Phone, Mail, ArrowLeft, Bed, CreditCard, Star
+  Calendar, User, Users, Wifi, ShowerHead, Tv, Lock,
+  ChevronRight, ChevronLeft, Check, ShieldCheck,
+  Building2, MapPin, Phone, Mail, ArrowLeft, Bed, CreditCard, Star,
+  Plus, Minus, Trash2
 } from 'lucide-react';
 import './BookingPage.css';
 
@@ -16,8 +17,9 @@ const ROOMS = [
     desc: 'Ideal für Handwerker, Monteure & Gruppen. Gemütliche Betten in geselliger Atmosphäre.',
     price: 18,
     unit: 'pro Person / Nacht',
+    isPerPerson: true,
     img: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80',
-    capacity: '4–6 Personen',
+    maxCapacity: 6,
     features: ['WLAN', 'Schließfach', 'Gemeinschaftsbad', 'Bettwäsche']
   },
   {
@@ -26,8 +28,9 @@ const ROOMS = [
     desc: 'Privates Zimmer mit Doppelbett – perfekt für Paare oder Alleinreisende mit mehr Komfort.',
     price: 49,
     unit: 'pro Zimmer / Nacht',
+    isPerPerson: false,
     img: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80',
-    capacity: '2 Personen',
+    maxCapacity: 2,
     features: ['WLAN', 'Eigenes Bad', 'TV', 'Bettwäsche']
   },
   {
@@ -36,8 +39,9 @@ const ROOMS = [
     desc: 'Geräumiges Zimmer für die ganze Familie – mit viel Platz und eigenem Badezimmer.',
     price: 79,
     unit: 'pro Zimmer / Nacht',
+    isPerPerson: false,
     img: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80',
-    capacity: 'bis 4 Personen',
+    maxCapacity: 4,
     features: ['WLAN', 'Eigenes Bad', 'TV', 'Bettwäsche', 'Kinderbett möglich']
   }
 ];
@@ -72,40 +76,46 @@ function nightsBetween(a, b) {
 function todayStr() {
   return new Date().toISOString().split('T')[0];
 }
-function tomorrowStr() {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().split('T')[0];
-}
 
 /* ============ BookingPage ============ */
 const BookingPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // Step state
   const [step, setStep] = useState(0);
 
-  // Step 1 state – pre-filled from URL params
-  const [selectedRoom, setSelectedRoom] = useState(searchParams.get('room') || '');
+  // Reisedaten
   const [checkin, setCheckin] = useState(searchParams.get('checkin') || '');
   const [checkout, setCheckout] = useState(searchParams.get('checkout') || '');
-  const [guests, setGuests] = useState(searchParams.get('guests') || '1');
 
-  // Step 2 state
-  const [form, setForm] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    company: '',
-    street: '',
-    zip: '',
-    city: '',
-    notes: ''
-  });
+  // Ausgewählte Zimmer (Warenkorb)
+  // Array of { instanceId: number, typeId: string, guests: number }
+  const [cart, setCart] = useState([]);
+  const [nextInstanceId, setNextInstanceId] = useState(1);
 
-  // Errors
+  // Initialize from URL params if available
+  useEffect(() => {
+    const initialRoom = searchParams.get('room');
+    const initialGuests = parseInt(searchParams.get('guests')) || 1;
+    
+    if (initialRoom && cart.length === 0) {
+      const roomDef = ROOMS.find(r => r.id === initialRoom);
+      if (roomDef) {
+        setCart([{
+          instanceId: 0,
+          typeId: initialRoom,
+          guests: Math.min(initialGuests, roomDef.maxCapacity)
+        }]);
+      }
+    }
+  }, [searchParams, cart.length]);
+
+  // Gästedaten
+  // Index 0 ist der Hauptbucher, die restlichen sind Mitreisende
+  const [guestData, setGuestData] = useState([
+    { isMain: true, firstName: '', lastName: '', email: '', phone: '', company: '', street: '', zip: '', city: '', notes: '' }
+  ]);
+
   const [errors, setErrors] = useState({});
 
   // Scroll to top on step change
@@ -113,15 +123,61 @@ const BookingPage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [step]);
 
-  // Calculations
+  // Berechnungen
   const nights = useMemo(() => nightsBetween(checkin, checkout), [checkin, checkout]);
-  const room = useMemo(() => ROOMS.find(r => r.id === selectedRoom), [selectedRoom]);
-  const totalPrice = useMemo(() => (room ? room.price * nights : 0), [room, nights]);
+  
+  const totalGuests = useMemo(() => {
+    return cart.reduce((sum, item) => sum + item.guests, 0);
+  }, [cart]);
+
+  const totalPrice = useMemo(() => {
+    if (nights <= 0) return 0;
+    return cart.reduce((sum, item) => {
+      const roomDef = ROOMS.find(r => r.id === item.typeId);
+      if (!roomDef) return sum;
+      // Mehrbettzimmer: Preis pro Person. Andere: Preis pro Zimmer
+      const itemPrice = roomDef.isPerPerson ? (roomDef.price * item.guests) : roomDef.price;
+      return sum + (itemPrice * nights);
+    }, 0);
+  }, [cart, nights]);
+
+  // Gast-Array anpassen, wenn sich die Gesamtgästezahl ändert
+  useEffect(() => {
+    setGuestData(prev => {
+      const newArr = [...prev];
+      // Hinzufügen, wenn zu wenig
+      while(newArr.length < totalGuests) {
+        newArr.push({ isMain: false, firstName: '', lastName: '' });
+      }
+      // Entfernen, wenn zu viele (aber Hauptbucher behalten)
+      while(newArr.length > totalGuests && newArr.length > 1) {
+        newArr.pop();
+      }
+      return newArr;
+    });
+  }, [totalGuests]);
+
+  /* ---- Handlers für Warenkorb ---- */
+  const addRoom = (typeId) => {
+    setCart(prev => [...prev, { instanceId: nextInstanceId, typeId, guests: 1 }]);
+    setNextInstanceId(id => id + 1);
+    if (errors.cart) setErrors(e => ({ ...e, cart: undefined }));
+  };
+
+  const removeRoom = (instanceId) => {
+    setCart(prev => prev.filter(item => item.instanceId !== instanceId));
+  };
+
+  const updateRoomGuests = (instanceId, newGuests) => {
+    setCart(prev => prev.map(item => 
+      item.instanceId === instanceId ? { ...item, guests: parseInt(newGuests) } : item
+    ));
+  };
 
   /* ---- Validation ---- */
   function validateStep1() {
     const e = {};
-    if (!selectedRoom) e.room = 'Bitte wähle eine Zimmerkategorie';
+    if (cart.length === 0) e.cart = 'Bitte wähle mindestens ein Zimmer aus.';
     if (!checkin) e.checkin = 'Bitte Anreisedatum wählen';
     if (!checkout) e.checkout = 'Bitte Abreisedatum wählen';
     if (checkin && checkout && nights <= 0) e.checkout = 'Abreise muss nach Anreise liegen';
@@ -131,14 +187,15 @@ const BookingPage = () => {
 
   function validateStep2() {
     const e = {};
-    if (!form.firstName.trim()) e.firstName = 'Pflichtfeld';
-    if (!form.lastName.trim()) e.lastName = 'Pflichtfeld';
-    if (!form.email.trim()) e.email = 'Pflichtfeld';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Ungültige E-Mail';
-    if (!form.phone.trim()) e.phone = 'Pflichtfeld';
-    if (!form.street.trim()) e.street = 'Pflichtfeld';
-    if (!form.zip.trim()) e.zip = 'Pflichtfeld';
-    if (!form.city.trim()) e.city = 'Pflichtfeld';
+    const main = guestData[0];
+    if (!main.firstName.trim()) e.firstName = 'Pflichtfeld';
+    if (!main.lastName.trim()) e.lastName = 'Pflichtfeld';
+    if (!main.email.trim()) e.email = 'Pflichtfeld';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(main.email)) e.email = 'Ungültige E-Mail';
+    if (!main.phone.trim()) e.phone = 'Pflichtfeld';
+    if (!main.street.trim()) e.street = 'Pflichtfeld';
+    if (!main.zip.trim()) e.zip = 'Pflichtfeld';
+    if (!main.city.trim()) e.city = 'Pflichtfeld';
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -153,13 +210,24 @@ const BookingPage = () => {
     setStep(s => Math.max(s - 1, 0));
   }
 
-  function handleFormChange(field, value) {
-    setForm(f => ({ ...f, [field]: value }));
+  function handleMainFormChange(field, value) {
+    setGuestData(prev => {
+      const newArr = [...prev];
+      newArr[0] = { ...newArr[0], [field]: value };
+      return newArr;
+    });
     if (errors[field]) setErrors(e => ({ ...e, [field]: undefined }));
   }
 
+  function handleSubGuestChange(index, field, value) {
+    setGuestData(prev => {
+      const newArr = [...prev];
+      newArr[index] = { ...newArr[index], [field]: value };
+      return newArr;
+    });
+  }
+
   function handleSubmit() {
-    // Placeholder – later Mollie + Resend integration
     alert('Buchungsanfrage wurde gesendet! (Mollie-Integration kommt später)');
     navigate('/');
   }
@@ -205,51 +273,14 @@ const BookingPage = () => {
           <AnimatePresence mode="wait">
             {step === 0 && (
               <motion.div key="step0" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
-                {/* Step 1: Room & Dates */}
-                <div className="booking-section">
-                  <h2 className="booking-section-title">
-                    <Bed size={24} />
-                    Zimmerkategorie wählen
-                  </h2>
-                  <div className="room-selection-grid">
-                    {ROOMS.map(r => (
-                      <div
-                        key={r.id}
-                        className={`room-select-card ${selectedRoom === r.id ? 'selected' : ''}`}
-                        onClick={() => { setSelectedRoom(r.id); if (errors.room) setErrors(e => ({ ...e, room: undefined })); }}
-                      >
-                        {selectedRoom === r.id && <div className="room-selected-badge"><Check size={14} /> Ausgewählt</div>}
-                        <div className="room-select-img" style={{ backgroundImage: `url(${r.img})` }} />
-                        <div className="room-select-info">
-                          <h3>{r.name}</h3>
-                          <p className="room-select-desc">{r.desc}</p>
-                          <div className="room-select-features">
-                            {r.features.map((f, i) => (
-                              <span key={i} className="room-feature-tag">
-                                {FEATURE_ICONS[f] || null} {f}
-                              </span>
-                            ))}
-                          </div>
-                          <div className="room-select-bottom">
-                            <span className="room-select-capacity"><Users size={16} /> {r.capacity}</span>
-                            <div className="room-select-price">
-                              <strong>ab {r.price} €</strong>
-                              <small>{r.unit}</small>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {errors.room && <p className="field-error">{errors.room}</p>}
-                </div>
-
+                
+                {/* Reisedaten */}
                 <div className="booking-section">
                   <h2 className="booking-section-title">
                     <Calendar size={24} />
                     Reisedaten
                   </h2>
-                  <div className="date-grid">
+                  <div className="date-grid-2">
                     <div className="booking-field">
                       <label>Anreise</label>
                       <input type="date" value={checkin} min={todayStr()} onChange={e => { setCheckin(e.target.value); if (errors.checkin) setErrors(er => ({ ...er, checkin: undefined })); }} />
@@ -260,149 +291,244 @@ const BookingPage = () => {
                       <input type="date" value={checkout} min={checkin || todayStr()} onChange={e => { setCheckout(e.target.value); if (errors.checkout) setErrors(er => ({ ...er, checkout: undefined })); }} />
                       {errors.checkout && <p className="field-error">{errors.checkout}</p>}
                     </div>
-                    <div className="booking-field">
-                      <label>Gäste</label>
-                      <select value={guests} onChange={e => setGuests(e.target.value)}>
-                        <option value="1">1 Gast</option>
-                        <option value="2">2 Gäste</option>
-                        <option value="3">3 Gäste</option>
-                        <option value="4">4 Gäste</option>
-                        <option value="5">5 Gäste</option>
-                        <option value="6">6 Gäste</option>
-                      </select>
-                    </div>
                   </div>
+                </div>
+
+                {/* Zimmerauswahl */}
+                <div className="booking-section">
+                  <h2 className="booking-section-title">
+                    <Bed size={24} />
+                    Zimmerauswahl
+                  </h2>
+                  
+                  <div className="room-selection-list">
+                    {ROOMS.map(r => {
+                      const instancesOfThisType = cart.filter(item => item.typeId === r.id);
+                      const count = instancesOfThisType.length;
+
+                      return (
+                        <div key={r.id} className={`room-select-card ${count > 0 ? 'has-selection' : ''}`}>
+                          <div className="room-select-main">
+                            <div className="room-select-img" style={{ backgroundImage: `url(${r.img})` }} />
+                            <div className="room-select-info">
+                              <div className="room-select-header-flex">
+                                <h3>{r.name}</h3>
+                                <div className="room-select-price">
+                                  <strong>{r.price} €</strong>
+                                  <small>{r.unit}</small>
+                                </div>
+                              </div>
+                              <p className="room-select-desc">{r.desc}</p>
+                              <div className="room-select-features">
+                                {r.features.map((f, i) => (
+                                  <span key={i} className="room-feature-tag">
+                                    {FEATURE_ICONS[f] || null} {f}
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="room-select-bottom">
+                                <span className="room-select-capacity"><Users size={16} /> Max. {r.maxCapacity} {r.maxCapacity === 1 ? 'Person' : 'Personen'}</span>
+                                <div className="room-quantity-controls">
+                                  {count > 0 && (
+                                    <button className="qty-btn" onClick={() => removeRoom(instancesOfThisType[instancesOfThisType.length - 1].instanceId)}>
+                                      <Minus size={16} />
+                                    </button>
+                                  )}
+                                  <span className="qty-count">{count} {count === 1 ? 'Zimmer' : 'Zimmer'}</span>
+                                  <button className="qty-btn qty-add" onClick={() => addRoom(r.id)}>
+                                    <Plus size={16} /> Hinzufügen
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Sub-UI für jedes hinzugefügte Zimmer dieses Typs */}
+                          {count > 0 && (
+                            <div className="room-instances-wrapper">
+                              {instancesOfThisType.map((instance, idx) => (
+                                <div key={instance.instanceId} className="room-instance-row">
+                                  <span>{r.name} {count > 1 ? `#${idx + 1}` : ''}</span>
+                                  <div className="room-instance-guests">
+                                    <label>Gäste in diesem Zimmer:</label>
+                                    <select 
+                                      value={instance.guests} 
+                                      onChange={(e) => updateRoomGuests(instance.instanceId, e.target.value)}
+                                    >
+                                      {Array.from({ length: r.maxCapacity }, (_, i) => i + 1).map(num => (
+                                        <option key={num} value={num}>{num} {num === 1 ? 'Person' : 'Personen'}</option>
+                                      ))}
+                                    </select>
+                                    <button className="btn-icon-danger" onClick={() => removeRoom(instance.instanceId)} title="Zimmer entfernen">
+                                      <Trash2 size={16} />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {errors.cart && <p className="field-error mt-2">{errors.cart}</p>}
                 </div>
               </motion.div>
             )}
 
             {step === 1 && (
               <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
-                {/* Step 2: Guest Details */}
+                
+                {/* Hauptbucher */}
                 <div className="booking-section">
                   <h2 className="booking-section-title">
                     <User size={24} />
-                    Persönliche Daten
+                    Hauptbucher & Rechnungsadresse
                   </h2>
                   <div className="form-grid-2">
                     <div className="booking-field">
                       <label>Vorname *</label>
-                      <input type="text" value={form.firstName} onChange={e => handleFormChange('firstName', e.target.value)} placeholder="Max" />
+                      <input type="text" value={guestData[0].firstName} onChange={e => handleMainFormChange('firstName', e.target.value)} placeholder="Max" />
                       {errors.firstName && <p className="field-error">{errors.firstName}</p>}
                     </div>
                     <div className="booking-field">
                       <label>Nachname *</label>
-                      <input type="text" value={form.lastName} onChange={e => handleFormChange('lastName', e.target.value)} placeholder="Mustermann" />
+                      <input type="text" value={guestData[0].lastName} onChange={e => handleMainFormChange('lastName', e.target.value)} placeholder="Mustermann" />
                       {errors.lastName && <p className="field-error">{errors.lastName}</p>}
                     </div>
                   </div>
                   <div className="form-grid-2">
                     <div className="booking-field">
                       <label>E-Mail *</label>
-                      <input type="email" value={form.email} onChange={e => handleFormChange('email', e.target.value)} placeholder="max@beispiel.de" />
+                      <input type="email" value={guestData[0].email} onChange={e => handleMainFormChange('email', e.target.value)} placeholder="max@beispiel.de" />
                       {errors.email && <p className="field-error">{errors.email}</p>}
                     </div>
                     <div className="booking-field">
                       <label>Telefon *</label>
-                      <input type="tel" value={form.phone} onChange={e => handleFormChange('phone', e.target.value)} placeholder="+49 123 456789" />
+                      <input type="tel" value={guestData[0].phone} onChange={e => handleMainFormChange('phone', e.target.value)} placeholder="+49 123 456789" />
                       {errors.phone && <p className="field-error">{errors.phone}</p>}
                     </div>
                   </div>
                   <div className="booking-field">
                     <label>Firma (optional)</label>
-                    <input type="text" value={form.company} onChange={e => handleFormChange('company', e.target.value)} placeholder="Muster GmbH" />
+                    <input type="text" value={guestData[0].company} onChange={e => handleMainFormChange('company', e.target.value)} placeholder="Muster GmbH" />
                   </div>
-                </div>
-
-                <div className="booking-section">
-                  <h2 className="booking-section-title">
-                    <MapPin size={24} />
-                    Adresse
-                  </h2>
                   <div className="booking-field">
                     <label>Straße & Hausnummer *</label>
-                    <input type="text" value={form.street} onChange={e => handleFormChange('street', e.target.value)} placeholder="Musterstraße 1" />
+                    <input type="text" value={guestData[0].street} onChange={e => handleMainFormChange('street', e.target.value)} placeholder="Musterstraße 1" />
                     {errors.street && <p className="field-error">{errors.street}</p>}
                   </div>
                   <div className="form-grid-2">
                     <div className="booking-field">
                       <label>PLZ *</label>
-                      <input type="text" value={form.zip} onChange={e => handleFormChange('zip', e.target.value)} placeholder="31535" />
+                      <input type="text" value={guestData[0].zip} onChange={e => handleMainFormChange('zip', e.target.value)} placeholder="31535" />
                       {errors.zip && <p className="field-error">{errors.zip}</p>}
                     </div>
                     <div className="booking-field">
                       <label>Stadt *</label>
-                      <input type="text" value={form.city} onChange={e => handleFormChange('city', e.target.value)} placeholder="Neustadt am Rübenberge" />
+                      <input type="text" value={guestData[0].city} onChange={e => handleMainFormChange('city', e.target.value)} placeholder="Neustadt am Rübenberge" />
                       {errors.city && <p className="field-error">{errors.city}</p>}
                     </div>
                   </div>
                   <div className="booking-field">
                     <label>Anmerkungen (optional)</label>
-                    <textarea rows="3" value={form.notes} onChange={e => handleFormChange('notes', e.target.value)} placeholder="Besondere Wünsche, späte Anreise, etc." />
+                    <textarea rows="3" value={guestData[0].notes} onChange={e => handleMainFormChange('notes', e.target.value)} placeholder="Besondere Wünsche, späte Anreise, etc." />
                   </div>
                 </div>
+
+                {/* Mitreisende (Optional) */}
+                {totalGuests > 1 && (
+                  <div className="booking-section">
+                    <h2 className="booking-section-title">
+                      <Users size={24} />
+                      Weitere Gäste (Optional)
+                    </h2>
+                    <p className="text-muted mb-4">Namen der Mitreisenden können hier hinterlegt werden.</p>
+                    
+                    {guestData.slice(1).map((guest, idx) => (
+                      <div key={idx} className="sub-guest-form">
+                        <h4>Gast {idx + 2}</h4>
+                        <div className="form-grid-2">
+                          <div className="booking-field mb-0">
+                            <input 
+                              type="text" 
+                              value={guest.firstName} 
+                              onChange={e => handleSubGuestChange(idx + 1, 'firstName', e.target.value)} 
+                              placeholder="Vorname" 
+                            />
+                          </div>
+                          <div className="booking-field mb-0">
+                            <input 
+                              type="text" 
+                              value={guest.lastName} 
+                              onChange={e => handleSubGuestChange(idx + 1, 'lastName', e.target.value)} 
+                              placeholder="Nachname" 
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </motion.div>
             )}
 
             {step === 2 && (
               <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
-                {/* Step 3: Overview */}
+                {/* Übersicht */}
                 <div className="booking-section">
                   <h2 className="booking-section-title">
                     <Check size={24} />
-                    Buchungsübersicht
+                    Ihre Buchungsübersicht
                   </h2>
 
                   <div className="summary-card">
                     <div className="summary-row">
-                      <span className="summary-label"><Bed size={18} /> Zimmer</span>
-                      <span className="summary-value">{room?.name}</span>
+                      <span className="summary-label"><Calendar size={18} /> Reisedaten</span>
+                      <span className="summary-value">{formatDate(checkin)} – {formatDate(checkout)} ({nights} {nights === 1 ? 'Nacht' : 'Nächte'})</span>
                     </div>
-                    <div className="summary-row">
-                      <span className="summary-label"><Calendar size={18} /> Anreise</span>
-                      <span className="summary-value">{formatDate(checkin)}</span>
-                    </div>
-                    <div className="summary-row">
-                      <span className="summary-label"><Calendar size={18} /> Abreise</span>
-                      <span className="summary-value">{formatDate(checkout)}</span>
-                    </div>
-                    <div className="summary-row">
-                      <span className="summary-label"><Users size={18} /> Gäste</span>
-                      <span className="summary-value">{guests}</span>
-                    </div>
-                    <div className="summary-row">
-                      <span className="summary-label">Nächte</span>
-                      <span className="summary-value">{nights}</span>
-                    </div>
+                    
                     <div className="summary-divider" />
+                    <h4 className="summary-subtitle">Gewählte Zimmer</h4>
+                    
+                    {cart.map((item, idx) => {
+                      const roomDef = ROOMS.find(r => r.id === item.typeId);
+                      return (
+                        <div key={idx} className="summary-row">
+                          <span className="summary-label"><Bed size={18} /> {roomDef.name}</span>
+                          <span className="summary-value">{item.guests} {item.guests === 1 ? 'Person' : 'Personen'}</span>
+                        </div>
+                      );
+                    })}
+
+                    <div className="summary-divider" />
+                    <h4 className="summary-subtitle">Ihre Daten</h4>
+
                     <div className="summary-row">
-                      <span className="summary-label"><User size={18} /> Name</span>
-                      <span className="summary-value">{form.firstName} {form.lastName}</span>
+                      <span className="summary-label"><User size={18} /> Hauptbucher</span>
+                      <span className="summary-value">{guestData[0].firstName} {guestData[0].lastName}</span>
                     </div>
                     <div className="summary-row">
                       <span className="summary-label"><Mail size={18} /> E-Mail</span>
-                      <span className="summary-value">{form.email}</span>
+                      <span className="summary-value">{guestData[0].email}</span>
                     </div>
-                    <div className="summary-row">
-                      <span className="summary-label"><Phone size={18} /> Telefon</span>
-                      <span className="summary-value">{form.phone}</span>
-                    </div>
-                    {form.company && (
-                      <div className="summary-row">
-                        <span className="summary-label"><Building2 size={18} /> Firma</span>
-                        <span className="summary-value">{form.company}</span>
-                      </div>
-                    )}
                     <div className="summary-row">
                       <span className="summary-label"><MapPin size={18} /> Adresse</span>
-                      <span className="summary-value">{form.street}, {form.zip} {form.city}</span>
+                      <span className="summary-value">{guestData[0].street}, {guestData[0].zip} {guestData[0].city}</span>
                     </div>
-                    {form.notes && (
+
+                    {totalGuests > 1 && guestData.slice(1).some(g => g.firstName || g.lastName) && (
                       <div className="summary-row">
-                        <span className="summary-label">Anmerkungen</span>
-                        <span className="summary-value">{form.notes}</span>
+                        <span className="summary-label"><Users size={18} /> Mitreisende</span>
+                        <span className="summary-value">
+                          {guestData.slice(1)
+                            .filter(g => g.firstName || g.lastName)
+                            .map(g => `${g.firstName} ${g.lastName}`.trim())
+                            .join(', ')}
+                        </span>
                       </div>
                     )}
+
                     <div className="summary-divider" />
                     <div className="summary-row summary-total">
                       <span className="summary-label">Gesamtpreis</span>
@@ -428,7 +554,7 @@ const BookingPage = () => {
               </button>
             ) : (
               <button className="btn-booking-pay" onClick={handleSubmit}>
-                <CreditCard size={18} /> Jetzt bezahlen
+                <CreditCard size={18} /> Zahlungspflichtig buchen
               </button>
             )}
           </div>
@@ -437,49 +563,49 @@ const BookingPage = () => {
         {/* Sidebar */}
         <aside className="booking-sidebar">
           <div className="sidebar-card">
-            <h3>Deine Buchung</h3>
-            {room ? (
-              <>
-                <div className="sidebar-room-preview">
-                  <img src={room.img} alt={room.name} />
-                  <div>
-                    <strong>{room.name}</strong>
-                    <small>{room.capacity}</small>
-                  </div>
+            <h3>Ihre Buchung</h3>
+            
+            {checkin && checkout && nights > 0 ? (
+              <div className="sidebar-dates">
+                <div className="sidebar-date-col">
+                  <small>Anreise</small>
+                  <strong>{formatDate(checkin)}</strong>
                 </div>
-                {checkin && checkout && nights > 0 && (
-                  <div className="sidebar-details">
-                    <div className="sidebar-row">
-                      <span>Anreise</span>
-                      <span>{formatDate(checkin)}</span>
-                    </div>
-                    <div className="sidebar-row">
-                      <span>Abreise</span>
-                      <span>{formatDate(checkout)}</span>
-                    </div>
-                    <div className="sidebar-row">
-                      <span>Nächte</span>
-                      <span>{nights}</span>
-                    </div>
-                    <div className="sidebar-row">
-                      <span>Gäste</span>
-                      <span>{guests}</span>
-                    </div>
-                    <div className="sidebar-divider" />
-                    <div className="sidebar-row">
-                      <span>{nights} × {room.price} €</span>
-                      <span>{totalPrice.toFixed(2)} €</span>
-                    </div>
-                    <div className="sidebar-row sidebar-total">
-                      <span>Gesamt</span>
-                      <strong>{totalPrice.toFixed(2)} €</strong>
-                    </div>
-                  </div>
-                )}
-              </>
+                <div className="sidebar-date-col">
+                  <small>Abreise</small>
+                  <strong>{formatDate(checkout)}</strong>
+                </div>
+              </div>
             ) : (
-              <p className="sidebar-placeholder">Wähle ein Zimmer und deine Reisedaten, um die Preisübersicht zu sehen.</p>
+              <p className="sidebar-placeholder mb-4">Bitte wählen Sie ein Reisedatum.</p>
             )}
+
+            {cart.length > 0 ? (
+              <div className="sidebar-details">
+                {cart.map((item, idx) => {
+                  const roomDef = ROOMS.find(r => r.id === item.typeId);
+                  const itemPrice = roomDef.isPerPerson ? (roomDef.price * item.guests * nights) : (roomDef.price * nights);
+                  return (
+                    <div key={idx} className="sidebar-cart-item">
+                      <div className="sidebar-cart-item-header">
+                        <strong>{roomDef.name}</strong>
+                        <span>{itemPrice.toFixed(2)} €</span>
+                      </div>
+                      <small>{item.guests} {item.guests === 1 ? 'Person' : 'Personen'}</small>
+                    </div>
+                  );
+                })}
+                
+                <div className="sidebar-divider" />
+                <div className="sidebar-row sidebar-total">
+                  <span>Gesamt ({nights} Nächte)</span>
+                  <strong>{totalPrice.toFixed(2)} €</strong>
+                </div>
+              </div>
+            ) : (
+              <p className="sidebar-placeholder">Ihr Warenkorb ist leer. Fügen Sie Zimmer hinzu.</p>
+            )}
+            
             <div className="sidebar-trust">
               <div className="sidebar-trust-item"><ShieldCheck size={16} /> Sichere Buchung</div>
               <div className="sidebar-trust-item"><Star size={16} /> Bester Preis garantiert</div>
