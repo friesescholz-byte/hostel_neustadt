@@ -33,7 +33,7 @@ const Footer = () => {
           <div className="footer-address">
             <p><strong>Hostel Neustadt</strong></p>
             <p>Bahnhofstraße 10</p>
-            <p>12345 Neustadt</p>
+            <p>31535 Neustadt am Rübenberge</p>
           </div>
 
           <div className="footer-contact">
@@ -50,10 +50,6 @@ const Footer = () => {
           <div className="footer-social">
             <a href="#" className="social-icon" aria-label="Instagram"><Instagram size={24} /></a>
             <a href="#" className="social-icon" aria-label="Facebook"><Facebook size={24} /></a>
-            <a href="#" className="social-icon" aria-label="TripAdvisor">
-              {/* Using a custom span for tripadvisor if no lucide icon */}
-              <span style={{fontWeight: 'bold'}}>TA</span>
-            </a>
           </div>
 
         </div>

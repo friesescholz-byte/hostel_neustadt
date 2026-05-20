@@ -43,7 +43,7 @@ const Location = () => {
             <div className="map-placeholder">
               <iframe
                 title="Google Maps Location"
-                src="https://maps.google.com/maps?q=Bahnhofstra%C3%9Fe%2010,%2012345%20Neustadt&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                src="https://maps.google.com/maps?q=Bahnhofstra%C3%9Fe%2010,%2031535%20Neustadt%20am%20R%C3%BCbenberge&t=&z=15&ie=UTF8&iwloc=&output=embed"
                 width="100%"
                 height="100%"
                 style={{ border: 0, position: 'absolute', top: 0, left: 0 }}

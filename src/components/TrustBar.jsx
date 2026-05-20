@@ -5,8 +5,15 @@ import './TrustBar.css';
 const TrustBar = () => {
   const items = [
     {
-      icon: <div className="stars"><Star fill="currentColor" /><Star fill="currentColor" /><Star fill="currentColor" /><Star fill="currentColor" /><Star fill="currentColor" /></div>,
-      title: "4,7/5 bei Google",
+      icon: null,
+      title: (
+        <>
+          <div className="stars" style={{ justifyContent: 'flex-start', marginBottom: '0.2rem' }}>
+            <Star fill="currentColor" /><Star fill="currentColor" /><Star fill="currentColor" /><Star fill="currentColor" /><Star fill="currentColor" />
+          </div>
+          4,7/5 bei Google
+        </>
+      ),
       subtitle: "Über 350 Bewertungen"
     },
     {
@@ -38,7 +45,7 @@ const TrustBar = () => {
           <div className="trust-grid">
             {items.map((item, index) => (
               <div className="trust-item" key={index}>
-                <div className="trust-icon-container">{item.icon}</div>
+                {item.icon && <div className="trust-icon-container">{item.icon}</div>}
                 <div className="trust-text">
                   <h4>{item.title}</h4>
                   <p>{item.subtitle}</p>
