@@ -1,6 +1,7 @@
 import React from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
+import HeroDivider from './components/HeroDivider';
 import TrustBar from './components/TrustBar';
 import Rooms from './components/Rooms';
 import Features from './components/Features';
@@ -18,6 +19,7 @@ function App() {
       <Navbar />
       <main>
         <Hero />
+        <HeroDivider />
         <TrustBar />
         <Rooms />
         <Features />
