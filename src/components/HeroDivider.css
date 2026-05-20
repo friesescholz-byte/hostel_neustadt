@@ -1,6 +1,6 @@
 .hero-divider {
   position: relative;
-  margin-top: -200px;
+  margin-top: -320px;
   z-index: 5;
   pointer-events: none;
 }
@@ -58,9 +58,9 @@
 
 @media (max-width: 768px) {
   .hero-divider {
-    margin-top: -120px;
+    margin-top: -150px;
   }
   .hero-divider-wave {
-    height: 180px;
+    height: 150px;
   }
 }
