@@ -24,11 +24,16 @@
 
 .logo img {
   height: 65px;
-  transition: height 0.3s ease;
+  transition: height 0.3s ease, filter 0.3s ease;
+}
+
+.navbar:not(.scrolled) .logo img {
+  filter: brightness(0) invert(1);
 }
 
 .navbar.scrolled .logo img {
   height: 55px;
+  filter: none;
 }
 
 .desktop-nav ul {
