@@ -4,29 +4,9 @@
   display: flex;
   align-items: center;
   color: white;
-  padding-bottom: 6rem;
+  padding-bottom: 8rem;
   overflow: hidden;
-}
-
-.custom-shape-divider-bottom {
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  width: 100%;
-  overflow: hidden;
-  line-height: 0;
-  z-index: 2;
-}
-
-.custom-shape-divider-bottom svg {
-  position: relative;
-  display: block;
-  width: calc(100% + 1.3px);
-  height: 80px;
-}
-
-.custom-shape-divider-bottom .shape-fill {
-  fill: #f7f9fa; /* Matches --bg-light */
+  clip-path: polygon(0 0, 100% 0, 100% 90%, 0 100%);
 }
 
 .hero-bg {

@@ -12,20 +12,20 @@ const TextRotate = ({ words, className = "" }) => {
   }, [words]);
 
   return (
-    <div className={`text-rotate-wrapper ${className}`} style={{ display: 'inline-block', position: 'relative', overflow: 'hidden', verticalAlign: 'bottom', paddingBottom: '5px' }}>
+    <span className={`text-rotate ${className}`} style={{ display: 'inline-block', position: 'relative' }}>
       <AnimatePresence mode="wait">
         <motion.span
           key={index}
-          initial={{ y: 40, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -40, opacity: 0 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-          style={{ display: 'inline-block', minWidth: '350px' }}
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -15 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          style={{ display: 'inline-block', whiteSpace: 'nowrap', color: 'inherit' }}
         >
           {words[index]}
         </motion.span>
       </AnimatePresence>
-    </div>
+    </span>
   );
 };
 

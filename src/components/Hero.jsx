@@ -10,12 +10,6 @@ const Hero = () => {
       <div className="hero-bg" style={{backgroundImage: 'url(https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1920&q=80)'}}></div>
       <div className="hero-overlay"></div>
       
-      <div className="custom-shape-divider-bottom">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 120" preserveAspectRatio="none">
-          <path d="M0,0 L1440,120 L1440,120 L0,120 Z" className="shape-fill"></path>
-        </svg>
-      </div>
-
       <div className="hero-container">
         <div className="hero-content-left">
           <motion.div 
