@@ -40,7 +40,7 @@ const Rooms = () => {
               transition={{ duration: 0.4, delay: i * 0.08 }}
             >
               <div className="room-img-wrapper">
-                <div className="room-img" style={{ backgroundImage: `url(${room.img})` }}></div>
+                <div className="room-img" style={{ backgroundImage: `url('${room.img}')` }}></div>
               </div>
               <div className="room-content">
                 <h3>{room.name}</h3>

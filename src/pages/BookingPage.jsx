@@ -297,7 +297,7 @@ const BookingPage = () => {
                       return (
                         <div key={r.id} className={`room-select-card ${count > 0 ? 'has-selection' : ''}`}>
                           <div className="room-select-main">
-                            <div className="room-select-img" style={{ backgroundImage: `url(${r.img})` }} />
+                            <div className="room-select-img" style={{ backgroundImage: `url('${r.img}')` }} />
                             <div className="room-select-info">
                               <div className="room-select-header-flex">
                                 <h3>{r.name}</h3>
