@@ -1,34 +1,26 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Wifi, User, Users } from 'lucide-react';
+import { Wifi, User } from 'lucide-react';
 import './Rooms.css';
 
 const Rooms = () => {
   const rooms = [
     {
-      id: "mehrbettzimmer",
-      name: "Mehrbettzimmer",
-      desc: "Ideal für Backpacker & Gruppen",
-      price: "ab 18 € / Nacht",
-      img: "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80",
-      icons: [<Wifi key="w" size={20} />, <Users key="u" size={20} />]
+      id: "einzelzimmer",
+      name: "Einzelzimmer",
+      desc: "Ideal für Handwerker, Monteure & Alleinreisende",
+      price: "ab 39 € / Nacht",
+      img: "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Hostel%20Tag%201/Hostel%20Tag%201/DSC00976-HDR.jpg",
+      icons: [<Wifi key="w" size={20} />, <User key="u" size={20} />]
     },
     {
       id: "doppelzimmer",
       name: "Doppelzimmer",
-      desc: "Ideal für Paare & Freunde",
+      desc: "Ideal für Paare & Kollegen",
       price: "ab 49 € / Nacht",
-      img: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80",
+      img: "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Hostel%20Tag%201/Hostel%20Tag%201/DSC01121-HDR.jpg",
       icons: [<Wifi key="w" size={20} />, <User key="u1" size={20} />, <User key="u2" size={20} />]
-    },
-    {
-      id: "familienzimmer",
-      name: "Familienzimmer",
-      desc: "Ideal für Familien",
-      price: "ab 79 € / Nacht",
-      img: "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80",
-      icons: [<Wifi key="w" size={20} />, <Users key="u" size={20} />]
     }
   ];
 

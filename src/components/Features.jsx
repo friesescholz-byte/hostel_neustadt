@@ -32,8 +32,8 @@ const Features = () => {
     },
     {
       icon: <Users size={40} />,
-      title: "Für Alle geeignet",
-      desc: "Alleinreisende, Paare, Gruppen & Familien"
+      title: "Für jeden Gast",
+      desc: "Perfekt für Handwerker, Monteure, Geschäftsreisende & Paare"
     }
   ];
 

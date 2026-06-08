@@ -9,40 +9,28 @@ import {
 } from 'lucide-react';
 import './BookingPage.css';
 
-/* ============ Room Data ============ */
 const ROOMS = [
   {
-    id: 'mehrbettzimmer',
-    name: 'Mehrbettzimmer',
-    desc: 'Ideal für Handwerker, Monteure & Gruppen. Gemütliche Betten in geselliger Atmosphäre.',
-    price: 18,
-    unit: 'pro Person / Nacht',
-    isPerPerson: true,
-    img: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80',
-    maxCapacity: 6,
-    features: ['WLAN', 'Schließfach', 'Gemeinschaftsbad', 'Bettwäsche']
+    id: 'einzelzimmer',
+    name: 'Einzelzimmer',
+    desc: 'Privates Zimmer mit Einzelbett – ideal für Monteure, Handwerker und Alleinreisende.',
+    price: 39,
+    unit: 'pro Zimmer / Nacht',
+    isPerPerson: false,
+    img: 'https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Hostel%20Tag%201/Hostel%20Tag%201/DSC00976-HDR.jpg',
+    maxCapacity: 1,
+    features: ['WLAN', 'Eigenes Bad', 'TV', 'Bettwäsche']
   },
   {
     id: 'doppelzimmer',
     name: 'Doppelzimmer',
-    desc: 'Privates Zimmer mit Doppelbett – perfekt für Paare oder Alleinreisende mit mehr Komfort.',
+    desc: 'Privates Zimmer mit Doppelbett – perfekt für Paare oder Kollegen mit mehr Komfort.',
     price: 49,
     unit: 'pro Zimmer / Nacht',
     isPerPerson: false,
-    img: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80',
+    img: 'https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Hostel%20Tag%201/Hostel%20Tag%201/DSC01121-HDR.jpg',
     maxCapacity: 2,
     features: ['WLAN', 'Eigenes Bad', 'TV', 'Bettwäsche']
-  },
-  {
-    id: 'familienzimmer',
-    name: 'Familienzimmer',
-    desc: 'Geräumiges Zimmer für die ganze Familie – mit viel Platz und eigenem Badezimmer.',
-    price: 79,
-    unit: 'pro Zimmer / Nacht',
-    isPerPerson: false,
-    img: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80',
-    maxCapacity: 4,
-    features: ['WLAN', 'Eigenes Bad', 'TV', 'Bettwäsche', 'Kinderbett möglich']
   }
 ];
 

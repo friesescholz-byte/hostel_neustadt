@@ -43,7 +43,7 @@ const FAQ = () => {
     },
     {
       question: "Sind Handtücher inklusive?",
-      answer: "In den Doppel- und Familienzimmern sind Handtücher inklusive. Für die Mehrbettzimmer können Handtücher an der Rezeption für 2€ ausgeliehen werden."
+      answer: "Ja, in all unseren Einzel- und Doppelzimmern sind Handtücher und frisch bezogene Bettwäsche bereits im Preis enthalten."
     },
     {
       question: "Gibt es Frühstück?",
@@ -54,8 +54,8 @@ const FAQ = () => {
       answer: "Ja, durch unseren 24/7 Self-Check-in kannst du jederzeit anreisen. Du erhältst vorab alle nötigen Informationen und Codes per E-Mail."
     },
     {
-      question: "Gibt es Einzelzimmer?",
-      answer: "Aktuell bieten wir Mehrbettzimmer, Doppelzimmer und Familienzimmer an. Doppelzimmer können auch zur Einzelnutzung gebucht werden."
+      question: "Welche Zimmerkategorien gibt es?",
+      answer: "Wir bieten komfortable Einzelzimmer für Alleinreisende sowie gemütliche Doppelzimmer für Paare oder Kollegen an."
     },
     {
       question: "Wie funktioniert die Stornierung?",
