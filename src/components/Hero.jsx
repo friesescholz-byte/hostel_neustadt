@@ -17,7 +17,7 @@ const Hero = () => {
   };
   return (
     <section className="hero">
-      <div className="hero-bg" style={{backgroundImage: 'url(https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Hostel%20Tag%201/Hostel%20Tag%201/DSC00971-HDR.jpg)'}}></div>
+      <div className="hero-bg" style={{backgroundImage: 'url(https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00971-HDR_ergebnis.webp)'}}></div>
       <div className="hero-overlay"></div>
       
       <div className="hero-container">

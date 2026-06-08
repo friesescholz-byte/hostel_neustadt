@@ -17,7 +17,7 @@ const ROOMS = [
     price: 39,
     unit: 'pro Zimmer / Nacht',
     isPerPerson: false,
-    img: 'https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Hostel%20Tag%201/Hostel%20Tag%201/DSC00976-HDR.jpg',
+    img: 'https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00976-HDR_ergebnis.webp',
     maxCapacity: 1,
     features: ['WLAN', 'Eigenes Bad', 'TV', 'Bettwäsche']
   },
@@ -28,7 +28,7 @@ const ROOMS = [
     price: 49,
     unit: 'pro Zimmer / Nacht',
     isPerPerson: false,
-    img: 'https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Hostel%20Tag%201/Hostel%20Tag%201/DSC01121-HDR.jpg',
+    img: 'https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01121-HDR_ergebnis.webp',
     maxCapacity: 2,
     features: ['WLAN', 'Eigenes Bad', 'TV', 'Bettwäsche']
   }
