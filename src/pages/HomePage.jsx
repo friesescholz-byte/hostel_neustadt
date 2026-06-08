@@ -5,6 +5,7 @@ import HeroDivider from '../components/HeroDivider';
 import TrustBar from '../components/TrustBar';
 import Rooms from '../components/Rooms';
 import Features from '../components/Features';
+import Gallery from '../components/Gallery';
 import Location from '../components/Location';
 import Reviews from '../components/Reviews';
 import Amenities from '../components/Amenities';
@@ -22,6 +23,7 @@ function HomePage() {
         <TrustBar />
         <Rooms />
         <Features />
+        <Gallery />
         <Location />
         <Reviews />
         <Amenities />
