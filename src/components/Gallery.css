@@ -8,6 +8,11 @@
   max-width: 800px;
 }
 
+.gallery-section .section-title {
+  text-align: left;
+  margin-bottom: 1rem;
+}
+
 .gallery-eyebrow {
   display: inline-block;
   color: var(--accent);
