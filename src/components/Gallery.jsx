@@ -105,6 +105,19 @@ const Gallery = () => {
     });
   }, [photoIndex, isOpen]);
 
+  // Scroll active thumbnail into view
+  useEffect(() => {
+    if (!isOpen) return;
+    const activeEl = document.querySelector('.thumb-item.active');
+    if (activeEl) {
+      activeEl.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center'
+      });
+    }
+  }, [photoIndex, isOpen]);
+
   // Preview Grid Layout: 5 Images
   const previewImages = IMAGES.slice(0, 5);
 
@@ -197,26 +210,37 @@ const Gallery = () => {
               <ChevronRight size={36} />
             </button>
 
-            {/* Bottom Thumbnail Strip optimized with native loading="lazy" img tags */}
+            {/* Bottom Thumbnail Strip optimized with virtualized window rendering */}
             <div className="lightbox-thumbnails-wrap" onClick={(e) => e.stopPropagation()}>
               <div className="lightbox-thumbnails">
-                {IMAGES.map((imgUrl, idx) => (
-                  <div 
-                    key={idx} 
-                    className={`thumb-item ${idx === photoIndex ? 'active' : ''}`}
-                    onClick={() => {
-                      setImageLoading(true);
-                      setPhotoIndex(idx);
-                    }}
-                  >
-                    <img 
-                      src={imgUrl} 
-                      alt={`Miniaturansicht ${idx + 1}`}
-                      loading="lazy"
-                      className="thumb-img-element"
-                    />
-                  </div>
-                ))}
+                {IMAGES.map((imgUrl, idx) => {
+                  // Only render the thumbnail image if it is close to the active image
+                  // This prevents loading all 40 full-size WebP images at the same time
+                  const isNear = Math.abs(idx - photoIndex) <= 4;
+                  return (
+                    <div 
+                      key={idx} 
+                      className={`thumb-item ${idx === photoIndex ? 'active' : ''}`}
+                      onClick={() => {
+                        if (idx !== photoIndex) {
+                          setImageLoading(true);
+                          setPhotoIndex(idx);
+                        }
+                      }}
+                    >
+                      {isNear ? (
+                        <img 
+                          src={imgUrl} 
+                          alt={`Miniaturansicht ${idx + 1}`}
+                          loading="lazy"
+                          className="thumb-img-element"
+                        />
+                      ) : (
+                        <div className="thumb-placeholder" />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </motion.div>
