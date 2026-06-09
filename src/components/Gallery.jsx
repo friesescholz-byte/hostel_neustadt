@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Grid, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Grid, X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import './Gallery.css';
 
 const IMAGES = [
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00938-HDR_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00943-HDR_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00951-HDR_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00955-HDR_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00961-HDR_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00966-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00971-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00976-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00981-HDR_ergebnis.webp",
@@ -16,8 +22,8 @@ const IMAGES = [
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01041-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01046-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01056-HDR_ergebnis.webp",
-  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01066-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01061-HDR_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01066-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01071-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01076-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01081-HDR_ergebnis.webp",
@@ -29,15 +35,25 @@ const IMAGES = [
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01131-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01136-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01141-HDR_ergebnis.webp",
-  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01146-HDR_ergebnis.webp"
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01146-HDR_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01151-HDR_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01156-HDR_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01161-HDR_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01166-HDR_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01171-HDR_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01176-HDR_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01181-HDR_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01186-HDR_ergebnis.webp"
 ];
 
 const Gallery = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [imageLoading, setImageLoading] = useState(true);
 
   const openLightbox = (index) => {
     setPhotoIndex(index);
+    setImageLoading(true);
     setIsOpen(true);
     document.body.style.overflow = 'hidden';
   };
@@ -49,11 +65,13 @@ const Gallery = () => {
 
   const nextPhoto = (e) => {
     if (e) e.stopPropagation();
+    setImageLoading(true);
     setPhotoIndex((prev) => (prev + 1) % IMAGES.length);
   };
 
   const prevPhoto = (e) => {
     if (e) e.stopPropagation();
+    setImageLoading(true);
     setPhotoIndex((prev) => (prev - 1 + IMAGES.length) % IMAGES.length);
   };
 
@@ -70,6 +88,22 @@ const Gallery = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
+
+  // Preload adjacent images for instant transition
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const preloadIndices = [
+      (photoIndex + 1) % IMAGES.length,
+      (photoIndex + 2) % IMAGES.length,
+      (photoIndex - 1 + IMAGES.length) % IMAGES.length
+    ];
+
+    preloadIndices.forEach(idx => {
+      const img = new Image();
+      img.src = IMAGES[idx];
+    });
+  }, [photoIndex, isOpen]);
 
   // Preview Grid Layout: 5 Images
   const previewImages = IMAGES.slice(0, 5);
@@ -138,17 +172,23 @@ const Gallery = () => {
               <ChevronLeft size={36} />
             </button>
 
-            {/* Active Image Container */}
+            {/* Active Image Container with Loading Spinner */}
             <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+              {imageLoading && (
+                <div className="lightbox-spinner">
+                  <Loader2 size={40} className="animate-spin text-white opacity-75" />
+                </div>
+              )}
               <motion.img 
                 key={photoIndex}
                 src={IMAGES[photoIndex]} 
                 alt={`Unterkunft Ansicht ${photoIndex + 1}`} 
                 className="lightbox-image"
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
-                transition={{ duration: 0.25 }}
+                onLoad={() => setImageLoading(false)}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: imageLoading ? 0 : 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
               />
             </div>
 
@@ -157,16 +197,24 @@ const Gallery = () => {
               <ChevronRight size={36} />
             </button>
 
-            {/* Bottom Thumbnail Strip */}
+            {/* Bottom Thumbnail Strip optimized with native loading="lazy" img tags */}
             <div className="lightbox-thumbnails-wrap" onClick={(e) => e.stopPropagation()}>
               <div className="lightbox-thumbnails">
                 {IMAGES.map((imgUrl, idx) => (
                   <div 
                     key={idx} 
                     className={`thumb-item ${idx === photoIndex ? 'active' : ''}`}
-                    onClick={() => setPhotoIndex(idx)}
+                    onClick={() => {
+                      setImageLoading(true);
+                      setPhotoIndex(idx);
+                    }}
                   >
-                    <div className="thumb-img" style={{ backgroundImage: `url('${imgUrl}')` }} />
+                    <img 
+                      src={imgUrl} 
+                      alt={`Miniaturansicht ${idx + 1}`}
+                      loading="lazy"
+                      className="thumb-img-element"
+                    />
                   </div>
                 ))}
               </div>
