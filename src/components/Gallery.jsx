@@ -4,14 +4,17 @@ import { Grid, X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import './Gallery.css';
 
 const IMAGES = [
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00971-HDR_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01121-HDR_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00976-HDR_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01236_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01232_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00938-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00943-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00951-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00955-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00961-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00966-HDR_ergebnis.webp",
-  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00971-HDR_ergebnis.webp",
-  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00976-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00981-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00986-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00991-HDR_ergebnis.webp",
@@ -30,7 +33,6 @@ const IMAGES = [
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01096-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01101-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01111-HDR_ergebnis.webp",
-  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01121-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01126-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01131-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01136-HDR_ergebnis.webp",
@@ -43,7 +45,8 @@ const IMAGES = [
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01171-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01176-HDR_ergebnis.webp",
   "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01181-HDR_ergebnis.webp",
-  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01186-HDR_ergebnis.webp"
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01186-HDR_ergebnis.webp",
+  "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01240_ergebnis.webp"
 ];
 
 const Gallery = () => {
