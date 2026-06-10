@@ -11,7 +11,7 @@ const Rooms = () => {
       name: "Einzelzimmer",
       desc: "Ideal für Handwerker, Monteure & Alleinreisende",
       price: "ab 39 € / Nacht",
-      img: "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC00976-HDR_ergebnis.webp",
+      img: "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Gallerie/hf_20260609_133148_67288b61-b237-4d39-a77a-77344a73cdcc_ergebnis.webp",
       icons: [<Wifi key="w" size={20} />, <User key="u" size={20} />]
     },
     {
@@ -19,7 +19,7 @@ const Rooms = () => {
       name: "Doppelzimmer",
       desc: "Ideal für Paare & Kollegen",
       price: "ab 49 € / Nacht",
-      img: "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Bilder%20Hostel/DSC01121-HDR_ergebnis.webp",
+      img: "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Gallerie/hf_20260609_134014_fb04fac6-65c1-4b1e-b4b7-00038e0f899c_ergebnis.webp",
       icons: [<Wifi key="w" size={20} />, <User key="u1" size={20} />, <User key="u2" size={20} />]
     }
   ];
