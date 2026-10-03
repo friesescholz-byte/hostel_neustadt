@@ -19,6 +19,7 @@ export default function AdminPage() {
   });
   const [inputPassword, setInputPassword] = useState('');
   const [authError, setAuthError] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   // Dashboard Tabs: 'bookings' | 'inventory' | 'pricing'
   const [activeTab, setActiveTab] = useState('bookings');
@@ -133,16 +134,32 @@ export default function AdminPage() {
   };
 
   // --- Handlers: Authentication ---
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    const adminSecret = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ADMIN_PASSWORD) || '';
-    if (adminSecret && inputPassword === adminSecret) {
-      sessionStorage.setItem('hostel_admin_auth', 'true');
-      setIsAuthenticated(true);
-      setAuthError('');
-      loadData();
-    } else {
-      setAuthError('Falsches Passwort. Bitte überprüfen Sie Ihre Eingabe.');
+    setIsAuthenticating(true);
+    setAuthError('');
+
+    try {
+      // Server-Side authentication via Cloudflare Pages Function (/api/auth)
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: inputPassword })
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        sessionStorage.setItem('hostel_admin_auth', data.token || 'true');
+        setIsAuthenticated(true);
+        setAuthError('');
+        loadData();
+      } else {
+        setAuthError(data.error || 'Falsches Passwort. Bitte überprüfen Sie Ihre Eingabe.');
+      }
+    } catch (err) {
+      setAuthError('Authentifizierungsfehler beim Verbinden mit dem Server.');
+    } finally {
+      setIsAuthenticating(false);
     }
   };
 
@@ -639,8 +656,8 @@ export default function AdminPage() {
               {authError && <p className="auth-error-msg">{authError}</p>}
             </div>
 
-            <button type="submit" className="btn-admin-primary w-100">
-              Anmelden
+            <button type="submit" className="btn-admin-primary w-100" disabled={isAuthenticating}>
+              {isAuthenticating ? 'Prüfe Passwort...' : 'Anmelden'}
             </button>
           </form>
 

@@ -99,6 +99,56 @@ function localStorePlugin() {
 
         next();
       });
+
+      // Local Admin Authentication API endpoint
+      server.middlewares.use('/api/auth', (req, res, next) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 204;
+          res.end();
+          return;
+        }
+
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', () => {
+            try {
+              const { password } = JSON.parse(body);
+              let envPass = process.env.ADMIN_PASSWORD || process.env.VITE_ADMIN_PASSWORD;
+              if (!envPass) {
+                const envPath = path.join(__dirname, '.env');
+                if (fs.existsSync(envPath)) {
+                  const content = fs.readFileSync(envPath, 'utf-8');
+                  const match = content.match(/ADMIN_PASSWORD\s*=\s*(.*)/);
+                  if (match) envPass = match[1].trim();
+                }
+              }
+              const validPassword = envPass || 'Hostel#Neustadt!2026';
+
+              if (password && password === validPassword) {
+                const token = Buffer.from(`hostel_auth_${Date.now()}`).toString('base64');
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: true, token }));
+              } else {
+                res.statusCode = 401;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: false, error: 'Falsches Passwort. Bitte überprüfen Sie Ihre Eingabe.' }));
+              }
+            } catch (err) {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: err.message }));
+            }
+          });
+          return;
+        }
+
+        next();
+      });
     }
   };
 }
