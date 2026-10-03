@@ -1,7 +1,113 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const STORE_FILE = path.join(__dirname, 'data', 'store.json');
+
+// Local store synchronization plugin for cross-device updates (PC, mobile, tablet)
+function localStorePlugin() {
+  return {
+    name: 'local-store-api',
+    configureServer(server) {
+      server.middlewares.use('/api/store', (req, res, next) => {
+        // Enable CORS for all local requests
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 204;
+          res.end();
+          return;
+        }
+
+        if (req.method === 'GET') {
+          try {
+            if (fs.existsSync(STORE_FILE)) {
+              const data = fs.readFileSync(STORE_FILE, 'utf-8');
+              res.setHeader('Content-Type', 'application/json');
+              res.end(data);
+            } else {
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({}));
+            }
+          } catch (err) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: err.message }));
+          }
+          return;
+        }
+
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => {
+            body += chunk;
+          });
+          req.on('end', () => {
+            try {
+              const parsed = JSON.parse(body);
+              const dataDir = path.dirname(STORE_FILE);
+              if (!fs.existsSync(dataDir)) {
+                fs.mkdirSync(dataDir, { recursive: true });
+              }
+              fs.writeFileSync(STORE_FILE, JSON.stringify(parsed, null, 2), 'utf-8');
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ success: true }));
+            } catch (err) {
+              res.statusCode = 400;
+              res.end(JSON.stringify({ error: 'Invalid JSON or write error' }));
+            }
+          });
+          return;
+        }
+
+        next();
+      });
+
+      // Local Resend email mock/proxy
+      server.middlewares.use('/api/resend/emails', (req, res, next) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 204;
+          res.end();
+          return;
+        }
+
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', () => {
+            try {
+              const parsed = JSON.parse(body);
+              console.log('[Resend Local] E-Mail dispatched:', parsed.subject, 'To:', parsed.to);
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ id: 'msg_' + Date.now(), success: true }));
+            } catch (err) {
+              res.statusCode = 400;
+              res.end(JSON.stringify({ error: err.message }));
+            }
+          });
+          return;
+        }
+
+        next();
+      });
+    }
+  };
+}
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
-})
+  plugins: [react(), localStorePlugin()],
+  server: {
+    host: true, // Exposes on 0.0.0.0 so mobile phones on the local network can access it
+    port: 5173
+  }
+});

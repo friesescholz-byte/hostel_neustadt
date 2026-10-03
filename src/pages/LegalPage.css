@@ -74,3 +74,81 @@
     font-size: 2rem;
   }
 }
+
+/* ==========================================================================
+   AGB & Terms Enhancements (Scholz & Friese Style)
+   ========================================================================== */
+.legal-intro-note {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 2rem;
+  font-style: italic;
+}
+
+.legal-summary-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin-bottom: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.legal-summary-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.legal-summary-item .text-primary {
+  color: #0f2b5c;
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.legal-summary-item strong {
+  display: block;
+  font-size: 0.95rem;
+  color: #0f172a;
+  margin-bottom: 0.2rem;
+}
+
+.legal-summary-item p {
+  font-size: 0.875rem;
+  color: #475569;
+  margin-bottom: 0;
+  line-height: 1.5;
+}
+
+.legal-callout {
+  background: #f8fafc;
+  border-left: 4px solid #0f2b5c;
+  padding: 1.25rem 1.5rem;
+  border-radius: 0 8px 8px 0;
+  margin: 1.5rem 0;
+}
+
+.legal-callout.warning {
+  background: #fffbeb;
+  border-left-color: #f59e0b;
+}
+
+.legal-callout h3 {
+  margin-top: 0 !important;
+  font-size: 1.1rem !important;
+  color: #92400e !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.legal-callout p {
+  color: #78350f !important;
+  font-size: 0.9rem !important;
+  line-height: 1.6 !important;
+}
+
+.legal-callout p:last-child {
+  margin-bottom: 0 !important;
+}
+

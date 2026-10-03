@@ -11,6 +11,11 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*.local
+
+# Lokaler Datenspeicher (enthält Kundendaten)
+data/
 
 # Editor directories and files
 .vscode/*

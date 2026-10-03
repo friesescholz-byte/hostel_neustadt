@@ -1,22 +1,24 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar, User, Users, Wifi, ShowerHead, Tv, Lock,
   ChevronRight, ChevronLeft, Check, ShieldCheck,
   Building2, MapPin, Phone, Mail, ArrowLeft, Bed, CreditCard, Star,
-  Plus, Minus, Trash2
+  Plus, Minus, Trash2, CheckCircle2, Download, AlertCircle, RefreshCw,
+  Clock, ExternalLink, Sparkles, ShoppingBag
 } from 'lucide-react';
+import { bookingStore } from '../services/bookingStore';
+import { downloadInvoicePDF } from '../services/pdfGenerator';
+import { sendBookingConfirmationEmails } from '../services/emailService';
+import Footer from '../components/Footer';
 import './BookingPage.css';
 
-const ROOMS = [
+const ROOM_DEFINITIONS = [
   {
     id: 'einzelzimmer',
     name: 'Einzelzimmer',
     desc: 'Privates Zimmer mit Einzelbett – ideal für Monteure, Handwerker und Alleinreisende.',
-    price: 39,
-    unit: 'pro Zimmer / Nacht',
-    isPerPerson: false,
     img: 'https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Gallerie/hf_20260609_133148_67288b61-b237-4d39-a77a-77344a73cdcc_ergebnis.webp',
     maxCapacity: 1,
     features: ['WLAN', 'Eigenes Bad', 'TV', 'Bettwäsche']
@@ -24,10 +26,7 @@ const ROOMS = [
   {
     id: 'doppelzimmer',
     name: 'Doppelzimmer',
-    desc: 'Privates Zimmer mit Doppelbett – perfekt für Paare oder Kollegen mit mehr Komfort.',
-    price: 49,
-    unit: 'pro Zimmer / Nacht',
-    isPerPerson: false,
+    desc: 'Privates Zimmer mit Doppelbett – perfekt für Paare, Kollegen und Teams mit mehr Komfort.',
     img: 'https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Gallerie/hf_20260609_134014_fb04fac6-65c1-4b1e-b4b7-00038e0f899c_ergebnis.webp',
     maxCapacity: 2,
     features: ['WLAN', 'Eigenes Bad', 'TV', 'Bettwäsche']
@@ -45,6 +44,14 @@ const FEATURE_ICONS = {
 };
 
 const STEPS = ['Zimmer & Reisedaten', 'Ihre Daten', 'Übersicht & Zahlung'];
+
+const PAYMENT_METHODS = [
+  { id: 'mollie_card', label: 'Kreditkarte (Visa, Mastercard, Amex)', icon: '💳' },
+  { id: 'mollie_paypal', label: 'PayPal', icon: '🅿️' },
+  { id: 'mollie_klarna', label: 'Klarna / Sofortüberweisung', icon: '⚡' },
+  { id: 'mollie_giropay', label: 'Giropay / Paydirekt', icon: '🏦' },
+  { id: 'mollie_applepay', label: 'Apple Pay / Google Pay', icon: '📱' }
+];
 
 /* ============ Helpers ============ */
 function formatDate(d) {
@@ -72,87 +79,236 @@ const BookingPage = () => {
 
   const [step, setStep] = useState(0);
 
-  // Reisedaten
-  const [checkin, setCheckin] = useState(searchParams.get('checkin') || '');
-  const [checkout, setCheckout] = useState(searchParams.get('checkout') || '');
+  // Active date selection in form (can be changed to add multiple different periods!)
+  const [checkin, setCheckin] = useState(() => searchParams.get('checkin') || todayStr());
+  const [checkout, setCheckout] = useState(() => {
+    if (searchParams.get('checkout')) return searchParams.get('checkout');
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  });
 
-  // Ausgewählte Zimmer (Warenkorb)
-  // Array of { instanceId: number, typeId: string, guests: number }
+  // Ausgewählte Zimmer im Warenkorb (jedes Element hat seinen eigenen Zeitraum!)
   const [cart, setCart] = useState([]);
   const [nextInstanceId, setNextInstanceId] = useState(1);
 
-  // Initialize from URL params if available
-  useEffect(() => {
-    const initialRoom = searchParams.get('room');
-    const initialGuests = parseInt(searchParams.get('guests')) || 1;
-    
-    if (initialRoom && cart.length === 0) {
-      const roomDef = ROOMS.find(r => r.id === initialRoom);
-      if (roomDef) {
-        setCart([{
-          instanceId: 0,
-          typeId: initialRoom,
-          guests: Math.min(initialGuests, roomDef.maxCapacity)
-        }]);
-      }
-    }
-  }, [searchParams, cart.length]);
+  // Live Availability for currently active date selection
+  const [currentAvail, setCurrentAvail] = useState({ einzelzimmer: 10, doppelzimmer: 8, isFullyBooked: false });
 
-  // Gästedaten
-  // Index 0 ist der Hauptbucher, die restlichen sind Mitreisende
+  // Guest data
   const [guestData, setGuestData] = useState([
     { isMain: true, firstName: '', lastName: '', email: '', phone: '', company: '', street: '', zip: '', city: '', notes: '' }
   ]);
 
   const [errors, setErrors] = useState({});
 
+  // Mollie Modal & Confirmation States
+  const [showMollieModal, setShowMollieModal] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('mollie_card');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [confirmedBooking, setConfirmedBooking] = useState(null);
+
+  // 10-Minute Cart Hold & Overbooking Protection
+  const [cartHold, setCartHold] = useState(null);
+  const [timeLeftSec, setTimeLeftSec] = useState(null);
+  const [holdError, setHoldError] = useState(null);
+  const [isCheckingHold, setIsCheckingHold] = useState(false);
+
+  // Helper to ensure persistent session token across tabs/steps
+  const getSessionToken = () => {
+    let token = sessionStorage.getItem('hostel_cart_token');
+    if (!token) {
+      token = 'usr_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8);
+      sessionStorage.setItem('hostel_cart_token', token);
+    }
+    return token;
+  };
+
+  function formatTimer(sec) {
+    if (sec === null || sec === undefined) return '';
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  // 10-minute hold live countdown
+  useEffect(() => {
+    if (!cartHold?.expiresAt) {
+      setTimeLeftSec(null);
+      return;
+    }
+
+    const checkTimer = () => {
+      const remaining = Math.max(0, Math.floor((cartHold.expiresAt - Date.now()) / 1000));
+      setTimeLeftSec(remaining);
+      if (remaining === 0 && step > 0) {
+        setHoldError('Ihre 10-minütige Zimmerreservierung ist abgelaufen. Bitte prüfen Sie die Verfügbarkeit erneut.');
+        const token = getSessionToken();
+        bookingStore.releaseCartHold(token, cartHold?.id);
+        setCartHold(null);
+        setStep(0);
+      }
+    };
+
+    checkTimer();
+    const interval = setInterval(checkTimer, 1000);
+    return () => clearInterval(interval);
+  }, [cartHold, step]);
+
+  // Persistent refs for reliable cleanup when closing tab or navigating away
+  const cartHoldRef = useRef(cartHold);
+  cartHoldRef.current = cartHold;
+  const confirmedBookingRef = useRef(confirmedBooking);
+  confirmedBookingRef.current = confirmedBooking;
+
+  useEffect(() => {
+    const handleRelease = () => {
+      if (cartHoldRef.current?.id && !confirmedBookingRef.current) {
+        const token = sessionStorage.getItem('hostel_cart_token');
+        bookingStore.releaseCartHold(token, cartHoldRef.current.id);
+      }
+    };
+
+    window.addEventListener('pagehide', handleRelease);
+    window.addEventListener('beforeunload', handleRelease);
+
+    return () => {
+      window.removeEventListener('pagehide', handleRelease);
+      window.removeEventListener('beforeunload', handleRelease);
+      handleRelease();
+    };
+  }, []);
+
+  // Update availability whenever currently selected dates change
+  useEffect(() => {
+    if (checkin && checkout) {
+      const token = getSessionToken();
+      const avail = bookingStore.getAvailableRooms(checkin, checkout, { excludeHoldToken: token });
+      setCurrentAvail(avail);
+    }
+  }, [checkin, checkout, cart]);
+
+  // Initial pre-fill from URL params if given
+  useEffect(() => {
+    const initialRoom = searchParams.get('room');
+    if (initialRoom && cart.length === 0 && checkin && checkout) {
+      const n = nightsBetween(checkin, checkout);
+      if (n > 0) {
+        const calc = bookingStore.calculateRoomPrice(initialRoom, checkin, checkout);
+        const roomDef = ROOM_DEFINITIONS.find(r => r.id === initialRoom);
+        setCart([{
+          instanceId: 0,
+          typeId: initialRoom,
+          name: roomDef ? roomDef.name : initialRoom,
+          checkin,
+          checkout,
+          nights: n,
+          guests: 1,
+          maxCapacity: roomDef ? roomDef.maxCapacity : 1,
+          pricePerNight: calc.avgPerNight,
+          totalPrice: calc.total,
+          tierName: calc.tierName,
+          hasCustomPeriod: calc.hasCustomPeriod,
+          periodName: calc.hasCustomPeriod ? calc.breakdown?.find(b => b.isCustomPeriod)?.periodName : null
+        }]);
+      }
+    }
+  }, [searchParams]);
+
   // Scroll to top on step change
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [step]);
+  }, [step, confirmedBooking]);
 
-  // Berechnungen
-  const nights = useMemo(() => nightsBetween(checkin, checkout), [checkin, checkout]);
-  
+  // Active form date nights
+  const activeNights = useMemo(() => nightsBetween(checkin, checkout), [checkin, checkout]);
+
+  // Price calculations for currently selected dates in the form
+  const activePriceCalculations = useMemo(() => {
+    if (!checkin || !checkout || activeNights <= 0) return null;
+    return {
+      einzelzimmer: bookingStore.calculateRoomPrice('einzelzimmer', checkin, checkout),
+      doppelzimmer: bookingStore.calculateRoomPrice('doppelzimmer', checkin, checkout)
+    };
+  }, [checkin, checkout, activeNights]);
+
+  // Total cart price & total nights
+  const totalPrice = useMemo(() => {
+    return cart.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+  }, [cart]);
+
+  const totalCartNights = useMemo(() => {
+    return cart.reduce((sum, item) => sum + (item.nights || 0), 0);
+  }, [cart]);
+
   const totalGuests = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.guests, 0);
   }, [cart]);
 
-  const totalPrice = useMemo(() => {
-    if (nights <= 0) return 0;
-    return cart.reduce((sum, item) => {
-      const roomDef = ROOMS.find(r => r.id === item.typeId);
-      if (!roomDef) return sum;
-      // Mehrbettzimmer: Preis pro Person. Andere: Preis pro Zimmer
-      const itemPrice = roomDef.isPerPerson ? (roomDef.price * item.guests) : roomDef.price;
-      return sum + (itemPrice * nights);
-    }, 0);
-  }, [cart, nights]);
-
-  // Gast-Array anpassen, wenn sich die Gesamtgästezahl ändert
+  // Adjust guest data array size
   useEffect(() => {
     setGuestData(prev => {
       const newArr = [...prev];
-      // Hinzufügen, wenn zu wenig
-      while(newArr.length < totalGuests) {
+      while (newArr.length < totalGuests) {
         newArr.push({ isMain: false, firstName: '', lastName: '' });
       }
-      // Entfernen, wenn zu viele (aber Hauptbucher behalten)
-      while(newArr.length > totalGuests && newArr.length > 1) {
+      while (newArr.length > totalGuests && newArr.length > 1) {
         newArr.pop();
       }
       return newArr;
     });
   }, [totalGuests]);
 
-  /* ---- Handlers für Warenkorb ---- */
-  const addRoom = (typeId) => {
-    setCart(prev => [...prev, { instanceId: nextInstanceId, typeId, guests: 1 }]);
+  /* ---- Handlers für Warenkorb (Multi-Period Support) ---- */
+  const handleAddRoomToCart = (typeId) => {
+    if (!checkin || !checkout) {
+      alert('Bitte wählen Sie zuerst Anreise- und Abreisedatum aus.');
+      return;
+    }
+    if (activeNights <= 0) {
+      alert('Das Abreisedatum muss nach dem Anreisedatum liegen.');
+      return;
+    }
+
+    // Availability for this selected period, considering existing cart items that overlap
+    const available = bookingStore.getAvailableRooms(checkin, checkout);
+    const inCartForThisPeriod = cart.filter(c => 
+      c.typeId === typeId && 
+      c.checkin < checkout && 
+      c.checkout > checkin
+    ).length;
+
+    const maxAvail = available[typeId] || 0;
+    if (inCartForThisPeriod >= maxAvail) {
+      alert(`Für den Zeitraum ${formatDate(checkin)} bis ${formatDate(checkout)} sind nur noch ${maxAvail} Zimmer dieses Typs verfügbar.`);
+      return;
+    }
+
+    const calc = bookingStore.calculateRoomPrice(typeId, checkin, checkout);
+    const roomDef = ROOM_DEFINITIONS.find(r => r.id === typeId);
+
+    const newItem = {
+      instanceId: nextInstanceId,
+      typeId,
+      name: roomDef ? roomDef.name : (typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer'),
+      checkin,
+      checkout,
+      nights: activeNights,
+      guests: 1,
+      maxCapacity: roomDef ? roomDef.maxCapacity : 1,
+      pricePerNight: calc.avgPerNight,
+      totalPrice: calc.total,
+      tierName: calc.tierName,
+      hasCustomPeriod: calc.hasCustomPeriod,
+      periodName: calc.hasCustomPeriod ? calc.breakdown?.find(b => b.isCustomPeriod)?.periodName : null
+    };
+
+    setCart(prev => [...prev, newItem]);
     setNextInstanceId(id => id + 1);
     if (errors.cart) setErrors(e => ({ ...e, cart: undefined }));
   };
 
-  const removeRoom = (instanceId) => {
+  const removeRoomFromCart = (instanceId) => {
     setCart(prev => prev.filter(item => item.instanceId !== instanceId));
   };
 
@@ -165,10 +321,9 @@ const BookingPage = () => {
   /* ---- Validation ---- */
   function validateStep1() {
     const e = {};
-    if (cart.length === 0) e.cart = 'Bitte wähle mindestens ein Zimmer aus.';
-    if (!checkin) e.checkin = 'Bitte Anreisedatum wählen';
-    if (!checkout) e.checkout = 'Bitte Abreisedatum wählen';
-    if (checkin && checkout && nights <= 0) e.checkout = 'Abreise muss nach Anreise liegen';
+    if (cart.length === 0) {
+      e.cart = 'Bitte fügen Sie mindestens ein Zimmer zu Ihrem Warenkorb hinzu.';
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -188,13 +343,66 @@ const BookingPage = () => {
     return Object.keys(e).length === 0;
   }
 
-  function handleNext() {
-    if (step === 0 && !validateStep1()) return;
-    if (step === 1 && !validateStep2()) return;
-    setStep(s => Math.min(s + 1, 2));
+  async function handleNext() {
+    if (step === 0) {
+      if (!validateStep1()) return;
+
+      setIsCheckingHold(true);
+      setHoldError(null);
+      try {
+        const token = getSessionToken();
+        const holdRes = await bookingStore.acquireCartHold({
+          cart,
+          checkin,
+          checkout,
+          token,
+          guestData: guestData[0],
+          existingHoldId: cartHold?.id
+        });
+
+        setIsCheckingHold(false);
+
+        if (!holdRes.success) {
+          if (holdRes.reason === 'insufficient_rooms') {
+            setHoldError(`Entschuldigung, für den gewählten Zeitraum (${holdRes.dates}) ist das letzte ${holdRes.typeName} soeben von einem anderen Gast reserviert worden. Bitte wählen Sie ein anderes Zimmer oder einen anderen Reisezeitraum.`);
+          } else {
+            setHoldError('Die gewünschten Zimmer sind für diesen Zeitraum leider nicht mehr verfügbar.');
+          }
+          return;
+        }
+
+        setCartHold({
+          id: holdRes.holdId,
+          expiresAt: holdRes.expiresAt,
+          token
+        });
+        setStep(1);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (err) {
+        setIsCheckingHold(false);
+        setHoldError(err.message || 'Verfügbarkeit konnte nicht bestätigt werden.');
+      }
+      return;
+    }
+
+    if (step === 1) {
+      if (!validateStep2()) return;
+      const token = getSessionToken();
+      bookingStore.updateHoldGuest(token, guestData[0]);
+      setStep(2);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
   }
 
   function handleBack() {
+    if (step === 1) {
+      // Wenn der Gast zurückgeht, wird die offene Buchung/Hold direkt gelöscht
+      const token = getSessionToken();
+      bookingStore.releaseCartHold(token, cartHold?.id);
+      setCartHold(null);
+      setTimeLeftSec(null);
+    }
     setStep(s => Math.max(s - 1, 0));
   }
 
@@ -202,6 +410,8 @@ const BookingPage = () => {
     setGuestData(prev => {
       const newArr = [...prev];
       newArr[0] = { ...newArr[0], [field]: value };
+      const token = getSessionToken();
+      bookingStore.updateHoldGuest(token, newArr[0]);
       return newArr;
     });
     if (errors[field]) setErrors(e => ({ ...e, [field]: undefined }));
@@ -215,12 +425,171 @@ const BookingPage = () => {
     });
   }
 
-  function handleSubmit() {
-    alert('Buchungsanfrage wurde gesendet! (Mollie-Integration kommt später)');
-    navigate('/');
+  // Open Mollie modal
+  function handleOpenMollieModal() {
+    if (!validateStep1() || !validateStep2()) return;
+    setShowMollieModal(true);
   }
 
-  /* ============ RENDER ============ */
+  // Execute payment & create booking
+  function handleExecuteMolliePayment() {
+    setIsProcessingPayment(true);
+
+    setTimeout(async () => {
+      try {
+        const token = getSessionToken();
+        const newBooking = bookingStore.createBooking({
+          checkin,
+          checkout,
+          nights: totalCartNights,
+          cart,
+          guestData,
+          paymentMethod: selectedPaymentMethod,
+          holdToken: token,
+          holdId: cartHold?.id
+        });
+
+        // Trigger Resend automated emails with attached PDF invoice to customer & owner
+        try {
+          sendBookingConfirmationEmails(newBooking);
+        } catch (mailErr) {
+          console.warn('[Booking] Resend dispatch note:', mailErr);
+        }
+
+        setIsProcessingPayment(false);
+        setShowMollieModal(false);
+        setCartHold(null);
+        setConfirmedBooking(newBooking);
+      } catch (err) {
+        setIsProcessingPayment(false);
+        alert(err.message || 'Fehler bei der Zahlungsabwicklung');
+      }
+    }, 1200);
+  }
+
+  /* ============ RENDER: SUCCESS SCREEN ============ */
+  if (confirmedBooking) {
+    return (
+      <div className="booking-page">
+        <header className="booking-header">
+          <div className="booking-header-inner">
+            <Link to="/" className="booking-back-link">
+              <ArrowLeft size={20} />
+              <span>Zur Startseite</span>
+            </Link>
+            <Link to="/" className="booking-logo">
+              <img src="https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Logo_Hostel_Neustadt_transparent.png" alt="Hostel Neustadt" />
+            </Link>
+            <div className="booking-header-trust">
+              <ShieldCheck size={18} />
+              <span>Zahlung bestätigt</span>
+            </div>
+          </div>
+        </header>
+
+        <main className="booking-success-wrap">
+          <motion.div 
+            className="booking-success-card"
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4 }}
+          >
+            <div className="success-icon-badge">
+              <CheckCircle2 size={44} />
+            </div>
+
+            <span className="success-kicker">Buchung erfolgreich bestätigt</span>
+            <h1 className="success-title">Vielen Dank für Ihre Buchung!</h1>
+            <p className="success-subtitle">
+              Ihre Zahlung via <strong>{confirmedBooking.payment?.methodLabel || 'Online-Zahlung'}</strong> war erfolgreich.
+              Ihre Reservierung im Hostel Neustadt ist verbindlich bestätigt.
+            </p>
+
+            {/* Reference Numbers Banner */}
+            <div className="success-ref-grid">
+              <div className="ref-box">
+                <span className="ref-label">Buchungsnummer</span>
+                <strong className="ref-value">{confirmedBooking.bookingNumber}</strong>
+              </div>
+              <div className="ref-box">
+                <span className="ref-label">Rechnungsnummer</span>
+                <strong className="ref-value">{confirmedBooking.invoiceNumber}</strong>
+              </div>
+              <div className="ref-box">
+                <span className="ref-label">Gesamtbetrag</span>
+                <strong className="ref-value text-primary">{confirmedBooking.totalPrice?.toFixed(2)} €</strong>
+              </div>
+            </div>
+
+            {/* Automated Email Notice */}
+            <div className="success-mail-notice">
+              <Mail size={22} className="mail-icon" />
+              <div>
+                <strong>E-Mail-Bestätigung & PDF-Rechnung per Resend versendet</strong>
+                <p>
+                  Ihre Buchungsbestätigung und Ihre offizielle PDF-Rechnung wurden automatisch per E-Mail an <strong>{confirmedBooking.guest?.email}</strong> versandt.
+                  Gleichzeitig wurde eine Benachrichtigungskopie an die Betriebsleitung (<code>scholz.friese@gmail.com</code>) übermittelt.
+                </p>
+              </div>
+            </div>
+
+            {/* Summary Details */}
+            <div className="success-details-box">
+              <h3>Übersicht Ihrer Reservierung</h3>
+              <div className="success-detail-row">
+                <span>Hauptbucher:</span>
+                <strong>{confirmedBooking.guest?.firstName} {confirmedBooking.guest?.lastName}</strong>
+              </div>
+              {confirmedBooking.guest?.company && (
+                <div className="success-detail-row">
+                  <span>Firma:</span>
+                  <strong>{confirmedBooking.guest?.company}</strong>
+                </div>
+              )}
+              <div className="success-detail-row">
+                <span>Gebuchte Zimmer & Zeiträume:</span>
+                <div className="success-rooms-list">
+                  {confirmedBooking.rooms?.map((r, i) => (
+                    <div key={i} className="success-room-item-row">
+                      <span className="success-room-tag">
+                        {r.count}x {r.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer'} ({r.guests} {r.guests === 1 ? 'Gast' : 'Gäste'})
+                      </span>
+                      <small className="text-muted">
+                        {formatDate(r.checkin)} – {formatDate(r.checkout)} ({r.nights} Nächte)
+                      </small>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Primary Action: Download PDF Invoice */}
+            <div className="success-actions">
+              <button 
+                className="btn-download-invoice"
+                onClick={() => downloadInvoicePDF(confirmedBooking)}
+              >
+                <Download size={18} />
+                <span>Offizielle PDF-Rechnung herunterladen</span>
+              </button>
+
+              <div className="success-secondary-actions">
+                <Link to="/" className="btn-success-home">
+                  Zurück zur Startseite
+                </Link>
+                <Link to="/agb" className="btn-success-admin">
+                  AGB & Stornierungsbedingungen
+                </Link>
+              </div>
+            </div>
+          </motion.div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  /* ============ RENDER: MAIN BOOKING FLOW ============ */
   return (
     <div className="booking-page">
       {/* Header */}
@@ -228,14 +597,14 @@ const BookingPage = () => {
         <div className="booking-header-inner">
           <Link to="/" className="booking-back-link">
             <ArrowLeft size={20} />
-            <span>Zurück zur Startseite</span>
+            <span>Zur Startseite</span>
           </Link>
           <Link to="/" className="booking-logo">
             <img src="https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Logo_Hostel_Neustadt_transparent.png" alt="Hostel Neustadt" />
           </Link>
           <div className="booking-header-trust">
             <ShieldCheck size={18} />
-            <span>Sichere Buchung</span>
+            <span>Sichere Buchung & Überbuchungsschutz</span>
           </div>
         </div>
       </header>
@@ -258,55 +627,139 @@ const BookingPage = () => {
       {/* Content */}
       <div className="booking-content">
         <div className="booking-main">
+          {/* Hold Error Banner */}
+          {holdError && (
+            <div className="booking-error-banner" role="alert">
+              <div className="error-icon-box">
+                <AlertCircle size={20} />
+              </div>
+              <div className="error-content">
+                <strong>Verfügbarkeit hat sich geändert</strong>
+                <p>{holdError}</p>
+              </div>
+              <button 
+                type="button" 
+                className="btn-close-error" 
+                onClick={() => setHoldError(null)}
+                aria-label="Hinweis schließen"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Cart Hold Timer Banner (Step 1 & 2) */}
+          {step > 0 && cartHold && (
+            <div className="cart-hold-timer-banner">
+              <div className="timer-badge-left">
+                <Clock size={16} className="timer-pulse-icon" />
+                <span>Zimmer für Sie reserviert:</span>
+                <strong>{formatTimer(timeLeftSec)}</strong>
+              </div>
+              <div className="hold-protection-pill">
+                <ShieldCheck size={14} /> Überbuchungsschutz aktiv
+              </div>
+            </div>
+          )}
+
           <AnimatePresence mode="wait">
             {step === 0 && (
               <motion.div key="step0" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
                 
-                {/* Reisedaten */}
+                {/* Reisedaten Konfigurator */}
                 <div className="booking-section">
-                  <h2 className="booking-section-title">
-                    <Calendar size={24} />
-                    Reisedaten
-                  </h2>
+                  <div className="section-title-lockup">
+                    <h2 className="booking-section-title">
+                      <Calendar size={24} />
+                      1. Zeitraum wählen
+                    </h2>
+                    <span className="section-hint-badge">Mehrere Zeiträume möglich</span>
+                  </div>
+                  
                   <div className="date-grid-2">
                     <div className="booking-field">
                       <label>Anreise</label>
-                      <input type="date" value={checkin} min={todayStr()} onChange={e => { setCheckin(e.target.value); if (errors.checkin) setErrors(er => ({ ...er, checkin: undefined })); }} />
-                      {errors.checkin && <p className="field-error">{errors.checkin}</p>}
+                      <input 
+                        type="date" 
+                        value={checkin} 
+                        min={todayStr()} 
+                        onChange={e => setCheckin(e.target.value)} 
+                      />
                     </div>
                     <div className="booking-field">
                       <label>Abreise</label>
-                      <input type="date" value={checkout} min={checkin || todayStr()} onChange={e => { setCheckout(e.target.value); if (errors.checkout) setErrors(er => ({ ...er, checkout: undefined })); }} />
-                      {errors.checkout && <p className="field-error">{errors.checkout}</p>}
+                      <input 
+                        type="date" 
+                        value={checkout} 
+                        min={checkin || todayStr()} 
+                        onChange={e => setCheckout(e.target.value)} 
+                      />
                     </div>
                   </div>
+
+                  {activeNights > 0 && (
+                    <div className="stay-duration-pill">
+                      <Clock size={16} />
+                      <span>Ausgewählter Zeitraum: {formatDate(checkin)} – {formatDate(checkout)} ({activeNights} {activeNights === 1 ? 'Nacht' : 'Nächte'})</span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Zimmerauswahl */}
+                {/* Zimmerauswahl für diesen Zeitraum */}
                 <div className="booking-section">
                   <h2 className="booking-section-title">
                     <Bed size={24} />
-                    Zimmerauswahl
+                    2. Zimmer für diesen Zeitraum hinzufügen
                   </h2>
+                  <p className="text-muted mb-4">
+                    Wählen Sie die gewünschten Zimmer für den oben eingestellten Zeitraum aus. Sie können anschließend oben das Datum ändern und weitere Zeiträume hinzufügen.
+                  </p>
                   
                   <div className="room-selection-list">
-                    {ROOMS.map(r => {
-                      const instancesOfThisType = cart.filter(item => item.typeId === r.id);
-                      const count = instancesOfThisType.length;
+                    {ROOM_DEFINITIONS.map(r => {
+                      const maxAvail = currentAvail[r.id] || 0;
+                      // Overlap with items already in cart for these exact dates
+                      const inCartForThisRange = cart.filter(c => 
+                        c.typeId === r.id && 
+                        c.checkin < checkout && 
+                        c.checkout > checkin
+                      ).length;
+                      const remainingFree = Math.max(0, maxAvail - inCartForThisRange);
+                      const isSoldOut = remainingFree <= 0;
+                      const calc = activePriceCalculations ? activePriceCalculations[r.id] : null;
 
                       return (
-                        <div key={r.id} className={`room-select-card ${count > 0 ? 'has-selection' : ''}`}>
+                        <div key={r.id} className={`room-select-card ${isSoldOut ? 'is-sold-out' : ''}`}>
                           <div className="room-select-main">
-                            <div className="room-select-img" style={{ backgroundImage: `url('${r.img}')` }} />
+                            <div className="room-select-img" style={{ backgroundImage: `url('${r.img}')` }}>
+                              <span className={`room-avail-tag ${remainingFree > 3 ? 'green' : (remainingFree > 0 ? 'amber' : 'red')}`}>
+                                {remainingFree > 0 ? `${remainingFree} frei` : 'Ausgebucht'}
+                              </span>
+                            </div>
+
                             <div className="room-select-info">
                               <div className="room-select-header-flex">
-                                <h3>{r.name}</h3>
+                                <div>
+                                  <h3>{r.name}</h3>
+                                  {calc && (
+                                    <div className="room-tier-badge">
+                                      {calc.hasCustomPeriod ? (
+                                        <span className="badge-messe">
+                                          Sonderkondition: {calc.breakdown?.find(b => b.isCustomPeriod)?.periodName || 'Angebot'}
+                                        </span>
+                                      ) : (
+                                        <span className="badge-tier">Staffel: {calc.tierName}</span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                                 <div className="room-select-price">
-                                  <strong>{r.price} €</strong>
-                                  <small>{r.unit}</small>
+                                  <strong>{calc ? calc.avgPerNight : (r.id === 'einzelzimmer' ? 70 : 100)} €</strong>
+                                  <small>pro Nacht</small>
                                 </div>
                               </div>
                               <p className="room-select-desc">{r.desc}</p>
+                              
                               <div className="room-select-features">
                                 {r.features.map((f, i) => (
                                   <span key={i} className="room-feature-tag">
@@ -314,52 +767,97 @@ const BookingPage = () => {
                                   </span>
                                 ))}
                               </div>
+
                               <div className="room-select-bottom">
-                                <span className="room-select-capacity"><Users size={16} /> Max. {r.maxCapacity} {r.maxCapacity === 1 ? 'Person' : 'Personen'}</span>
-                                <div className="room-quantity-controls">
-                                  {count > 0 && (
-                                    <button className="qty-btn" onClick={() => removeRoom(instancesOfThisType[instancesOfThisType.length - 1].instanceId)}>
-                                      <Minus size={16} />
-                                    </button>
-                                  )}
-                                  <span className="qty-count">{count} {count === 1 ? 'Zimmer' : 'Zimmer'}</span>
-                                  <button className="qty-btn qty-add" onClick={() => addRoom(r.id)}>
-                                    <Plus size={16} /> Hinzufügen
-                                  </button>
-                                </div>
+                                <span className="room-select-capacity">
+                                  <Users size={16} /> Max. {r.maxCapacity} {r.maxCapacity === 1 ? 'Person' : 'Personen'}
+                                </span>
+                                
+                                <button 
+                                  className={`qty-btn qty-add ${isSoldOut ? 'disabled' : ''}`}
+                                  onClick={() => handleAddRoomToCart(r.id)}
+                                  disabled={isSoldOut}
+                                  title={isSoldOut ? 'Ausgebucht für diesen Zeitraum' : 'Zimmer für diesen Zeitraum hinzufügen'}
+                                >
+                                  <Plus size={16} /> {isSoldOut ? 'Ausgebucht' : 'Hinzufügen'}
+                                </button>
                               </div>
                             </div>
                           </div>
-
-                          {/* Sub-UI für jedes hinzugefügte Zimmer dieses Typs */}
-                          {count > 0 && (
-                            <div className="room-instances-wrapper">
-                              {instancesOfThisType.map((instance, idx) => (
-                                <div key={instance.instanceId} className="room-instance-row">
-                                  <span>{r.name} {count > 1 ? `#${idx + 1}` : ''}</span>
-                                  <div className="room-instance-guests">
-                                    <label>Gäste in diesem Zimmer:</label>
-                                    <select 
-                                      value={instance.guests} 
-                                      onChange={(e) => updateRoomGuests(instance.instanceId, e.target.value)}
-                                    >
-                                      {Array.from({ length: r.maxCapacity }, (_, i) => i + 1).map(num => (
-                                        <option key={num} value={num}>{num} {num === 1 ? 'Person' : 'Personen'}</option>
-                                      ))}
-                                    </select>
-                                    <button className="btn-icon-danger" onClick={() => removeRoom(instance.instanceId)} title="Zimmer entfernen">
-                                      <Trash2 size={16} />
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       );
                     })}
                   </div>
-                  {errors.cart && <p className="field-error mt-2">{errors.cart}</p>}
+                </div>
+
+                {/* Warenkorb-Übersicht (Bereits hinzugefügte Zimmer & Zeiträume) */}
+                <div className="booking-section cart-section">
+                  <div className="section-title-lockup">
+                    <h2 className="booking-section-title">
+                      <ShoppingBag size={24} />
+                      3. Ihre ausgewählten Zimmer ({cart.length})
+                    </h2>
+                    {cart.length > 0 && (
+                      <span className="cart-total-badge">Gesamt: {totalPrice.toFixed(2)} €</span>
+                    )}
+                  </div>
+
+                  {cart.length === 0 ? (
+                    <div className="cart-empty-box">
+                      <AlertCircle size={28} className="text-muted" />
+                      <p>Noch keine Zimmer ausgewählt. Bitte wählen Sie oben einen Reisezeitraum und klicken Sie beim Zimmer auf <strong>„Hinzufügen“</strong>.</p>
+                    </div>
+                  ) : (
+                    <div className="cart-items-list">
+                      {cart.map((item) => (
+                        <div key={item.instanceId} className="cart-item-card">
+                          <div className="cart-item-main-row">
+                            <div className="cart-item-info">
+                              <div className="cart-item-title-row">
+                                <h4 className="cart-item-name">{item.name}</h4>
+                                <span className="cart-item-dates-badge">
+                                  <Calendar size={13} />
+                                  {formatDate(item.checkin)} – {formatDate(item.checkout)} ({item.nights} {item.nights === 1 ? 'Nacht' : 'Nächte'})
+                                </span>
+                              </div>
+                              {item.hasCustomPeriod && (
+                                <span className="cart-item-custom-tag">Sonderkondition: {item.periodName}</span>
+                              )}
+                            </div>
+
+                            <div className="cart-item-action-row">
+                              <div className="cart-item-price-col">
+                                <span className="cart-item-price-val">{item.totalPrice.toFixed(2)} €</span>
+                                <small className="cart-item-price-sub">{item.nights}x {item.pricePerNight} €</small>
+                              </div>
+                              <button 
+                                className="cart-delete-btn" 
+                                onClick={() => removeRoomFromCart(item.instanceId)} 
+                                title="Dieses Zimmer entfernen"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="cart-item-guests-row">
+                            <span className="cart-guest-label">Gäste in diesem Zimmer:</span>
+                            <select 
+                              className="cart-guest-select"
+                              value={item.guests} 
+                              onChange={(e) => updateRoomGuests(item.instanceId, e.target.value)}
+                            >
+                              {Array.from({ length: item.maxCapacity || 1 }, (_, i) => i + 1).map(num => (
+                                <option key={num} value={num}>{num} {num === 1 ? 'Person' : 'Personen'}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {errors.cart && <p className="field-error mt-3">{errors.cart}</p>}
                 </div>
               </motion.div>
             )}
@@ -387,7 +885,7 @@ const BookingPage = () => {
                   </div>
                   <div className="form-grid-2">
                     <div className="booking-field">
-                      <label>E-Mail *</label>
+                      <label>E-Mail * (für Rechnung & Bestätigung)</label>
                       <input type="email" value={guestData[0].email} onChange={e => handleMainFormChange('email', e.target.value)} placeholder="max@beispiel.de" />
                       {errors.email && <p className="field-error">{errors.email}</p>}
                     </div>
@@ -398,8 +896,8 @@ const BookingPage = () => {
                     </div>
                   </div>
                   <div className="booking-field">
-                    <label>Firma (optional)</label>
-                    <input type="text" value={guestData[0].company} onChange={e => handleMainFormChange('company', e.target.value)} placeholder="Muster GmbH" />
+                    <label>Firma / Organisation (optional)</label>
+                    <input type="text" value={guestData[0].company} onChange={e => handleMainFormChange('company', e.target.value)} placeholder="z. B. Montagebau GmbH" />
                   </div>
                   <div className="booking-field">
                     <label>Straße & Hausnummer *</label>
@@ -420,7 +918,7 @@ const BookingPage = () => {
                   </div>
                   <div className="booking-field">
                     <label>Anmerkungen (optional)</label>
-                    <textarea rows="3" value={guestData[0].notes} onChange={e => handleMainFormChange('notes', e.target.value)} placeholder="Besondere Wünsche, späte Anreise, etc." />
+                    <textarea rows="3" value={guestData[0].notes} onChange={e => handleMainFormChange('notes', e.target.value)} placeholder="Besondere Wünsche, späte Anreisezeiten etc." />
                   </div>
                 </div>
 
@@ -431,7 +929,7 @@ const BookingPage = () => {
                       <Users size={24} />
                       Weitere Gäste (Optional)
                     </h2>
-                    <p className="text-muted mb-4">Namen der Mitreisenden können hier hinterlegt werden.</p>
+                    <p className="text-muted mb-4">Namen der Mitreisenden können hier für die Gästeliste hinterlegt werden.</p>
                     
                     {guestData.slice(1).map((guest, idx) => (
                       <div key={idx} className="sub-guest-form">
@@ -471,56 +969,64 @@ const BookingPage = () => {
                   </h2>
 
                   <div className="summary-card">
-                    <div className="summary-row">
-                      <span className="summary-label"><Calendar size={18} /> Reisedaten</span>
-                      <span className="summary-value">{formatDate(checkin)} – {formatDate(checkout)} ({nights} {nights === 1 ? 'Nacht' : 'Nächte'})</span>
-                    </div>
+                    <h4 className="summary-subtitle">Gebuchte Zimmer & Zeiträume ({cart.length})</h4>
                     
-                    <div className="summary-divider" />
-                    <h4 className="summary-subtitle">Gewählte Zimmer</h4>
-                    
-                    {cart.map((item, idx) => {
-                      const roomDef = ROOMS.find(r => r.id === item.typeId);
-                      return (
-                        <div key={idx} className="summary-row">
-                          <span className="summary-label"><Bed size={18} /> {roomDef.name}</span>
-                          <span className="summary-value">{item.guests} {item.guests === 1 ? 'Person' : 'Personen'}</span>
-                        </div>
-                      );
-                    })}
+                    {cart.map((item, idx) => (
+                      <div key={idx} className="summary-row">
+                        <span className="summary-label">
+                          <Bed size={18} /> {item.name} ({item.guests} {item.guests === 1 ? 'Person' : 'Personen'})
+                          <span className="summary-date-sub">{formatDate(item.checkin)} – {formatDate(item.checkout)} ({item.nights} {item.nights === 1 ? 'Nacht' : 'Nächte'})</span>
+                          {item.hasCustomPeriod && <small className="summary-badge-inline">Sonderkondition: {item.periodName}</small>}
+                        </span>
+                        <span className="summary-value">{item.totalPrice.toFixed(2)} €</span>
+                      </div>
+                    ))}
 
                     <div className="summary-divider" />
-                    <h4 className="summary-subtitle">Ihre Daten</h4>
+                    <h4 className="summary-subtitle">Rechnungsempfänger</h4>
 
                     <div className="summary-row">
                       <span className="summary-label"><User size={18} /> Hauptbucher</span>
                       <span className="summary-value">{guestData[0].firstName} {guestData[0].lastName}</span>
                     </div>
+                    {guestData[0].company && (
+                      <div className="summary-row">
+                        <span className="summary-label"><Building2 size={18} /> Firma</span>
+                        <span className="summary-value">{guestData[0].company}</span>
+                      </div>
+                    )}
                     <div className="summary-row">
                       <span className="summary-label"><Mail size={18} /> E-Mail</span>
                       <span className="summary-value">{guestData[0].email}</span>
                     </div>
                     <div className="summary-row">
-                      <span className="summary-label"><MapPin size={18} /> Adresse</span>
+                      <span className="summary-label"><MapPin size={18} /> Rechnungsadresse</span>
                       <span className="summary-value">{guestData[0].street}, {guestData[0].zip} {guestData[0].city}</span>
                     </div>
 
-                    {totalGuests > 1 && guestData.slice(1).some(g => g.firstName || g.lastName) && (
-                      <div className="summary-row">
-                        <span className="summary-label"><Users size={18} /> Mitreisende</span>
-                        <span className="summary-value">
-                          {guestData.slice(1)
-                            .filter(g => g.firstName || g.lastName)
-                            .map(g => `${g.firstName} ${g.lastName}`.trim())
-                            .join(', ')}
-                        </span>
-                      </div>
-                    )}
-
                     <div className="summary-divider" />
+                    <div className="summary-row">
+                      <span className="summary-label">Nettobetrag (93%)</span>
+                      <span className="summary-value">{(totalPrice / 1.07).toFixed(2)} €</span>
+                    </div>
+                    <div className="summary-row">
+                      <span className="summary-label">7% Beherbergungs-USt.</span>
+                      <span className="summary-value">{(totalPrice - (totalPrice / 1.07)).toFixed(2)} €</span>
+                    </div>
                     <div className="summary-row summary-total">
-                      <span className="summary-label">Gesamtpreis</span>
+                      <span className="summary-label">Gesamtbetrag (brutto)</span>
                       <span className="summary-value">{totalPrice.toFixed(2)} €</span>
+                    </div>
+                  </div>
+
+                  {/* Payment Protection Notice & AGB Link */}
+                  <div className="checkout-trust-banner">
+                    <ShieldCheck size={24} className="trust-shield-icon" />
+                    <div>
+                      <strong>Sichere Buchung & Offizielle Rechnung</strong>
+                      <p>
+                        Nach Abschluss erhalten Sie sofort Ihre PDF-Rechnung. Mit Klick auf „Zahlungspflichtig buchen“ akzeptieren Sie unsere <Link to="/agb" target="_blank" className="underline font-semibold">AGB & Stornierungsbedingungen</Link>.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -537,12 +1043,22 @@ const BookingPage = () => {
             )}
             <div style={{ flex: 1 }} />
             {step < 2 ? (
-              <button className="btn-booking-next" onClick={handleNext}>
-                Weiter <ChevronRight size={18} />
+              <button 
+                className="btn-booking-next" 
+                onClick={handleNext}
+                disabled={isCheckingHold}
+              >
+                {isCheckingHold ? 'Verfügbarkeit wird geprüft...' : (
+                  <>Weiter ({totalPrice.toFixed(2)} €) <ChevronRight size={18} /></>
+                )}
               </button>
             ) : (
-              <button className="btn-booking-pay" onClick={handleSubmit}>
-                <CreditCard size={18} /> Zahlungspflichtig buchen
+              <button 
+                className="btn-booking-pay" 
+                onClick={handleOpenMollieModal}
+                disabled={isCheckingHold}
+              >
+                <CreditCard size={18} /> Zahlungspflichtig buchen ({totalPrice.toFixed(2)} €)
               </button>
             )}
           </div>
@@ -552,56 +1068,143 @@ const BookingPage = () => {
         <aside className="booking-sidebar">
           <div className="sidebar-card">
             <h3>Ihre Buchung</h3>
-            
-            {checkin && checkout && nights > 0 ? (
-              <div className="sidebar-dates">
-                <div className="sidebar-date-col">
-                  <small>Anreise</small>
-                  <strong>{formatDate(checkin)}</strong>
-                </div>
-                <div className="sidebar-date-col">
-                  <small>Abreise</small>
-                  <strong>{formatDate(checkout)}</strong>
-                </div>
-              </div>
-            ) : (
-              <p className="sidebar-placeholder mb-4">Bitte wählen Sie ein Reisedatum.</p>
-            )}
 
             {cart.length > 0 ? (
               <div className="sidebar-details">
-                {cart.map((item, idx) => {
-                  const roomDef = ROOMS.find(r => r.id === item.typeId);
-                  const itemPrice = roomDef.isPerPerson ? (roomDef.price * item.guests * nights) : (roomDef.price * nights);
-                  return (
-                    <div key={idx} className="sidebar-cart-item">
-                      <div className="sidebar-cart-item-header">
-                        <strong>{roomDef.name}</strong>
-                        <span>{itemPrice.toFixed(2)} €</span>
-                      </div>
-                      <small>{item.guests} {item.guests === 1 ? 'Person' : 'Personen'}</small>
+                {cart.map((item, idx) => (
+                  <div key={idx} className="sidebar-cart-item">
+                    <div className="sidebar-cart-item-header">
+                      <strong>{item.name}</strong>
+                      <span>{item.totalPrice.toFixed(2)} €</span>
                     </div>
-                  );
-                })}
+                    <small>{formatDate(item.checkin)} – {formatDate(item.checkout)} ({item.nights} Nächte)</small>
+                    <small className="text-muted">{item.guests} {item.guests === 1 ? 'Person' : 'Personen'}</small>
+                    {item.hasCustomPeriod && (
+                      <small className="text-amber">Sonderkondition: {item.periodName}</small>
+                    )}
+                  </div>
+                ))}
                 
                 <div className="sidebar-divider" />
                 <div className="sidebar-row sidebar-total">
-                  <span>Gesamt ({nights} Nächte)</span>
+                  <span>Gesamt ({totalCartNights} Nächte)</span>
                   <strong>{totalPrice.toFixed(2)} €</strong>
                 </div>
               </div>
             ) : (
-              <p className="sidebar-placeholder">Ihr Warenkorb ist leer. Fügen Sie Zimmer hinzu.</p>
+              <p className="sidebar-placeholder">Ihr Warenkorb ist leer. Fügen Sie oben Zimmer für die gewünschten Termine hinzu.</p>
             )}
             
             <div className="sidebar-trust">
-              <div className="sidebar-trust-item"><ShieldCheck size={16} /> Sichere Buchung</div>
+              <div className="sidebar-trust-item"><ShieldCheck size={16} /> Sichere Buchung & Datenschutz</div>
               <div className="sidebar-trust-item"><Star size={16} /> Bester Preis garantiert</div>
-              <div className="sidebar-trust-item"><Check size={16} /> Flexible Stornierung</div>
+              <div className="sidebar-trust-item"><Check size={16} /> Sofortige PDF-Rechnung</div>
             </div>
           </div>
         </aside>
       </div>
+
+      {/* Footer across the booking page */}
+      <Footer />
+
+      {/* =========================================================================
+          MOLLIE PAYMENT MODAL SIMULATION
+         ========================================================================= */}
+      <AnimatePresence>
+        {showMollieModal && (
+          <div className="mollie-modal-backdrop" onClick={() => !isProcessingPayment && setShowMollieModal(false)}>
+            <motion.div 
+              className="mollie-modal-card"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Mollie Header */}
+              <div className="mollie-header">
+                <div className="mollie-brand">
+                  <div className="mollie-logo-badge">mollie</div>
+                  <span className="mollie-mode-badge">Sandbox / Test-Modus</span>
+                </div>
+                {!isProcessingPayment && (
+                  <button className="mollie-close" onClick={() => setShowMollieModal(false)}>×</button>
+                )}
+              </div>
+
+              {/* Order Info */}
+              <div className="mollie-body">
+                <div className="mollie-order-summary">
+                  <div>
+                    <span className="mollie-merchant">Hostel Neustadt</span>
+                    <h3 className="mollie-title">Buchung ({cart.length} Zimmer)</h3>
+                  </div>
+                  <div className="mollie-amount">
+                    <span className="mollie-total">{totalPrice.toFixed(2)} €</span>
+                    <small>inkl. 7% USt.</small>
+                  </div>
+                </div>
+
+                <div className="mollie-methods-title">
+                  <span>Wählen Sie Ihre bevorzugte Zahlungsart</span>
+                </div>
+
+                {/* Methods List */}
+                <div className="mollie-methods-list">
+                  {PAYMENT_METHODS.map(method => (
+                    <label 
+                      key={method.id} 
+                      className={`mollie-method-item ${selectedPaymentMethod === method.id ? 'active' : ''}`}
+                    >
+                      <input 
+                        type="radio" 
+                        name="paymentMethod" 
+                        checked={selectedPaymentMethod === method.id}
+                        onChange={() => setSelectedPaymentMethod(method.id)}
+                        disabled={isProcessingPayment}
+                      />
+                      <span className="mollie-method-icon">{method.icon}</span>
+                      <span className="mollie-method-label">{method.label}</span>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="mollie-security-notice">
+                  <ShieldCheck size={16} />
+                  <span>Test-Zahlungsumgebung. Keine Belastung Ihres Bankkontos.</span>
+                </div>
+              </div>
+
+              {/* Mollie Footer */}
+              <div className="mollie-footer">
+                <button 
+                  className="btn-mollie-cancel"
+                  onClick={() => setShowMollieModal(false)}
+                  disabled={isProcessingPayment}
+                >
+                  Abbrechen
+                </button>
+                <button 
+                  className="btn-mollie-pay"
+                  onClick={handleExecuteMolliePayment}
+                  disabled={isProcessingPayment}
+                >
+                  {isProcessingPayment ? (
+                    <>
+                      <RefreshCw size={16} className="spin-icon" />
+                      <span>Zahlung wird autorisiert...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>{totalPrice.toFixed(2)} € bezahlen</span>
+                      <ChevronRight size={16} />
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
