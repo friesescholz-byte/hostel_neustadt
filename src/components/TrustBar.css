@@ -8,7 +8,9 @@
   margin-top: -100px;
   padding: 0 0 4rem;
   background: linear-gradient(180deg, transparent 0%, #e4ecf5 30%, #ffffff 100%);
-  overflow: visible;
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* ---- Decorative Background Shapes ---- */

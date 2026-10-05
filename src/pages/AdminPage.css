@@ -2760,7 +2760,7 @@
     padding: 0 0.75rem;
   }
 
-  /* KPI Grid Compact 2x2 */
+  /* KPI Grid Compact 2x2 - Vertical Stacked Cards to Prevent Any Truncation */
   .admin-kpi-grid.four-cards {
     grid-template-columns: 1fr 1fr !important;
     gap: 0.65rem !important;
@@ -2768,28 +2768,57 @@
   }
 
   .admin-kpi-card {
-    padding: 0.85rem 0.75rem !important;
-    gap: 0.65rem !important;
+    padding: 0.75rem 0.65rem !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.35rem !important;
+    min-height: 105px !important;
   }
 
   .kpi-icon-box {
-    width: 36px !important;
-    height: 36px !important;
-    border-radius: 8px !important;
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 6px !important;
+    margin-bottom: 0.15rem !important;
   }
 
   .kpi-icon-box svg {
-    width: 18px !important;
-    height: 18px !important;
+    width: 15px !important;
+    height: 15px !important;
+  }
+
+  .kpi-data {
+    width: 100% !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
   }
 
   .kpi-data .kpi-label {
-    font-size: 0.725rem !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    color: #475569 !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    line-height: 1.2 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
   }
 
   .kpi-data .kpi-value {
-    font-size: 1.2rem !important;
-    margin: 0.15rem 0 !important;
+    font-size: 1.35rem !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    margin: 0.2rem 0 0.1rem 0 !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+  }
+
+  .kpi-val-unit {
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+    color: #64748b !important;
   }
 
   .kpi-guests-preview {
@@ -2798,10 +2827,92 @@
 
   .kpi-subtext {
     font-size: 0.7rem !important;
-    display: -webkit-box;
-    -webkit-line-clamp: 1;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    color: #64748b !important;
+    line-height: 1.25 !important;
+    margin-top: 0.1rem !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+
+  .kpi-subtext-desktop {
+    display: none !important;
+  }
+
+  .kpi-subtext-mobile {
+    display: inline !important;
+  }
+
+  /* Segmented 3-Column Tab Bar on Mobile */
+  .admin-nav-tabs {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr !important;
+    gap: 0.35rem !important;
+    padding: 0.25rem !important;
+    background: #e2e8f0 !important;
+    border-radius: 10px !important;
+    border-bottom: none !important;
+    margin-bottom: 1.25rem !important;
+  }
+
+  .admin-tab-btn {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0.6rem 0.25rem !important;
+    font-size: 0.775rem !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    border-bottom: none !important;
+    white-space: nowrap !important;
+    gap: 0.3rem !important;
+    background: transparent !important;
+  }
+
+  .admin-tab-btn svg {
+    width: 15px !important;
+    height: 15px !important;
+  }
+
+  .admin-tab-btn.active {
+    background: #ffffff !important;
+    color: #0f2b5c !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  .tab-label-desktop {
+    display: none !important;
+  }
+
+  .tab-label-mobile {
+    display: inline !important;
+  }
+
+  .tab-subtitle {
+    display: none !important;
+  }
+
+  .desk-controls-card {
+    padding: 0.75rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .admin-empty-state {
+    padding: 2rem 1rem !important;
+  }
+
+  .admin-empty-state .empty-icon {
+    width: 32px !important;
+    height: 32px !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .admin-empty-state h4 {
+    font-size: 1rem !important;
+    margin-bottom: 0.25rem !important;
+  }
+
+  .admin-empty-state p {
+    font-size: 0.8rem !important;
   }
 
   /* Calendar Week Controls */
@@ -2833,6 +2944,21 @@
 
   .date-jump-wrap input[type="date"] {
     flex: 1;
+  }
+}
+
+@media (min-width: 641px) {
+  .kpi-subtext-mobile {
+    display: none !important;
+  }
+  .kpi-subtext-desktop {
+    display: inline !important;
+  }
+  .tab-label-mobile {
+    display: none !important;
+  }
+  .tab-label-desktop {
+    display: inline !important;
   }
 }
 

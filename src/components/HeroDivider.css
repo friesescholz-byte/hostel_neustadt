@@ -3,6 +3,9 @@
   margin-top: -320px;
   z-index: 5;
   pointer-events: none;
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
 }
 
 .hero-divider-wave {

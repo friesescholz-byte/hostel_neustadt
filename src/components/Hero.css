@@ -5,7 +5,9 @@
   align-items: center;
   color: white;
   padding-bottom: 10rem;
-  overflow: visible;
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
 }
 
 .hero-bg {

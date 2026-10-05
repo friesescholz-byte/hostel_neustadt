@@ -27,10 +27,18 @@
 
 .rooms-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 520px));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 520px));
   justify-content: center;
   gap: 2.5rem;
   margin-bottom: 3.5rem;
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .rooms-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
 }
 
 .room-card {

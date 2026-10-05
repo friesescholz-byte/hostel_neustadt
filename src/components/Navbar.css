@@ -99,7 +99,9 @@
   position: absolute;
   top: 100%;
   left: 0;
-  width: 100vw;
+  right: 0;
+  width: 100%;
+  max-width: 100%;
   height: calc(100vh - 60px);
   background: white;
   padding: 2rem;

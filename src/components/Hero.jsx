@@ -5,16 +5,44 @@ import { ShieldCheck, Calendar, User, Bed, ChevronDown } from 'lucide-react';
 import RotatingText from './RotatingText';
 import './Hero.css';
 
+const formatISODate = (d) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const Hero = () => {
   const navigate = useNavigate();
-  const [checkin, setCheckin] = useState('');
-  const [checkout, setCheckout] = useState('');
+  const todayStr = formatISODate(new Date());
+
+  const [checkin, setCheckin] = useState(() => {
+    return formatISODate(new Date());
+  });
+
+  const [checkout, setCheckout] = useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return formatISODate(tomorrow);
+  });
+
   const [guests, setGuests] = useState('1');
 
   const handleBookingSubmit = (e) => {
     e.preventDefault();
     navigate(`/buchen?checkin=${checkin}&checkout=${checkout}&guests=${guests}`);
   };
+
+  const handleCheckinChange = (val) => {
+    setCheckin(val);
+    if (!val) return;
+    if (checkout && checkout <= val) {
+      const nextDay = new Date(val);
+      nextDay.setDate(nextDay.getDate() + 1);
+      setCheckout(formatISODate(nextDay));
+    }
+  };
+
   return (
     <section className="hero">
       <div className="hero-bg" style={{backgroundImage: "url('https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Gallerie/hf_20260609_133100_27b50ece-1bb3-4038-bcd6-e04b22539324_ergebnis.webp')"}}></div>
@@ -24,8 +52,8 @@ const Hero = () => {
         <div className="hero-content-left">
           <motion.div 
             className="hero-text"
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
             <span className="hero-eyebrow">
@@ -76,14 +104,26 @@ const Hero = () => {
                 <label>Anreise</label>
                 <div className="input-wrapper">
                   <Calendar size={18} className="input-icon" />
-                  <input type="date" value={checkin} onChange={e => setCheckin(e.target.value)} required />
+                  <input 
+                    type="date" 
+                    value={checkin} 
+                    min={todayStr}
+                    onChange={e => handleCheckinChange(e.target.value)} 
+                    required 
+                  />
                 </div>
               </div>
               <div className="form-group">
                 <label>Abreise</label>
                 <div className="input-wrapper">
                   <Calendar size={18} className="input-icon" />
-                  <input type="date" value={checkout} onChange={e => setCheckout(e.target.value)} required />
+                  <input 
+                    type="date" 
+                    value={checkout} 
+                    min={checkin || todayStr}
+                    onChange={e => setCheckout(e.target.value)} 
+                    required 
+                  />
                 </div>
               </div>
               <div className="form-group">

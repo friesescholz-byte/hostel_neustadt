@@ -35,7 +35,7 @@ export default function AdminPage() {
 
   // UI States
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('upcoming'); // 'upcoming' | 'today_checkin' | 'today_inhouse' | 'today_checkout' | 'open' | 'all' | 'cancelled'
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'today_checkin' | 'today_inhouse' | 'today_checkout' | 'upcoming' | 'open' | 'inquiry' | 'cancelled'
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [showAddPeriodModal, setShowAddPeriodModal] = useState(false);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState('');
@@ -839,7 +839,8 @@ export default function AdminPage() {
             <div className="kpi-data">
               <span className="kpi-label">Aktive Buchungen</span>
               <h3 className="kpi-value">{stats.activeBookingsCount}</h3>
-              <span className="kpi-subtext">{stats.totalGuests} Gäste · {stats.totalNights} gebuchte Nächte</span>
+              <span className="kpi-subtext kpi-subtext-desktop">{stats.totalGuests} Gäste · {stats.totalNights} gebuchte Nächte</span>
+              <span className="kpi-subtext kpi-subtext-mobile">{stats.totalGuests} Gäste · {stats.totalNights} Nächte</span>
             </div>
           </div>
 
@@ -854,8 +855,12 @@ export default function AdminPage() {
             </div>
             <div className="kpi-data">
               <span className="kpi-label">Zimmerbestand</span>
-              <h3 className="kpi-value">{(inventory.einzelzimmer || 10) + (inventory.doppelzimmer || 8)} Zimmer</h3>
-              <span className="kpi-subtext">{inventory.einzelzimmer} Einzelzimmer · {inventory.doppelzimmer} Doppelzimmer</span>
+              <h3 className="kpi-value">
+                <span className="kpi-val-num">{(inventory.einzelzimmer || 10) + (inventory.doppelzimmer || 8)}</span>
+                <small className="kpi-val-unit"> Zimmer</small>
+              </h3>
+              <span className="kpi-subtext kpi-subtext-desktop">{inventory.einzelzimmer} Einzelzimmer · {inventory.doppelzimmer} Doppelzimmer</span>
+              <span className="kpi-subtext kpi-subtext-mobile">{inventory.einzelzimmer} EZ · {inventory.doppelzimmer} DZ</span>
             </div>
           </div>
         </section>
@@ -867,7 +872,8 @@ export default function AdminPage() {
             onClick={() => setActiveTab('bookings')}
           >
             <Users size={18} />
-            <span>Buchungsübersicht & Rezeption ({bookings.length})</span>
+            <span className="tab-label-desktop">Buchungsübersicht & Rezeption ({bookings.length})</span>
+            <span className="tab-label-mobile">Buchungen ({bookings.length})</span>
           </button>
 
           <button 
@@ -875,7 +881,8 @@ export default function AdminPage() {
             onClick={() => setActiveTab('inventory')}
           >
             <CalendarDays size={18} />
-            <span>Wochen-Belegungskalender</span>
+            <span className="tab-label-desktop">Wochen-Belegungskalender</span>
+            <span className="tab-label-mobile">Kalender</span>
           </button>
 
           <button 
@@ -883,7 +890,8 @@ export default function AdminPage() {
             onClick={() => setActiveTab('pricing')}
           >
             <Calendar size={18} />
-            <span>Staffelpreise & Sonderkonditionen ({customPeriods.length})</span>
+            <span className="tab-label-desktop">Staffelpreise & Sonderkonditionen ({customPeriods.length})</span>
+            <span className="tab-label-mobile">Preise ({customPeriods.length})</span>
           </button>
         </nav>
 
@@ -926,11 +934,11 @@ export default function AdminPage() {
             <div className="desk-controls-card mb-4">
               <div className="desk-filter-pills">
                 <button 
-                  className={`desk-pill ${statusFilter === 'upcoming' ? 'active' : ''}`}
-                  onClick={() => setStatusFilter('upcoming')}
+                  className={`desk-pill ${statusFilter === 'all' ? 'active' : ''}`}
+                  onClick={() => setStatusFilter('all')}
                 >
-                  <span>📅 Alle anstehenden</span>
-                  <span className="desk-pill-badge">{deskCounts.upcoming}</span>
+                  <span>Alle</span>
+                  <span className="desk-pill-badge">{deskCounts.all}</span>
                 </button>
 
                 <button 
@@ -957,6 +965,14 @@ export default function AdminPage() {
                   <span className="desk-pill-badge badge-amber">{deskCounts.todayCheckout}</span>
                 </button>
 
+                <button 
+                  className={`desk-pill ${statusFilter === 'upcoming' ? 'active' : ''}`}
+                  onClick={() => setStatusFilter('upcoming')}
+                >
+                  <span>📅 Anstehend</span>
+                  <span className="desk-pill-badge">{deskCounts.upcoming}</span>
+                </button>
+
                 {deskCounts.openHolds > 0 && (
                   <button 
                     className={`desk-pill ${statusFilter === 'open' ? 'active' : ''}`}
@@ -981,19 +997,13 @@ export default function AdminPage() {
                   </button>
                 )}
 
-                <button 
-                  className={`desk-pill ${statusFilter === 'all' ? 'active' : ''}`}
-                  onClick={() => setStatusFilter('all')}
-                >
-                  <span>Alle ({deskCounts.all})</span>
-                </button>
-
                 {deskCounts.cancelled > 0 && (
                   <button 
                     className={`desk-pill ${statusFilter === 'cancelled' ? 'active' : ''}`}
                     onClick={() => setStatusFilter('cancelled')}
                   >
-                    <span>✕ Storniert ({deskCounts.cancelled})</span>
+                    <span>✕ Storniert</span>
+                    <span className="desk-pill-badge">{deskCounts.cancelled}</span>
                   </button>
                 )}
               </div>
