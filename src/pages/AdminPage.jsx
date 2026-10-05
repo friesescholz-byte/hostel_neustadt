@@ -847,8 +847,8 @@ export default function AdminPage() {
           {/* Card 4: Zimmerbestand */}
           <div 
             className="admin-kpi-card interactive"
-            onClick={() => setActiveTab('inventory')}
-            title="Klicken, um Zimmerbestand & Kalender zu öffnen"
+            onClick={() => setActiveTab('pricing')}
+            title="Klicken, um Zimmerkontingente & Preise zu öffnen"
           >
             <div className="kpi-icon-box amber">
               <Bed size={22} />
@@ -1347,24 +1347,31 @@ export default function AdminPage() {
                   <div className="week-header-info">
                     <div className="week-title-badge">
                       <CalendarDays size={20} />
-                      <h3>Wochen-Belegungskalender</h3>
+                      <span className="week-current-range">{currentWeekRangeLabel}</span>
                     </div>
-                    <span className="week-current-range">{currentWeekRangeLabel}</span>
                   </div>
 
                   <div className="calendar-nav-controls">
-                    <button className="btn-week-nav" onClick={handlePrevWeek} title="Vorherige Woche">
-                      <ChevronLeft size={16} /> Vorherige Woche
-                    </button>
-                    <button className="btn-week-nav today-btn" onClick={handleCurrentWeek} title="Zur aktuellen Woche springen">
-                      Aktuelle Woche
-                    </button>
-                    <button className="btn-week-nav" onClick={handleNextWeek} title="Nächste Woche">
-                      Nächste Woche <ChevronRight size={16} />
-                    </button>
+                    <div className="calendar-btn-nav-group">
+                      <button className="btn-week-nav" onClick={handlePrevWeek} title="Vorherige Woche">
+                        <ChevronLeft size={16} />
+                        <span className="btn-week-text-desktop">Vorherige Woche</span>
+                        <span className="btn-week-text-mobile">Zurück</span>
+                      </button>
+                      <button className="btn-week-nav today-btn" onClick={handleCurrentWeek} title="Zur aktuellen Woche springen">
+                        <span className="btn-week-text-desktop">Aktuelle Woche</span>
+                        <span className="btn-week-text-mobile">Heute</span>
+                      </button>
+                      <button className="btn-week-nav" onClick={handleNextWeek} title="Nächste Woche">
+                        <span className="btn-week-text-desktop">Nächste Woche</span>
+                        <span className="btn-week-text-mobile">Weiter</span>
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
 
                     <div className="date-jump-wrap">
-                      <label htmlFor="jumpDateInput">Datum:</label>
+                      <Calendar size={15} className="date-jump-icon" />
+                      <label htmlFor="jumpDateInput" className="date-jump-label">Datum:</label>
                       <input 
                         id="jumpDateInput"
                         type="date" 
@@ -1459,64 +1466,6 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Zimmerbestand & Überbuchungsschutz einstellen */}
-              <div className="admin-card mt-4">
-                <div className="card-header">
-                  <h3>Hostel-Zimmerkontingent & Überbuchungsschutz</h3>
-                  <p className="text-muted text-xs">Gesamtzahl physischer Zimmer zur automatischen Überbuchungsvermeidung</p>
-                </div>
-                <form onSubmit={handleSaveInventory} className="admin-form">
-                  <div className="admin-split-grid">
-                    <div className="form-group-admin">
-                      <label>
-                        <span>Verfügbare Einzelzimmer (Gesamtkontingent)</span>
-                        <small className="help-text">Physische Einzelzimmer im Gebäude</small>
-                      </label>
-                      <div className="input-with-stepper">
-                        <input 
-                          type="number" 
-                          min="1" 
-                          max="50" 
-                          value={inventory.einzelzimmer}
-                          onChange={(e) => setInventory({ ...inventory, einzelzimmer: parseInt(e.target.value) || 0 })}
-                          required
-                        />
-                        <span className="unit-label">Zimmer</span>
-                      </div>
-                    </div>
-
-                    <div className="form-group-admin">
-                      <label>
-                        <span>Verfügbare Doppelzimmer (Gesamtkontingent)</span>
-                        <small className="help-text">Physische Doppelzimmer im Gebäude</small>
-                      </label>
-                      <div className="input-with-stepper">
-                        <input 
-                          type="number" 
-                          min="1" 
-                          max="50" 
-                          value={inventory.doppelzimmer}
-                          onChange={(e) => setInventory({ ...inventory, doppelzimmer: parseInt(e.target.value) || 0 })}
-                          required
-                        />
-                        <span className="unit-label">Zimmer</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="inventory-summary-box">
-                    <ShieldCheck size={20} className="shield-icon" />
-                    <div>
-                      <strong>Überbuchungsschutz aktiv</strong>
-                      <p>Vor jeder Reservierung prüft das System in Echtzeit das Kontingent. Sobald alle Zimmer belegt sind, blockiert die Buchungsseite weitere Anfragen für den Zeitraum automatisch.</p>
-                    </div>
-                  </div>
-
-                  <button type="submit" className="btn-admin-primary">
-                    <Check size={16} /> Zimmerkontingente aktualisieren
-                  </button>
-                </form>
-              </div>
             </div>
           </section>
         )}
@@ -1528,8 +1477,8 @@ export default function AdminPage() {
           <section className="admin-tab-content">
             <div className="tab-header-flex">
               <div>
-                <h2>Preise, Rabattstaffeln & Sonderkonditionen</h2>
-                <p className="tab-subtitle">Passen Sie hier die regulären gestaffelten Übernachtungspreise an oder hinterlegen Sie Sonderkonditionen für Messen, Veranstaltungen oder Saisons.</p>
+                <h2>Preise, Sonderkonditionen & Zimmerkontingente</h2>
+                <p className="tab-subtitle">Passen Sie hier die regulären gestaffelten Übernachtungspreise an, hinterlegen Sie Sonderkonditionen für Messen & Saisons oder konfigurieren Sie das physische Zimmerkontingent.</p>
               </div>
 
               <button className="btn-admin-primary" onClick={() => setShowAddPeriodModal(true)}>
@@ -1741,6 +1690,65 @@ export default function AdminPage() {
                   </table>
                 </div>
               )}
+            </div>
+
+            {/* Zimmerbestand & Überbuchungsschutz einstellen */}
+            <div className="admin-card mt-6">
+              <div className="card-header">
+                <h3>Hostel-Zimmerkontingent & Überbuchungsschutz</h3>
+                <p className="text-muted text-xs">Gesamtzahl physischer Zimmer zur automatischen Überbuchungsvermeidung</p>
+              </div>
+              <form onSubmit={handleSaveInventory} className="admin-form">
+                <div className="admin-split-grid">
+                  <div className="form-group-admin">
+                    <label>
+                      <span>Verfügbare Einzelzimmer (Gesamtkontingent)</span>
+                      <small className="help-text">Physische Einzelzimmer im Gebäude</small>
+                    </label>
+                    <div className="input-with-stepper">
+                      <input 
+                        type="number" 
+                        min="1" 
+                        max="50" 
+                        value={inventory.einzelzimmer}
+                        onChange={(e) => setInventory({ ...inventory, einzelzimmer: parseInt(e.target.value) || 0 })}
+                        required
+                      />
+                      <span className="unit-label">Zimmer</span>
+                    </div>
+                  </div>
+
+                  <div className="form-group-admin">
+                    <label>
+                      <span>Verfügbare Doppelzimmer (Gesamtkontingent)</span>
+                      <small className="help-text">Physische Doppelzimmer im Gebäude</small>
+                    </label>
+                    <div className="input-with-stepper">
+                      <input 
+                        type="number" 
+                        min="1" 
+                        max="50" 
+                        value={inventory.doppelzimmer}
+                        onChange={(e) => setInventory({ ...inventory, doppelzimmer: parseInt(e.target.value) || 0 })}
+                        required
+                      />
+                      <span className="unit-label">Zimmer</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="inventory-summary-box">
+                  <ShieldCheck size={20} className="shield-icon" />
+                  <div>
+                    <strong>Überbuchungsschutz aktiv</strong>
+                    <p>Vor jeder Reservierung prüft das System in Echtzeit das Kontingent. Sobald alle Zimmer belegt sind, blockiert die Buchungsseite weitere Anfragen für den Zeitraum automatisch.</p>
+                  </div>
+                </div>
+
+                <button type="submit" className="btn-admin-primary">
+                  <Check size={16} /> Zimmerkontingente aktualisieren
+                </button>
+              </form>
             </div>
           </section>
         )}
