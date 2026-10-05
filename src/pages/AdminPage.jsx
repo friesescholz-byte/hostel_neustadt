@@ -1477,13 +1477,9 @@ export default function AdminPage() {
           <section className="admin-tab-content">
             <div className="tab-header-flex">
               <div>
-                <h2>Preise, Sonderkonditionen & Zimmerkontingente</h2>
-                <p className="tab-subtitle">Passen Sie hier die regulären gestaffelten Übernachtungspreise an, hinterlegen Sie Sonderkonditionen für Messen & Saisons oder konfigurieren Sie das physische Zimmerkontingent.</p>
+                <h2>Preise & Zimmerverwaltung</h2>
+                <p className="tab-subtitle">Reguläre Übernachtungs-Staffelpreise, Sonderkonditionen für Messen & Saisons sowie Zimmerkontingente.</p>
               </div>
-
-              <button className="btn-admin-primary" onClick={() => setShowAddPeriodModal(true)}>
-                <Plus size={16} /> Neue Sonderkondition
-              </button>
             </div>
 
             {/* Staffelpreise Config Form */}
@@ -1606,14 +1602,6 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="pricing-info-banner">
-                  <div className="banner-icon">i</div>
-                  <div>
-                    <strong>Sonderkonditionen für Langzeitaufenthalte & Messezeiten:</strong>
-                    <p>Auf der Website wird dezent darauf hingewiesen: <em>„Für längerfristige Aufenthalte gelten Sonderkonditionen → auf Anfrage“</em> und <em>„Zu Messezeiten gelten Sonderkonditionen“</em>. Eigene Datumsintervalle überschreiben in diesem Zeitraum die reguläre Staffel.</p>
-                  </div>
-                </div>
-
                 <div className="form-submit-row">
                   <button type="submit" className="btn-admin-primary">
                     <Check size={16} /> Staffelpreise speichern
@@ -1626,9 +1614,12 @@ export default function AdminPage() {
             <div className="admin-card">
               <div className="card-header space-between">
                 <div>
-                  <h3>Aktive Sonderkonditionen & Zeiträume ({customPeriods.length})</h3>
+                  <h3>Sonderkonditionen & Messezeiträume ({customPeriods.length})</h3>
                   <small className="text-muted">Für Daten innerhalb dieser Intervalle überschreiben diese Preise die reguläre Staffel.</small>
                 </div>
+                <button className="btn-admin-primary" onClick={() => setShowAddPeriodModal(true)}>
+                  <Plus size={16} /> Neue Sonderkondition hinzufügen
+                </button>
               </div>
 
               {customPeriods.length === 0 ? (
@@ -1636,6 +1627,9 @@ export default function AdminPage() {
                   <Calendar size={36} className="empty-icon" />
                   <h4>Keine Sonderkonditionen hinterlegt</h4>
                   <p>Legen Sie Sonderzeiträume an, um zu bestimmten Terminen angepasste Raten festzulegen.</p>
+                  <button className="btn-admin-primary mt-4" onClick={() => setShowAddPeriodModal(true)}>
+                    <Plus size={16} /> Neue Sonderkondition hinzufügen
+                  </button>
                 </div>
               ) : (
                 <div className="table-responsive">
