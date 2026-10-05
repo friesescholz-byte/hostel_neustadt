@@ -288,3 +288,172 @@ export async function sendBookingConfirmationEmails(booking) {
     ownerSent: ownerRes.ok
   };
 }
+
+/**
+ * Sends notifications for long-term stay inquiries (>= 14 nights)
+ * to both customer (acknowledgment) and owner (lead notification).
+ */
+export async function sendLongTermInquiryEmails(inquiry) {
+  if (!inquiry) return { success: false, error: 'Keine Anfragedaten übergeben' };
+
+  const guest = inquiry.guest || {};
+  const rooms = inquiry.rooms || [];
+  const checkinDE = inquiry.checkin ? new Date(inquiry.checkin).toLocaleDateString('de-DE') : '-';
+  const checkoutDE = inquiry.checkout ? new Date(inquiry.checkout).toLocaleDateString('de-DE') : '-';
+
+  const roomsSummary = rooms.map(r => {
+    const title = r.name || (r.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer');
+    return `${r.count || 1}x ${title} (${r.guests || 1} Gast/Gäste)`;
+  }).join(', ');
+
+  const customerSalutation = guest.lastName ? `Sehr geehrte(r) Frau/Herr ${guest.lastName},` : 'Sehr geehrte Damen und Herren,';
+
+  // Customer Acknowledgment Email
+  const customerEmailHtml = `
+    <!DOCTYPE html>
+    <html lang="de">
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1e293b; background-color: #f8fafc; margin: 0; padding: 24px; }
+        .container { max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+        .header { background: #0F2B5C; padding: 32px 30px; text-align: center; color: #ffffff; }
+        .brand-title { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }
+        .sub-title { margin: 8px 0 0 0; color: #93c5fd; font-size: 14px; }
+        .content { padding: 32px 30px; line-height: 1.6; }
+        .inquiry-badge-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 14px 18px; margin: 20px 0; color: #1e40af; }
+        .table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 14px; }
+        .footer { background: #f8fafc; padding: 22px 30px; font-size: 12px; color: #64748b; text-align: center; border-top: 1px solid #e2e8f0; line-height: 1.5; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1 class="brand-title">HOSTEL NEUSTADT</h1>
+          <p class="sub-title">Eingangsbestätigung Langzeitaufenthalt · Vorgangs-Nr. ${inquiry.bookingNumber}</p>
+        </div>
+        <div class="content">
+          <p style="font-size: 15px; margin-top: 0;">${customerSalutation}</p>
+          <p style="font-size: 14px; color: #334155;">
+            vielen Dank für Ihre Anfrage für einen Langzeitaufenthalt (ab 14 Nächte) im <strong>Hostel Neustadt</strong>.
+            Wir haben Ihre Anfrage erfolgreich erhalten.
+          </p>
+
+          <div class="inquiry-badge-box">
+            <strong style="font-size: 14px;">✓ Anfrage eingegangen & in Bearbeitung</strong><br>
+            <span style="font-size: 13px;">Wir prüfen die Verfügbarkeit für Ihren Zeitraum und erstellen Ihnen kurzfristig ein individuelles Angebot mit attraktiven Sonderkonditionen.</span>
+          </div>
+
+          <h3 style="color: #0F2B5C; margin: 24px 0 10px 0; font-size: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">Ihre angefragten Daten:</h3>
+          <table style="width: 100%; font-size: 13px; color: #334155; margin-bottom: 16px;">
+            <tr>
+              <td style="padding: 4px 0; width: 140px;"><strong>Anreise:</strong></td>
+              <td style="padding: 4px 0;">${checkinDE}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0;"><strong>Abreise:</strong></td>
+              <td style="padding: 4px 0;">${checkoutDE}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0;"><strong>Dauer:</strong></td>
+              <td style="padding: 4px 0;">${inquiry.nights || 14} Übernachtungen</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0;"><strong>Gewünschte Zimmer:</strong></td>
+              <td style="padding: 4px 0;"><strong>${roomsSummary || 'Zimmer nach Vereinbarung'}</strong></td>
+            </tr>
+            ${guest.company ? `
+            <tr>
+              <td style="padding: 4px 0;"><strong>Firma:</strong></td>
+              <td style="padding: 4px 0;">${guest.company}</td>
+            </tr>` : ''}
+            ${guest.notes ? `
+            <tr>
+              <td style="padding: 4px 0; vertical-align: top;"><strong>Ihre Notiz:</strong></td>
+              <td style="padding: 4px 0; color: #b45309;">${guest.notes}</td>
+            </tr>` : ''}
+          </table>
+
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; font-size: 13px; color: #475569; margin-top: 24px;">
+            <strong>Haben Sie dringende Rückfragen?</strong><br>
+            Sie erreichen uns direkt telefonisch unter <strong>+49 123 4567890</strong> oder per E-Mail an <a href="mailto:info@hostel-neustadt.de" style="color: #2563eb;">info@hostel-neustadt.de</a>.
+          </div>
+        </div>
+
+        <div class="footer">
+          <p style="margin: 0 0 6px 0;"><strong>Hostel Neustadt</strong> · Inh.: Scholz & Friese GbR</p>
+          <p style="margin: 0 0 4px 0;">Bahnhofstraße 10 · 31535 Neustadt am Rübenberge · www.hostel-neustadt.de</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  // Owner Notification Email
+  const ownerEmailHtml = `
+    <!DOCTYPE html>
+    <html lang="de">
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1e293b; background: #f8fafc; margin: 0; padding: 24px; }
+        .container { max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 28px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+        .badge { display: inline-block; background: #7c3aed; color: #ffffff; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 6px; }
+        .info-card { background: #f5f3ff; border: 1px solid #ddd6fe; padding: 16px; border-radius: 8px; margin: 16px 0; font-size: 14px; line-height: 1.6; }
+        .btn { display: inline-block; background: #0F2B5C; color: #ffffff !important; font-weight: 600; text-decoration: none; padding: 12px 22px; border-radius: 6px; margin-top: 20px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <span class="badge">📋 Langzeit-Anfrage (ab 14 Nächte)</span>
+        <h2 style="color: #0F2B5C; margin: 12px 0 6px 0;">Neue individuelle Anfrage eingegangen!</h2>
+        <p style="color: #64748b; font-size: 14px; margin-top: 0;">Ein Gast hat über das Langzeit-Formular angefragt:</p>
+
+        <div class="info-card">
+          <strong>Vorgangs-Nr.:</strong> ${inquiry.bookingNumber}<br>
+          <strong>Zeitraum:</strong> ${checkinDE} bis ${checkoutDE} (<strong>${inquiry.nights || 14} Nächte</strong>)<br>
+          <strong>Zimmerbedarf:</strong> ${roomsSummary}<br>
+          <strong>Kunde:</strong> ${guest.firstName || ''} ${guest.lastName || ''} ${guest.company ? `(${guest.company})` : ''}
+        </div>
+
+        <h4 style="margin: 20px 0 8px 0; color: #0F2B5C;">Kontaktdaten:</h4>
+        <div style="font-size: 13.5px; color: #334155; line-height: 1.6; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+          <strong>Name:</strong> ${guest.firstName || ''} ${guest.lastName || ''}<br>
+          ${guest.company ? `<strong>Firma:</strong> ${guest.company}<br>` : ''}
+          <strong>E-Mail:</strong> <a href="mailto:${guest.email}">${guest.email}</a><br>
+          <strong>Telefon:</strong> <a href="tel:${guest.phone}">${guest.phone || '-'}</a><br>
+          <strong>Anschrift:</strong> ${guest.street || '-'}, ${guest.zip || ''} ${guest.city || ''}<br>
+          ${guest.notes ? `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e2e8f0;"><strong>Projektnotiz:</strong> <span style="color: #b45309;">${guest.notes}</span></div>` : ''}
+        </div>
+
+        <div style="text-align: center; margin-top: 24px;">
+          <a href="https://hostel-neustadt.pages.dev/admin" class="btn">Im Admin Hub ansehen & Angebot erstellen →</a>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  // Dispatch Customer Email
+  let customerRes = { ok: false };
+  if (guest.email && guest.email.includes('@')) {
+    customerRes = await sendResendMail({
+      to: guest.email,
+      subject: `Eingangsbestätigung Ihrer Anfrage - Hostel Neustadt (${inquiry.bookingNumber})`,
+      html: customerEmailHtml
+    });
+  }
+
+  // Dispatch Owner Notification Email
+  const ownerRes = await sendResendMail({
+    to: OWNER_NOTIFICATION_EMAIL,
+    subject: `📋 Neue Langzeit-Anfrage (${inquiry.nights} Nächte): ${guest.firstName || ''} ${guest.lastName || ''}${guest.company ? ' (' + guest.company + ')' : ''}`,
+    html: ownerEmailHtml
+  });
+
+  return {
+    success: customerRes.ok || ownerRes.ok,
+    customerSent: customerRes.ok,
+    ownerSent: ownerRes.ok
+  };
+}

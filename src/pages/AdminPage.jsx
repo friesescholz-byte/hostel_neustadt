@@ -6,7 +6,7 @@ import {
   CheckCircle2, XCircle, Clock, Search, Filter, Download,
   Trash2, Plus, Edit3, ArrowLeft, ChevronRight, ChevronLeft, AlertCircle,
   Eye, FileText, Check, Lock, LogOut, KeyRound, Sparkles, LogIn, DoorOpen,
-  Phone, PhoneCall, UserCheck, CalendarDays, ExternalLink, RefreshCw
+  Phone, PhoneCall, UserCheck, CalendarDays, ExternalLink, RefreshCw, Mail
 } from 'lucide-react';
 import { bookingStore } from '../services/bookingStore';
 import { downloadInvoicePDF } from '../services/pdfGenerator';
@@ -473,23 +473,26 @@ export default function AdminPage() {
     return bookings.filter(b => {
       const isCancelled = b.status === 'cancelled';
       const isOpenHold = b.status === 'open';
+      const isInquiry = b.status === 'inquiry';
       const cIn = getBookingCheckin(b);
       const cOut = getBookingCheckout(b);
 
       if (statusFilter === 'upcoming') {
-        if (isCancelled || isOpenHold) return false;
+        if (isCancelled || isOpenHold || isInquiry) return false;
         if (cOut < todayStr) return false;
       } else if (statusFilter === 'today_checkin') {
-        if (isCancelled || isOpenHold) return false;
+        if (isCancelled || isOpenHold || isInquiry) return false;
         if (cIn !== todayStr) return false;
       } else if (statusFilter === 'today_inhouse') {
-        if (isCancelled || isOpenHold) return false;
+        if (isCancelled || isOpenHold || isInquiry) return false;
         if (!(cIn <= todayStr && cOut > todayStr)) return false;
       } else if (statusFilter === 'today_checkout') {
-        if (isCancelled || isOpenHold) return false;
+        if (isCancelled || isOpenHold || isInquiry) return false;
         if (cOut !== todayStr) return false;
       } else if (statusFilter === 'open') {
         if (!isOpenHold) return false;
+      } else if (statusFilter === 'inquiry') {
+        if (!isInquiry) return false;
       } else if (statusFilter === 'cancelled') {
         if (!isCancelled) return false;
       }
@@ -521,7 +524,9 @@ export default function AdminPage() {
 
       return true;
     }).sort((a, b) => {
-      // Prioritize active holds at the top so they are noticed immediately
+      // Prioritize active holds and new inquiries at the top so they are noticed immediately
+      if (a.status === 'inquiry' && b.status !== 'inquiry') return -1;
+      if (b.status === 'inquiry' && a.status !== 'inquiry') return 1;
       if (a.status === 'open' && b.status !== 'open') return -1;
       if (b.status === 'open' && a.status !== 'open') return 1;
       const dateA = getBookingCheckin(a);
@@ -534,6 +539,7 @@ export default function AdminPage() {
   const stats = useMemo(() => {
     const confirmed = bookings.filter(b => b.status === 'confirmed');
     const openHolds = bookings.filter(b => b.status === 'open');
+    const inquiries = bookings.filter(b => b.status === 'inquiry');
     const cancelled = bookings.filter(b => b.status === 'cancelled');
     const totalRevenue = confirmed.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
     const totalNights = confirmed.reduce((sum, b) => sum + (b.nights || 1), 0);
@@ -546,6 +552,7 @@ export default function AdminPage() {
       revenue: totalRevenue,
       activeBookingsCount: confirmed.length,
       openCount: openHolds.length,
+      inquiryCount: inquiries.length,
       cancelledCount: cancelled.length,
       totalNights,
       totalGuests
@@ -564,6 +571,7 @@ export default function AdminPage() {
     const todayCheckout = confirmed.filter(b => getBookingCheckout(b) === todayStr).length;
     const upcoming = confirmed.filter(b => getBookingCheckout(b) >= todayStr).length;
     const openHolds = bookings.filter(b => b.status === 'open').length;
+    const inquiries = bookings.filter(b => b.status === 'inquiry').length;
     const cancelled = bookings.filter(b => b.status === 'cancelled').length;
     return {
       todayCheckin,
@@ -571,6 +579,7 @@ export default function AdminPage() {
       todayCheckout,
       upcoming,
       openHolds,
+      inquiries,
       cancelled,
       all: bookings.length
     };
@@ -960,6 +969,18 @@ export default function AdminPage() {
                   </button>
                 )}
 
+                {deskCounts.inquiries > 0 && (
+                  <button 
+                    className={`desk-pill ${statusFilter === 'inquiry' ? 'active' : ''}`}
+                    onClick={() => setStatusFilter('inquiry')}
+                    title="Individuelle Langzeit-Anfragen (ab 14 Nächte)"
+                    style={{ borderColor: '#8b5cf6', color: '#6d28d9' }}
+                  >
+                    <span>📋 Langzeit-Anfragen</span>
+                    <span className="desk-pill-badge" style={{ background: '#7c3aed', color: '#ffffff' }}>{deskCounts.inquiries}</span>
+                  </button>
+                )}
+
                 <button 
                   className={`desk-pill ${statusFilter === 'all' ? 'active' : ''}`}
                   onClick={() => setStatusFilter('all')}
@@ -987,127 +1008,302 @@ export default function AdminPage() {
                   <p>Für die ausgewählten Filterkriterien liegen derzeit keine Buchungsdaten vor.</p>
                 </div>
               ) : (
-                <div className="table-responsive">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Buchungs- / Rechnungs-Nr.</th>
-                        <th>Kunde / Gast</th>
-                        <th>Reisezeitraum</th>
-                        <th>Zimmer</th>
-                        <th>Betrag</th>
-                        <th>Status</th>
-                        <th style={{ textAlign: 'right' }}>Aktionen</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredBookings.map((b) => {
-                        const isCancelled = b.status === 'cancelled';
-                        const isOpenHold = b.status === 'open';
-                        return (
-                          <tr key={b.id} className={`${isCancelled ? 'row-cancelled' : ''} ${isOpenHold ? 'row-hold' : ''}`}>
-                            <td>
-                              <div className="cell-id">
-                                <strong>{b.bookingNumber}</strong>
-                                <small className="text-muted">{b.invoiceNumber}</small>
-                              </div>
-                            </td>
-                            <td>
-                              <div className="cell-guest">
-                                <span className="guest-name">{b.guest?.firstName} {b.guest?.lastName}</span>
-                                {b.guest?.company && <span className="guest-company">{b.guest.company}</span>}
-                                <small className="guest-contact">{b.guest?.email || b.guest?.phone || '-'}</small>
-                              </div>
-                            </td>
-                            <td>
-                              <div className="cell-dates">
-                                <span>{new Date(b.checkin).toLocaleDateString('de-DE')} – {new Date(b.checkout).toLocaleDateString('de-DE')}</span>
-                                <small className="text-muted">{b.nights} {b.nights === 1 ? 'Nacht' : 'Nächte'}</small>
-                              </div>
-                            </td>
-                            <td>
-                              <div className="cell-rooms">
-                                {(b.rooms || []).map((r, ri) => (
-                                  <span key={ri} className="room-pill">
-                                    {r.count || 1}x {r.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer'}
+                <>
+                  {/* Desktop Table View (>= 768px) */}
+                  <div className="table-responsive admin-desktop-table-view">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Buchungs- / Rechnungs-Nr.</th>
+                          <th>Kunde / Gast</th>
+                          <th>Reisezeitraum</th>
+                          <th>Zimmer</th>
+                          <th>Betrag</th>
+                          <th>Status</th>
+                          <th style={{ textAlign: 'right' }}>Aktionen</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredBookings.map((b) => {
+                          const isCancelled = b.status === 'cancelled';
+                          const isOpenHold = b.status === 'open';
+                          const isInquiry = b.status === 'inquiry';
+                          return (
+                            <tr key={b.id} className={`${isCancelled ? 'row-cancelled' : ''} ${isOpenHold ? 'row-hold' : ''} ${isInquiry ? 'row-inquiry' : ''}`}>
+                              <td>
+                                <div className="cell-id">
+                                  <strong>{b.bookingNumber}</strong>
+                                  <small className="text-muted">{b.invoiceNumber || (isInquiry ? 'Langzeit-Anfrage' : '')}</small>
+                                </div>
+                              </td>
+                              <td>
+                                <div className="cell-guest">
+                                  <span className="guest-name">{b.guest?.firstName} {b.guest?.lastName}</span>
+                                  {b.guest?.company && <span className="guest-company">{b.guest.company}</span>}
+                                  <small className="guest-contact">{b.guest?.email || b.guest?.phone || '-'}</small>
+                                </div>
+                              </td>
+                              <td>
+                                <div className="cell-dates">
+                                  <span>{new Date(b.checkin).toLocaleDateString('de-DE')} – {new Date(b.checkout).toLocaleDateString('de-DE')}</span>
+                                  <small className="text-muted">{b.nights} {b.nights === 1 ? 'Nacht' : 'Nächte'}</small>
+                                </div>
+                              </td>
+                              <td>
+                                <div className="cell-rooms">
+                                  {(b.rooms || []).map((r, ri) => (
+                                    <span key={ri} className="room-pill">
+                                      {r.count || 1}x {r.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer'}
+                                    </span>
+                                  ))}
+                                </div>
+                              </td>
+                              <td>
+                                <div className="cell-price">
+                                  <strong>{isInquiry ? 'Auf Anfrage' : `${Number(b.totalPrice || 0).toFixed(2)} €`}</strong>
+                                  <small className="text-muted">
+                                    {isInquiry
+                                      ? 'Sonderangebot'
+                                      : isOpenHold 
+                                      ? '⏳ In Bearbeitung'
+                                      : (b.paymentStatus === 'pending' || b.payment?.status === 'pending') 
+                                      ? 'Zahlung offen' 
+                                      : (b.payment?.methodLabel || 'Online-Zahlung')}
+                                  </small>
+                                </div>
+                              </td>
+                              <td>
+                                {isOpenHold ? (
+                                  <span className="status-badge amber" title="Zimmer für 10 Min. reserviert – Zahlung noch offen">
+                                    <Clock size={14} /> In Buchung ({formatHoldTimer(b.expiresAt)})
                                   </span>
-                                ))}
-                              </div>
-                            </td>
-                            <td>
-                              <div className="cell-price">
-                                <strong>{Number(b.totalPrice || 0).toFixed(2)} €</strong>
-                                <small className="text-muted">
-                                  {isOpenHold 
-                                    ? '⏳ In Bearbeitung'
-                                    : (b.paymentStatus === 'pending' || b.payment?.status === 'pending') 
-                                    ? 'Zahlung offen' 
-                                    : (b.payment?.methodLabel || 'Online-Zahlung')}
-                                </small>
-                              </div>
-                            </td>
-                            <td>
+                                ) : isInquiry ? (
+                                  <span className="status-badge purple" title="Individuelle Langzeit-Anfrage (ab 14 Nächte)">
+                                    <Sparkles size={14} /> Langzeit-Anfrage
+                                  </span>
+                                ) : isCancelled ? (
+                                  <span className="status-badge red">
+                                    <XCircle size={14} /> Storniert
+                                  </span>
+                                ) : (b.paymentStatus === 'pending' || b.payment?.status === 'pending') ? (
+                                  <span className="status-badge amber">
+                                    <Clock size={14} /> Offen
+                                  </span>
+                                ) : (
+                                  <span className="status-badge green">
+                                    <CheckCircle2 size={14} /> Bezahlt
+                                  </span>
+                                )}
+                              </td>
+                              <td style={{ textAlign: 'right' }}>
+                                <div className="actions-cluster">
+                                  {!isOpenHold && !isInquiry && (
+                                    <button 
+                                      className="btn-icon" 
+                                      title="PDF-Rechnung herunterladen"
+                                      onClick={() => downloadInvoicePDF(b)}
+                                    >
+                                      <Download size={16} />
+                                    </button>
+                                  )}
+                                  {isInquiry && b.guest?.email && (
+                                    <a 
+                                      href={`mailto:${b.guest.email}?subject=Angebot%20f%C3%BCr%20Ihre%20Buchungsanfrage%20${b.bookingNumber}`}
+                                      className="btn-icon"
+                                      title="E-Mail Angebot senden"
+                                    >
+                                      <Mail size={16} />
+                                    </a>
+                                  )}
+                                  {isInquiry && b.guest?.phone && (
+                                    <a 
+                                      href={`tel:${b.guest.phone}`}
+                                      className="btn-icon"
+                                      title="Gast anrufen"
+                                    >
+                                      <PhoneCall size={16} />
+                                    </a>
+                                  )}
+                                  <button 
+                                    className="btn-icon" 
+                                    title="Buchungsdetails ansehen"
+                                    onClick={() => setSelectedBooking(b)}
+                                  >
+                                    <Eye size={16} />
+                                  </button>
+                                  {b.status === 'confirmed' && (
+                                    <button 
+                                      className="btn-icon" 
+                                      style={{ color: '#b45309' }}
+                                      title="Buchung stornieren (Zimmer sofort freigeben)"
+                                      onClick={() => handleCancelBooking(b.id)}
+                                    >
+                                      <XCircle size={16} />
+                                    </button>
+                                  )}
+                                  <button 
+                                    className="btn-icon danger" 
+                                    title={isOpenHold ? 'Hold abbrechen & Zimmer sofort freigeben' : isInquiry ? 'Anfrage entfernen' : 'Buchung dauerhaft aus dem System löschen'}
+                                    onClick={() => handleDeleteBooking(b.id)}
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile Cards View (< 768px) */}
+                  <div className="admin-mobile-booking-cards">
+                    {filteredBookings.map((b) => {
+                      const isCancelled = b.status === 'cancelled';
+                      const isOpenHold = b.status === 'open';
+                      const isInquiry = b.status === 'inquiry';
+                      return (
+                        <div 
+                          key={b.id} 
+                          className={`mobile-booking-card ${isCancelled ? 'card-cancelled' : ''} ${isOpenHold ? 'card-hold' : ''} ${isInquiry ? 'card-inquiry' : ''}`}
+                        >
+                          <div className="mobile-card-top">
+                            <div className="mobile-card-ids">
+                              <span className="mobile-card-booking-nr">{b.bookingNumber}</span>
+                              {b.invoiceNumber && <span className="mobile-card-sub">{b.invoiceNumber}</span>}
+                              {isInquiry && <span className="mobile-card-sub" style={{ color: '#7c3aed', fontWeight: 600 }}>Langzeit-Anfrage</span>}
+                            </div>
+                            <div className="mobile-card-badge">
                               {isOpenHold ? (
-                                <span className="status-badge amber" title="Zimmer für 10 Min. reserviert – Zahlung noch offen">
-                                  <Clock size={14} /> In Buchung ({formatHoldTimer(b.expiresAt)})
+                                <span className="status-badge amber">
+                                  <Clock size={12} /> In Buchung ({formatHoldTimer(b.expiresAt)})
+                                </span>
+                              ) : isInquiry ? (
+                                <span className="status-badge purple">
+                                  <Sparkles size={12} /> Anfrage ({b.nights || 14}+ N.)
                                 </span>
                               ) : isCancelled ? (
                                 <span className="status-badge red">
-                                  <XCircle size={14} /> Storniert
+                                  <XCircle size={12} /> Storniert
                                 </span>
                               ) : (b.paymentStatus === 'pending' || b.payment?.status === 'pending') ? (
                                 <span className="status-badge amber">
-                                  <Clock size={14} /> Offen
+                                  <Clock size={12} /> Offen
                                 </span>
                               ) : (
                                 <span className="status-badge green">
-                                  <CheckCircle2 size={14} /> Bezahlt
+                                  <CheckCircle2 size={12} /> Bezahlt
                                 </span>
                               )}
-                            </td>
-                            <td style={{ textAlign: 'right' }}>
-                              <div className="actions-cluster">
-                                {!isOpenHold && (
-                                  <button 
-                                    className="btn-icon" 
-                                    title="PDF-Rechnung herunterladen"
-                                    onClick={() => downloadInvoicePDF(b)}
-                                  >
-                                    <Download size={16} />
-                                  </button>
-                                )}
-                                <button 
-                                  className="btn-icon" 
-                                  title="Buchungsdetails ansehen"
-                                  onClick={() => setSelectedBooking(b)}
-                                >
-                                  <Eye size={16} />
-                                </button>
-                                {b.status === 'confirmed' && (
-                                  <button 
-                                    className="btn-icon" 
-                                    style={{ color: '#b45309' }}
-                                    title="Buchung stornieren (Zimmer sofort freigeben)"
-                                    onClick={() => handleCancelBooking(b.id)}
-                                  >
-                                    <XCircle size={16} />
-                                  </button>
-                                )}
-                                <button 
-                                  className="btn-icon danger" 
-                                  title={isOpenHold ? 'Hold abbrechen & Zimmer sofort freigeben' : 'Buchung dauerhaft aus dem System löschen'}
-                                  onClick={() => handleDeleteBooking(b.id)}
-                                >
-                                  <Trash2 size={16} />
-                                </button>
+                            </div>
+                          </div>
+
+                          <div className="mobile-card-guest-info">
+                            <h4 className="mobile-guest-name">
+                              {b.guest?.firstName} {b.guest?.lastName}
+                            </h4>
+                            {b.guest?.company && (
+                              <span className="mobile-guest-company">{b.guest.company}</span>
+                            )}
+                          </div>
+
+                          {/* Quick Contact Buttons */}
+                          {(b.guest?.phone || b.guest?.email) && (
+                            <div className="mobile-contact-pill-bar">
+                              {b.guest?.phone && (
+                                <a href={`tel:${b.guest.phone}`} className="mobile-contact-tap-pill" title="Gast anrufen">
+                                  <PhoneCall size={13} />
+                                  <span>{b.guest.phone}</span>
+                                </a>
+                              )}
+                              {b.guest?.email && (
+                                <a href={`mailto:${b.guest.email}`} className="mobile-contact-tap-pill" title="E-Mail schreiben">
+                                  <Mail size={13} />
+                                  <span>{b.guest.email}</span>
+                                </a>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="mobile-card-meta-list">
+                            <div className="mobile-meta-row">
+                              <span className="meta-row-label">Zeitraum:</span>
+                              <span className="meta-row-val">
+                                {new Date(b.checkin).toLocaleDateString('de-DE')} – {new Date(b.checkout).toLocaleDateString('de-DE')} 
+                                <small className="meta-nights-pill"> ({b.nights} {b.nights === 1 ? 'Nacht' : 'Nächte'})</small>
+                              </span>
+                            </div>
+
+                            <div className="mobile-meta-row">
+                              <span className="meta-row-label">Zimmer:</span>
+                              <div className="mobile-meta-rooms">
+                                {(b.rooms || []).map((r, ri) => (
+                                  <span key={ri} className="room-pill-mobile">
+                                    {r.count || 1}x {r.typeId === 'einzelzimmer' ? 'EZ' : 'DZ'}
+                                  </span>
+                                ))}
                               </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                            </div>
+
+                            <div className="mobile-meta-row">
+                              <span className="meta-row-label">{isInquiry ? 'Kondition:' : 'Betrag:'}</span>
+                              <span className="meta-row-price">
+                                <strong>{isInquiry ? 'Auf Anfrage' : `${Number(b.totalPrice || 0).toFixed(2)} €`}</strong>
+                                {!isInquiry && (
+                                  <small className="meta-pay-label">
+                                    {isOpenHold 
+                                      ? ' · Hold' 
+                                      : (b.paymentStatus === 'pending' || b.payment?.status === 'pending') 
+                                      ? ' · Offen' 
+                                      : ' · Bezahlt'}
+                                  </small>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="mobile-card-action-bar">
+                            <button 
+                              className="btn-mobile-act-primary"
+                              onClick={() => setSelectedBooking(b)}
+                            >
+                              <Eye size={15} /> Details
+                            </button>
+
+                            {!isOpenHold && !isInquiry && (
+                              <button 
+                                className="btn-mobile-act-sec"
+                                title="Rechnung PDF"
+                                onClick={() => downloadInvoicePDF(b)}
+                              >
+                                <Download size={15} /> PDF
+                              </button>
+                            )}
+
+                            {b.status === 'confirmed' && (
+                              <button 
+                                className="btn-mobile-act-warn"
+                                title="Stornieren"
+                                onClick={() => handleCancelBooking(b.id)}
+                              >
+                                <XCircle size={15} />
+                              </button>
+                            )}
+
+                            <button 
+                              className="btn-mobile-act-danger"
+                              title="Löschen"
+                              onClick={() => handleDeleteBooking(b.id)}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </div>
           </section>
@@ -1555,13 +1751,27 @@ export default function AdminPage() {
             >
               <div className="modal-header">
                 <div>
-                  <span className="modal-badge">{selectedBooking.bookingNumber}</span>
-                  <h3>Buchungsdetails & Kundendaten</h3>
+                  <span className={`modal-badge ${selectedBooking.status === 'inquiry' ? 'badge-inquiry' : ''}`}>
+                    {selectedBooking.bookingNumber} {selectedBooking.status === 'inquiry' ? '· Langzeit-Anfrage' : ''}
+                  </span>
+                  <h3>{selectedBooking.status === 'inquiry' ? 'Individuelle Buchungsanfrage (ab 14 Nächte)' : 'Buchungsdetails & Kundendaten'}</h3>
                 </div>
                 <button className="modal-close" onClick={() => setSelectedBooking(null)}>×</button>
               </div>
 
               <div className="modal-body">
+                {selectedBooking.status === 'inquiry' && (
+                  <div className="desk-notes-banner" style={{ background: '#f5f3ff', borderColor: '#ddd6fe', color: '#5b21b6', marginBottom: '1.25rem' }}>
+                    <Sparkles size={18} className="notes-icon" style={{ color: '#7c3aed' }} />
+                    <div>
+                      <strong>Individuelle Buchungsanfrage ({selectedBooking.nights} Nächte)</strong>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '13px' }}>
+                        Dieser Gast hat ein individuelles Angebot für einen Aufenthalt ab 14 Tagen angefragt. Sie können ihn direkt telefonisch oder per E-Mail kontaktieren, um ein passendes Angebot zu unterbreiten.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {selectedBooking.status === 'open' && (
                   <div className="desk-notes-banner" style={{ background: '#fffbeb', borderColor: '#fde68a', color: '#92400e', marginBottom: '1.25rem' }}>
                     <Clock size={18} className="notes-icon" style={{ color: '#b45309' }} />
@@ -1644,78 +1854,123 @@ export default function AdminPage() {
                               {formatDateDE(rCin)} – {formatDateDE(rCout)} ({nights} {nights === 1 ? 'Nacht' : 'Nächte'})
                             </div>
                           </div>
-                          <strong>{Number(price).toFixed(2)} €</strong>
+                          <strong>{selectedBooking.status === 'inquiry' ? 'Auf Anfrage' : `${Number(price).toFixed(2)} €`}</strong>
                         </div>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* Payment & Invoice */}
-                <div className="modal-section">
-                  <h4>Zahlung & Rechnung</h4>
-                  <div className="modal-grid-2">
-                    <div>
-                      <small className="text-muted">Zahlungsart:</small>
-                      <p>
-                        {(selectedBooking.paymentStatus === 'pending' || selectedBooking.payment?.status === 'pending')
-                          ? 'Noch keine (Zahlung offen)'
-                          : (selectedBooking.payment?.methodLabel || 'Online-Zahlung')}
-                      </p>
-                    </div>
-                    <div>
-                      <small className="text-muted">Status:</small>
-                      {selectedBooking.status === 'cancelled' ? (
-                        <p className="text-danger">Storniert</p>
-                      ) : (selectedBooking.paymentStatus === 'pending' || selectedBooking.payment?.status === 'pending') ? (
-                        <p style={{ color: '#d97706', fontWeight: 600 }}>⏳ Nicht bezahlt (Offen)</p>
-                      ) : (
-                        <p className="text-success">✓ Vollständig bezahlt</p>
-                      )}
-                    </div>
-                    <div>
-                      <small className="text-muted">Rechnungsnummer:</small>
-                      <p><strong>{selectedBooking.invoiceNumber}</strong></p>
-                    </div>
-                    <div>
-                      <small className="text-muted">Transaktions-ID:</small>
-                      <p className="font-mono text-muted">{selectedBooking.payment?.transactionId || '-'}</p>
-                    </div>
-                  </div>
-
-                  {selectedBooking.status !== 'cancelled' && (selectedBooking.paymentStatus === 'pending' || selectedBooking.payment?.status === 'pending') && (
-                    <div className="quick-pay-action-box">
-                      <span>Zahlung jetzt erfassen & als bezahlt markieren:</span>
-                      <div className="quick-pay-btn-group">
-                        <button 
-                          type="button" 
-                          className="btn-mark-paid"
-                          onClick={() => handleMarkBookingPaid(selectedBooking.id, 'bar')}
-                        >
-                          ✓ Bar bezahlt
-                        </button>
-                        <button 
-                          type="button" 
-                          className="btn-mark-paid"
-                          onClick={() => handleMarkBookingPaid(selectedBooking.id, 'ec')}
-                        >
-                          ✓ EC / Karte bezahlt
-                        </button>
-                        <button 
-                          type="button" 
-                          className="btn-mark-paid"
-                          onClick={() => handleMarkBookingPaid(selectedBooking.id, 'ueberweisung')}
-                        >
-                          ✓ Banküberweisung
-                        </button>
+                {/* Payment & Invoice / Inquiry Status */}
+                {selectedBooking.status === 'inquiry' ? (
+                  <div className="modal-section">
+                    <h4>Anfragestatus & Direktkontakt</h4>
+                    <div className="modal-grid-2">
+                      <div>
+                        <small className="text-muted">Status:</small>
+                        <p style={{ color: '#7c3aed', fontWeight: 600 }}>📋 Anfrage eingegangen</p>
+                      </div>
+                      <div>
+                        <small className="text-muted">Gewünschte Dauer:</small>
+                        <p><strong>{selectedBooking.nights} Nächte</strong></p>
+                      </div>
+                      <div>
+                        <small className="text-muted">Preiskondition:</small>
+                        <p>Individuell auf Anfrage</p>
+                      </div>
+                      <div>
+                        <small className="text-muted">Eingang am:</small>
+                        <p>{selectedBooking.createdAt ? new Date(selectedBooking.createdAt).toLocaleString('de-DE') : '-'}</p>
                       </div>
                     </div>
-                  )}
-                </div>
+
+                    <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      {selectedBooking.guest?.email && (
+                        <a 
+                          href={`mailto:${selectedBooking.guest.email}?subject=Angebot%20f%C3%BCr%20Ihre%20Buchungsanfrage%20${selectedBooking.bookingNumber}%20-%20Hostel%20Neustadt`}
+                          className="btn-admin-primary"
+                          style={{ textDecoration: 'none' }}
+                        >
+                          <Mail size={16} /> E-Mail Angebot senden
+                        </a>
+                      )}
+                      {selectedBooking.guest?.phone && (
+                        <a 
+                          href={`tel:${selectedBooking.guest.phone}`}
+                          className="btn-admin-secondary"
+                          style={{ textDecoration: 'none' }}
+                        >
+                          <PhoneCall size={16} /> Jetzt anrufen ({selectedBooking.guest.phone})
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="modal-section">
+                    <h4>Zahlung & Rechnung</h4>
+                    <div className="modal-grid-2">
+                      <div>
+                        <small className="text-muted">Zahlungsart:</small>
+                        <p>
+                          {(selectedBooking.paymentStatus === 'pending' || selectedBooking.payment?.status === 'pending')
+                            ? 'Noch keine (Zahlung offen)'
+                            : (selectedBooking.payment?.methodLabel || 'Online-Zahlung')}
+                        </p>
+                      </div>
+                      <div>
+                        <small className="text-muted">Status:</small>
+                        {selectedBooking.status === 'cancelled' ? (
+                          <p className="text-danger">Storniert</p>
+                        ) : (selectedBooking.paymentStatus === 'pending' || selectedBooking.payment?.status === 'pending') ? (
+                          <p style={{ color: '#d97706', fontWeight: 600 }}>⏳ Nicht bezahlt (Offen)</p>
+                        ) : (
+                          <p className="text-success">✓ Vollständig bezahlt</p>
+                        )}
+                      </div>
+                      <div>
+                        <small className="text-muted">Rechnungsnummer:</small>
+                        <p><strong>{selectedBooking.invoiceNumber}</strong></p>
+                      </div>
+                      <div>
+                        <small className="text-muted">Transaktions-ID:</small>
+                        <p className="font-mono text-muted">{selectedBooking.payment?.transactionId || '-'}</p>
+                      </div>
+                    </div>
+
+                    {selectedBooking.status !== 'cancelled' && (selectedBooking.paymentStatus === 'pending' || selectedBooking.payment?.status === 'pending') && (
+                      <div className="quick-pay-action-box">
+                        <span>Zahlung jetzt erfassen & als bezahlt markieren:</span>
+                        <div className="quick-pay-btn-group">
+                          <button 
+                            type="button" 
+                            className="btn-mark-paid"
+                            onClick={() => handleMarkBookingPaid(selectedBooking.id, 'bar')}
+                          >
+                            ✓ Bar bezahlt
+                          </button>
+                          <button 
+                            type="button" 
+                            className="btn-mark-paid"
+                            onClick={() => handleMarkBookingPaid(selectedBooking.id, 'ec')}
+                          >
+                            ✓ EC / Karte bezahlt
+                          </button>
+                          <button 
+                            type="button" 
+                            className="btn-mark-paid"
+                            onClick={() => handleMarkBookingPaid(selectedBooking.id, 'ueberweisung')}
+                          >
+                            ✓ Banküberweisung
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="modal-footer">
-                {selectedBooking.status !== 'open' && (
+                {selectedBooking.status !== 'open' && selectedBooking.status !== 'inquiry' && (
                   <button 
                     className="btn-admin-primary" 
                     onClick={() => downloadInvoicePDF(selectedBooking)}
@@ -1736,7 +1991,7 @@ export default function AdminPage() {
                   className="btn-admin-danger" 
                   onClick={() => handleDeleteBooking(selectedBooking.id)}
                 >
-                  <Trash2 size={16} /> {selectedBooking.status === 'open' ? 'Hold abbrechen & Zimmer freigeben' : 'Buchung endgültig löschen'}
+                  <Trash2 size={16} /> {selectedBooking.status === 'open' ? 'Hold abbrechen & Zimmer freigeben' : selectedBooking.status === 'inquiry' ? 'Anfrage löschen' : 'Buchung endgültig löschen'}
                 </button>
               </div>
             </motion.div>

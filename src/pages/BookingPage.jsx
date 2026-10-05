@@ -6,11 +6,11 @@ import {
   ChevronRight, ChevronLeft, Check, ShieldCheck,
   Building2, MapPin, Phone, Mail, ArrowLeft, Bed, CreditCard, Star,
   Plus, Minus, Trash2, CheckCircle2, Download, AlertCircle, RefreshCw,
-  Clock, ExternalLink, Sparkles, ShoppingBag
+  Clock, ExternalLink, Sparkles, ShoppingBag, Send
 } from 'lucide-react';
 import { bookingStore } from '../services/bookingStore';
 import { downloadInvoicePDF } from '../services/pdfGenerator';
-import { sendBookingConfirmationEmails } from '../services/emailService';
+import { sendBookingConfirmationEmails, sendLongTermInquiryEmails } from '../services/emailService';
 import Footer from '../components/Footer';
 import './BookingPage.css';
 
@@ -107,6 +107,23 @@ const BookingPage = () => {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('mollie_card');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [confirmedBooking, setConfirmedBooking] = useState(null);
+
+  // Long-Term Inquiry States (Stays >= 14 Nights)
+  const [confirmedInquiry, setConfirmedInquiry] = useState(null);
+  const [inquiryRooms, setInquiryRooms] = useState({ countEZ: 1, countDZ: 0, totalGuests: 1 });
+  const [inquiryData, setInquiryData] = useState({
+    firstName: '',
+    lastName: '',
+    company: '',
+    email: '',
+    phone: '',
+    street: '',
+    zip: '',
+    city: '',
+    notes: ''
+  });
+  const [inquiryErrors, setInquiryErrors] = useState({});
+  const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false);
 
   // 10-Minute Cart Hold & Overbooking Protection
   const [cartHold, setCartHold] = useState(null);
@@ -215,13 +232,26 @@ const BookingPage = () => {
     }
   }, [searchParams]);
 
-  // Scroll to top on step change
+  // Scroll to top on step or confirmation change
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [step, confirmedBooking]);
+  }, [step, confirmedBooking, confirmedInquiry]);
 
   // Active form date nights
   const activeNights = useMemo(() => nightsBetween(checkin, checkout), [checkin, checkout]);
+
+  // Long-Term Stay flag (stays >= 14 nights require individual inquiry)
+  const isLongTermStay = useMemo(() => activeNights >= 14, [activeNights]);
+
+  // If redirected with ?inquiry=1, ensure checkout is set to at least 14 days
+  useEffect(() => {
+    if (searchParams.get('inquiry') === '1' && nightsBetween(checkin, checkout) < 14) {
+      const inDate = checkin ? new Date(checkin) : new Date();
+      const outDate = new Date(inDate);
+      outDate.setDate(outDate.getDate() + 14);
+      setCheckout(outDate.toISOString().split('T')[0]);
+    }
+  }, [searchParams]);
 
   // Price calculations for currently selected dates in the form
   const activePriceCalculations = useMemo(() => {
@@ -316,6 +346,65 @@ const BookingPage = () => {
     setCart(prev => prev.map(item => 
       item.instanceId === instanceId ? { ...item, guests: parseInt(newGuests) } : item
     ));
+  };
+
+  /* ---- Handler für Langzeit-Buchungsanfrage (ab 14 Nächte) ---- */
+  const handleSubmitInquiry = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const errs = {};
+    if (!inquiryData.firstName.trim()) errs.firstName = 'Pflichtfeld';
+    if (!inquiryData.lastName.trim()) errs.lastName = 'Pflichtfeld';
+    if (!inquiryData.email.trim()) errs.email = 'Pflichtfeld';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inquiryData.email)) errs.email = 'Ungültige E-Mail-Adresse';
+    if (!inquiryData.phone.trim()) errs.phone = 'Pflichtfeld';
+    if (inquiryRooms.countEZ === 0 && inquiryRooms.countDZ === 0) {
+      errs.rooms = 'Bitte wählen Sie mindestens 1 Zimmer (Einzel- oder Doppelzimmer) aus.';
+    }
+    setInquiryErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+
+    setIsSubmittingInquiry(true);
+    try {
+      const roomsList = [];
+      if (inquiryRooms.countEZ > 0) {
+        roomsList.push({
+          typeId: 'einzelzimmer',
+          name: 'Einzelzimmer',
+          count: inquiryRooms.countEZ,
+          guests: inquiryRooms.countEZ
+        });
+      }
+      if (inquiryRooms.countDZ > 0) {
+        roomsList.push({
+          typeId: 'doppelzimmer',
+          name: 'Doppelzimmer',
+          count: inquiryRooms.countDZ,
+          guests: inquiryRooms.countDZ * 2
+        });
+      }
+
+      const newInquiry = bookingStore.createInquiry({
+        checkin,
+        checkout,
+        nights: activeNights,
+        rooms: roomsList,
+        guest: inquiryData,
+        projectNotes: `Langzeit-Anfrage für ${activeNights} Nächte (${inquiryRooms.countEZ} EZ, ${inquiryRooms.countDZ} DZ, ${inquiryRooms.totalGuests} Personen)`
+      });
+
+      try {
+        await sendLongTermInquiryEmails(newInquiry);
+      } catch (mailErr) {
+        console.warn('[Booking] Resend inquiry notification note:', mailErr);
+      }
+
+      setIsSubmittingInquiry(false);
+      setConfirmedInquiry(newInquiry);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      setIsSubmittingInquiry(false);
+      alert(err.message || 'Fehler beim Absenden der Anfrage');
+    }
   };
 
   /* ---- Validation ---- */
@@ -467,6 +556,134 @@ const BookingPage = () => {
     }, 1200);
   }
 
+  /* ============ RENDER: INQUIRY SUCCESS SCREEN (AB 14 NÄCHTE) ============ */
+  if (confirmedInquiry) {
+    return (
+      <div className="booking-page">
+        <header className="booking-header">
+          <div className="booking-header-inner">
+            <Link to="/" className="booking-back-link">
+              <ArrowLeft size={20} />
+              <span>Zur Startseite</span>
+            </Link>
+            <Link to="/" className="booking-logo">
+              <img src="https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Logo_Hostel_Neustadt_transparent.png" alt="Hostel Neustadt" />
+            </Link>
+            <div className="booking-header-trust">
+              <ShieldCheck size={18} />
+              <span>Anfrage übermittelt</span>
+            </div>
+          </div>
+        </header>
+
+        <main className="booking-success-wrap">
+          <motion.div 
+            className="booking-success-card"
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4 }}
+          >
+            <div className="success-icon-badge" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}>
+              <Sparkles size={40} />
+            </div>
+
+            <span className="success-kicker">Langzeitaufenthalt ab 14 Nächten</span>
+            <h1 className="success-title">Vielen Dank für Ihre Anfrage!</h1>
+            <p className="success-subtitle">
+              Wir haben Ihre Buchungsanfrage für einen Aufenthalt über <strong>{confirmedInquiry.nights} Nächte</strong> erfolgreich erhalten.
+              Unser Team prüft die Verfügbarkeit und meldet sich kurzfristig mit einem individuellen Angebot mit Sonderkonditionen bei Ihnen.
+            </p>
+
+            {/* Reference Numbers Banner */}
+            <div className="success-ref-grid">
+              <div className="ref-box">
+                <span className="ref-label">Vorgangsnummer</span>
+                <strong className="ref-value">{confirmedInquiry.bookingNumber}</strong>
+              </div>
+              <div className="ref-box">
+                <span className="ref-label">Reisezeitraum</span>
+                <strong className="ref-value">{formatDate(confirmedInquiry.checkin)} – {formatDate(confirmedInquiry.checkout)}</strong>
+              </div>
+              <div className="ref-box">
+                <span className="ref-label">Status</span>
+                <strong className="ref-value text-primary">In Prüfung</strong>
+              </div>
+            </div>
+
+            {/* Automated Email Notice */}
+            <div className="success-mail-notice">
+              <Mail size={22} className="mail-icon" />
+              <div>
+                <strong>Eingangsbestätigung per E-Mail versendet</strong>
+                <p>
+                  Eine Zusammenfassung Ihrer Anfrage wurde an <strong>{confirmedInquiry.guest?.email}</strong> versandt.
+                  Gleichzeitig wurde die Betriebsleitung über Ihre gewünschten Zimmer und Reisedaten benachrichtigt.
+                </p>
+              </div>
+            </div>
+
+            {/* Summary Details */}
+            <div className="success-details-box">
+              <h3>Ihre angefragten Aufenthaltsdaten</h3>
+              <div className="success-detail-row">
+                <span>Ansprechpartner:</span>
+                <strong>{confirmedInquiry.guest?.firstName} {confirmedInquiry.guest?.lastName}</strong>
+              </div>
+              {confirmedInquiry.guest?.company && (
+                <div className="success-detail-row">
+                  <span>Firma:</span>
+                  <strong>{confirmedInquiry.guest?.company}</strong>
+                </div>
+              )}
+              <div className="success-detail-row">
+                <span>Telefon:</span>
+                <strong>{confirmedInquiry.guest?.phone}</strong>
+              </div>
+              <div className="success-detail-row">
+                <span>Angefragte Zimmer:</span>
+                <div className="success-rooms-list">
+                  {confirmedInquiry.rooms?.map((r, i) => (
+                    <div key={i} className="success-room-item-row">
+                      <span className="success-room-tag">
+                        {r.count}x {r.name || (r.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {confirmedInquiry.guest?.notes && (
+                <div className="success-detail-row">
+                  <span>Ihre Anmerkungen:</span>
+                  <p className="text-muted mb-0">{confirmedInquiry.guest?.notes}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="success-actions">
+              <Link to="/" className="btn-download-invoice" style={{ textDecoration: 'none' }}>
+                <ArrowLeft size={18} />
+                <span>Zurück zur Startseite</span>
+              </Link>
+
+              <div className="success-secondary-actions">
+                <button 
+                  className="btn-success-admin"
+                  onClick={() => {
+                    setConfirmedInquiry(null);
+                    setCheckout(todayStr());
+                  }}
+                >
+                  Neue Anfrage oder Buchung starten
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   /* ============ RENDER: SUCCESS SCREEN ============ */
   if (confirmedBooking) {
     return (
@@ -612,15 +829,26 @@ const BookingPage = () => {
       {/* Stepper */}
       <div className="booking-stepper-wrap">
         <div className="booking-stepper">
-          {STEPS.map((label, i) => (
-            <div key={i} className={`stepper-step ${i <= step ? 'active' : ''} ${i < step ? 'done' : ''}`}>
-              <div className="stepper-circle">
-                {i < step ? <Check size={16} /> : i + 1}
+          {isLongTermStay ? (
+            <div className="stepper-step active done" style={{ flex: 'none', margin: '0 auto' }}>
+              <div className="stepper-circle" style={{ background: '#0f2b5c', color: '#ffffff' }}>
+                <Sparkles size={16} />
               </div>
-              <span className="stepper-label">{label}</span>
-              {i < STEPS.length - 1 && <div className="stepper-line" />}
+              <span className="stepper-label" style={{ color: '#0f2b5c', fontWeight: 700 }}>
+                Individuelle Buchungsanfrage ({activeNights} Nächte)
+              </span>
             </div>
-          ))}
+          ) : (
+            STEPS.map((label, i) => (
+              <div key={i} className={`stepper-step ${i <= step ? 'active' : ''} ${i < step ? 'done' : ''}`}>
+                <div className="stepper-circle">
+                  {i < step ? <Check size={16} /> : i + 1}
+                </div>
+                <span className="stepper-label">{label}</span>
+                {i < STEPS.length - 1 && <div className="stepper-line" />}
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -698,19 +926,282 @@ const BookingPage = () => {
                   </div>
 
                   {activeNights > 0 && (
-                    <div className="stay-duration-pill">
+                    <div className={`stay-duration-pill ${isLongTermStay ? 'is-longterm' : ''}`}>
                       <Clock size={16} />
                       <span>Ausgewählter Zeitraum: {formatDate(checkin)} – {formatDate(checkout)} ({activeNights} {activeNights === 1 ? 'Nacht' : 'Nächte'})</span>
+                      {isLongTermStay && (
+                        <span className="longterm-badge-inline">
+                          <Sparkles size={13} /> Langzeit-Sonderkonditionen aktiv
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {!isLongTermStay && activeNights > 0 && (
+                    <div className="longterm-prompt-callout">
+                      <span>Planen Sie einen längeren Aufenthalt ab 14 Tagen?</span>
+                      <button 
+                        type="button" 
+                        className="btn-link-longterm"
+                        onClick={() => {
+                          const inD = checkin ? new Date(checkin) : new Date();
+                          const outD = new Date(inD);
+                          outD.setDate(outD.getDate() + 14);
+                          setCheckout(outD.toISOString().split('T')[0]);
+                        }}
+                      >
+                        Auf 14 Tage erweitern & Sonderkonditionen anfragen →
+                      </button>
                     </div>
                   )}
                 </div>
 
-                {/* Zimmerauswahl für diesen Zeitraum */}
-                <div className="booking-section">
-                  <h2 className="booking-section-title">
-                    <Bed size={24} />
-                    2. Zimmer für diesen Zeitraum hinzufügen
-                  </h2>
+                {/* =========================================================================
+                    CASE A: LANGZEITAUFENTHALT (AB 14 NÄCHTE) -> INDIVIDUELLE ANFRAGE
+                   ========================================================================= */}
+                {isLongTermStay ? (
+                  <div className="booking-section inquiry-form-section">
+                    <div className="long-term-banner">
+                      <div className="long-term-banner-icon">
+                        <Sparkles size={24} />
+                      </div>
+                      <div className="long-term-banner-text">
+                        <h3>Individuelle Buchungsanfrage (ab 14 Nächten)</h3>
+                        <p>
+                          Für Aufenthalte ab zwei Wochen bieten wir besonders günstige <strong>Projekt- und Dauerkonditionen</strong> an (ideal für Monteure, Bauprojekte, Firmenkunden und längere Dienstreisen).
+                          Bitte tragen Sie Ihren Zimmerbedarf und Ihre Kontaktdaten ein – wir prüfen die Belegung sofort und senden Ihnen kurzfristig ein maßgeschneidertes Angebot zu.
+                        </p>
+                      </div>
+                    </div>
+
+                    <form onSubmit={handleSubmitInquiry} className="inquiry-form-body">
+                      {/* Zimmerbedarf */}
+                      <div className="inquiry-block">
+                        <h4 className="inquiry-block-title">
+                          <Bed size={18} /> 1. Gewünschter Zimmerbedarf für {activeNights} Nächte
+                        </h4>
+                        <p className="text-muted text-sm mb-3">
+                          Wählen Sie die benötigte Zimmeranzahl für Ihren Aufenthalt:
+                        </p>
+
+                        <div className="inquiry-rooms-stepper-grid">
+                          <div className="inquiry-stepper-card">
+                            <div className="inquiry-stepper-info">
+                              <strong>Einzelzimmer</strong>
+                              <span>Privates Zimmer mit Einzelbett</span>
+                            </div>
+                            <div className="inquiry-stepper-control">
+                              <button 
+                                type="button" 
+                                className="stepper-count-btn"
+                                onClick={() => setInquiryRooms(prev => ({ ...prev, countEZ: Math.max(0, prev.countEZ - 1) }))}
+                                disabled={inquiryRooms.countEZ === 0}
+                              >
+                                <Minus size={16} />
+                              </button>
+                              <span className="stepper-count-val">{inquiryRooms.countEZ}</span>
+                              <button 
+                                type="button" 
+                                className="stepper-count-btn"
+                                onClick={() => setInquiryRooms(prev => ({ ...prev, countEZ: Math.min(10, prev.countEZ + 1) }))}
+                              >
+                                <Plus size={16} />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="inquiry-stepper-card">
+                            <div className="inquiry-stepper-info">
+                              <strong>Doppelzimmer</strong>
+                              <span>Privates Zimmer mit Doppelbett</span>
+                            </div>
+                            <div className="inquiry-stepper-control">
+                              <button 
+                                type="button" 
+                                className="stepper-count-btn"
+                                onClick={() => setInquiryRooms(prev => ({ ...prev, countDZ: Math.max(0, prev.countDZ - 1) }))}
+                                disabled={inquiryRooms.countDZ === 0}
+                              >
+                                <Minus size={16} />
+                              </button>
+                              <span className="stepper-count-val">{inquiryRooms.countDZ}</span>
+                              <button 
+                                type="button" 
+                                className="stepper-count-btn"
+                                onClick={() => setInquiryRooms(prev => ({ ...prev, countDZ: Math.min(8, prev.countDZ + 1) }))}
+                              >
+                                <Plus size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="inquiry-guests-count-row mt-3">
+                          <label><Users size={16} /> Reisende Personen insgesamt:</label>
+                          <input 
+                            type="number" 
+                            min="1" 
+                            max="30"
+                            value={inquiryRooms.totalGuests} 
+                            onChange={e => setInquiryRooms(prev => ({ ...prev, totalGuests: Math.max(1, parseInt(e.target.value) || 1) }))} 
+                            className="input-guest-count"
+                          />
+                        </div>
+
+                        {inquiryErrors.rooms && <p className="field-error mt-2">{inquiryErrors.rooms}</p>}
+                      </div>
+
+                      {/* Kontaktdaten */}
+                      <div className="inquiry-block">
+                        <h4 className="inquiry-block-title">
+                          <User size={18} /> 2. Ihre Kontaktdaten & Rechnungsanschrift
+                        </h4>
+
+                        <div className="form-grid-2">
+                          <div className="booking-field">
+                            <label>Vorname *</label>
+                            <input 
+                              type="text" 
+                              value={inquiryData.firstName} 
+                              onChange={e => {
+                                setInquiryData(prev => ({ ...prev, firstName: e.target.value }));
+                                if (inquiryErrors.firstName) setInquiryErrors(err => ({ ...err, firstName: undefined }));
+                              }} 
+                              placeholder="Max" 
+                            />
+                            {inquiryErrors.firstName && <p className="field-error">{inquiryErrors.firstName}</p>}
+                          </div>
+                          <div className="booking-field">
+                            <label>Nachname *</label>
+                            <input 
+                              type="text" 
+                              value={inquiryData.lastName} 
+                              onChange={e => {
+                                setInquiryData(prev => ({ ...prev, lastName: e.target.value }));
+                                if (inquiryErrors.lastName) setInquiryErrors(err => ({ ...err, lastName: undefined }));
+                              }} 
+                              placeholder="Mustermann" 
+                            />
+                            {inquiryErrors.lastName && <p className="field-error">{inquiryErrors.lastName}</p>}
+                          </div>
+                        </div>
+
+                        <div className="form-grid-2">
+                          <div className="booking-field">
+                            <label>E-Mail-Adresse * (für Angebot & Bestätigung)</label>
+                            <input 
+                              type="email" 
+                              value={inquiryData.email} 
+                              onChange={e => {
+                                setInquiryData(prev => ({ ...prev, email: e.target.value }));
+                                if (inquiryErrors.email) setInquiryErrors(err => ({ ...err, email: undefined }));
+                              }} 
+                              placeholder="max@beispiel.de" 
+                            />
+                            {inquiryErrors.email && <p className="field-error">{inquiryErrors.email}</p>}
+                          </div>
+                          <div className="booking-field">
+                            <label>Telefon / Mobilnummer * (für Rückfragen)</label>
+                            <input 
+                              type="tel" 
+                              value={inquiryData.phone} 
+                              onChange={e => {
+                                setInquiryData(prev => ({ ...prev, phone: e.target.value }));
+                                if (inquiryErrors.phone) setInquiryErrors(err => ({ ...err, phone: undefined }));
+                              }} 
+                              placeholder="+49 171 1234567" 
+                            />
+                            {inquiryErrors.phone && <p className="field-error">{inquiryErrors.phone}</p>}
+                          </div>
+                        </div>
+
+                        <div className="booking-field">
+                          <label>Firma / Organisation (optional, empfohlen für Monteure & Firmenkunden)</label>
+                          <input 
+                            type="text" 
+                            value={inquiryData.company} 
+                            onChange={e => setInquiryData(prev => ({ ...prev, company: e.target.value }))} 
+                            placeholder="z. B. Montagebau Nord GmbH" 
+                          />
+                        </div>
+
+                        <div className="booking-field">
+                          <label>Straße & Hausnummer (optional)</label>
+                          <input 
+                            type="text" 
+                            value={inquiryData.street} 
+                            onChange={e => setInquiryData(prev => ({ ...prev, street: e.target.value }))} 
+                            placeholder="Industriestraße 12" 
+                          />
+                        </div>
+
+                        <div className="form-grid-2">
+                          <div className="booking-field">
+                            <label>PLZ (optional)</label>
+                            <input 
+                              type="text" 
+                              value={inquiryData.zip} 
+                              onChange={e => setInquiryData(prev => ({ ...prev, zip: e.target.value }))} 
+                              placeholder="30159" 
+                            />
+                          </div>
+                          <div className="booking-field">
+                            <label>Ort / Stadt (optional)</label>
+                            <input 
+                              type="text" 
+                              value={inquiryData.city} 
+                              onChange={e => setInquiryData(prev => ({ ...prev, city: e.target.value }))} 
+                              placeholder="Hannover" 
+                            />
+                          </div>
+                        </div>
+
+                        <div className="booking-field">
+                          <label>Projektnotizen, besondere Wünsche oder Anreisezeiten (optional)</label>
+                          <textarea 
+                            rows="3" 
+                            value={inquiryData.notes} 
+                            onChange={e => setInquiryData(prev => ({ ...prev, notes: e.target.value }))} 
+                            placeholder="z. B. Späte Anreise der Monteure am ersten Tag, wöchentliche Abrechnung, getrennte Rechnungsstellung etc." 
+                          />
+                        </div>
+                      </div>
+
+                      {/* Submit CTA */}
+                      <div className="inquiry-submit-wrap">
+                        <button 
+                          type="submit" 
+                          className="btn-submit-inquiry"
+                          disabled={isSubmittingInquiry}
+                        >
+                          {isSubmittingInquiry ? (
+                            <>
+                              <RefreshCw size={18} className="spin-icon" />
+                              <span>Anfrage wird übermittelt...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Send size={18} />
+                              <span>Unverbindliche Langzeit-Anfrage absenden ({activeNights} Nächte)</span>
+                            </>
+                          )}
+                        </button>
+                        <div className="inquiry-trust-points">
+                          <span>✓ 100% kostenlos & unverbindlich</span>
+                          <span>✓ Belegungsprüfung in Echtzeit</span>
+                          <span>✓ Individuelles Angebot zu Top-Sonderkonditionen</span>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                ) : (
+                  <>
+                    {/* Zimmerauswahl für diesen Zeitraum */}
+                    <div className="booking-section">
+                      <h2 className="booking-section-title">
+                        <Bed size={24} />
+                        2. Zimmer für diesen Zeitraum hinzufügen
+                      </h2>
                   <p className="text-muted mb-4">
                     Wählen Sie die gewünschten Zimmer für den oben eingestellten Zeitraum aus. Sie können anschließend oben das Datum ändern und weitere Zeiträume hinzufügen.
                   </p>
@@ -859,8 +1350,10 @@ const BookingPage = () => {
 
                   {errors.cart && <p className="field-error mt-3">{errors.cart}</p>}
                 </div>
-              </motion.div>
+              </>
             )}
+          </motion.div>
+        )}
 
             {step === 1 && (
               <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
@@ -1034,42 +1527,94 @@ const BookingPage = () => {
             )}
           </AnimatePresence>
 
-          {/* Navigation Buttons */}
-          <div className="booking-nav-buttons">
-            {step > 0 && (
-              <button className="btn-booking-back" onClick={handleBack}>
-                <ChevronLeft size={18} /> Zurück
-              </button>
-            )}
-            <div style={{ flex: 1 }} />
-            {step < 2 ? (
-              <button 
-                className="btn-booking-next" 
-                onClick={handleNext}
-                disabled={isCheckingHold}
-              >
-                {isCheckingHold ? 'Verfügbarkeit wird geprüft...' : (
-                  <>Weiter ({totalPrice.toFixed(2)} €) <ChevronRight size={18} /></>
-                )}
-              </button>
-            ) : (
-              <button 
-                className="btn-booking-pay" 
-                onClick={handleOpenMollieModal}
-                disabled={isCheckingHold}
-              >
-                <CreditCard size={18} /> Zahlungspflichtig buchen ({totalPrice.toFixed(2)} €)
-              </button>
-            )}
-          </div>
+          {/* Navigation Buttons (nur bei regulärer Buchung) */}
+          {!isLongTermStay && (
+            <div className="booking-nav-buttons">
+              {step > 0 && (
+                <button className="btn-booking-back" onClick={handleBack}>
+                  <ChevronLeft size={18} /> Zurück
+                </button>
+              )}
+              <div style={{ flex: 1 }} />
+              {step < 2 ? (
+                <button 
+                  className="btn-booking-next" 
+                  onClick={handleNext}
+                  disabled={isCheckingHold}
+                >
+                  {isCheckingHold ? 'Verfügbarkeit wird geprüft...' : (
+                    <>Weiter ({totalPrice.toFixed(2)} €) <ChevronRight size={18} /></>
+                  )}
+                </button>
+              ) : (
+                <button 
+                  className="btn-booking-pay" 
+                  onClick={handleOpenMollieModal}
+                  disabled={isCheckingHold}
+                >
+                  <CreditCard size={18} /> Zahlungspflichtig buchen ({totalPrice.toFixed(2)} €)
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Sidebar */}
         <aside className="booking-sidebar">
           <div className="sidebar-card">
-            <h3>Ihre Buchung</h3>
+            <h3>{isLongTermStay ? 'Ihre Langzeit-Anfrage' : 'Ihre Buchung'}</h3>
 
-            {cart.length > 0 ? (
+            {isLongTermStay ? (
+              <div className="sidebar-details">
+                <div className="sidebar-inquiry-box">
+                  <div className="inquiry-stay-summary">
+                    <span className="inquiry-stay-dates">
+                      <Calendar size={15} />
+                      {formatDate(checkin)} – {formatDate(checkout)}
+                    </span>
+                    <strong className="inquiry-stay-nights">{activeNights} Nächte</strong>
+                  </div>
+
+                  <div className="sidebar-divider" />
+
+                  <div className="inquiry-rooms-summary">
+                    <span className="inquiry-summary-label">Angefragter Bedarf:</span>
+                    {inquiryRooms.countEZ > 0 && (
+                      <div className="inquiry-summary-room-row">
+                        <span>{inquiryRooms.countEZ}x Einzelzimmer</span>
+                      </div>
+                    )}
+                    {inquiryRooms.countDZ > 0 && (
+                      <div className="inquiry-summary-room-row">
+                        <span>{inquiryRooms.countDZ}x Doppelzimmer</span>
+                      </div>
+                    )}
+                    {inquiryRooms.countEZ === 0 && inquiryRooms.countDZ === 0 && (
+                      <span className="text-muted text-sm">Bitte Zimmeranzahl im Formular wählen</span>
+                    )}
+                    <small className="text-muted" style={{ display: 'block', marginTop: '0.35rem' }}>
+                      Für {inquiryRooms.totalGuests} {inquiryRooms.totalGuests === 1 ? 'Person' : 'Personen'}
+                    </small>
+                  </div>
+
+                  <div className="sidebar-divider" />
+
+                  <div className="sidebar-row sidebar-total">
+                    <span>Preis</span>
+                    <strong className="text-primary">Auf Anfrage</strong>
+                  </div>
+                  <small className="inquiry-rate-hint">
+                    Individueller Projekt- & Dauerbucherpreis nach Verfügbarkeitsprüfung.
+                  </small>
+                </div>
+
+                <div className="sidebar-trust" style={{ marginTop: '1.25rem' }}>
+                  <div className="sidebar-trust-item"><Sparkles size={16} /> Attraktive Langzeit-Konditionen</div>
+                  <div className="sidebar-trust-item"><ShieldCheck size={16} /> 100% kostenlose Anfrage</div>
+                  <div className="sidebar-trust-item"><Check size={16} /> Schnelle Rückmeldung</div>
+                </div>
+              </div>
+            ) : cart.length > 0 ? (
               <div className="sidebar-details">
                 {cart.map((item, idx) => (
                   <div key={idx} className="sidebar-cart-item">
@@ -1090,16 +1635,23 @@ const BookingPage = () => {
                   <span>Gesamt ({totalCartNights} Nächte)</span>
                   <strong>{totalPrice.toFixed(2)} €</strong>
                 </div>
+
+                <div className="sidebar-trust">
+                  <div className="sidebar-trust-item"><ShieldCheck size={16} /> Sichere Buchung & Datenschutz</div>
+                  <div className="sidebar-trust-item"><Star size={16} /> Bester Preis garantiert</div>
+                  <div className="sidebar-trust-item"><Check size={16} /> Sofortige PDF-Rechnung</div>
+                </div>
               </div>
             ) : (
-              <p className="sidebar-placeholder">Ihr Warenkorb ist leer. Fügen Sie oben Zimmer für die gewünschten Termine hinzu.</p>
+              <div>
+                <p className="sidebar-placeholder">Ihr Warenkorb ist leer. Fügen Sie oben Zimmer für die gewünschten Termine hinzu.</p>
+                <div className="sidebar-trust">
+                  <div className="sidebar-trust-item"><ShieldCheck size={16} /> Sichere Buchung & Datenschutz</div>
+                  <div className="sidebar-trust-item"><Star size={16} /> Bester Preis garantiert</div>
+                  <div className="sidebar-trust-item"><Check size={16} /> Sofortige PDF-Rechnung</div>
+                </div>
+              </div>
             )}
-            
-            <div className="sidebar-trust">
-              <div className="sidebar-trust-item"><ShieldCheck size={16} /> Sichere Buchung & Datenschutz</div>
-              <div className="sidebar-trust-item"><Star size={16} /> Bester Preis garantiert</div>
-              <div className="sidebar-trust-item"><Check size={16} /> Sofortige PDF-Rechnung</div>
-            </div>
           </div>
         </aside>
       </div>

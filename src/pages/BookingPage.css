@@ -1692,5 +1692,324 @@
   padding: 0.2rem 0.4rem;
 }
 
+/* ==========================================================================
+   Scholz & Friese - Long-Term Stay Inquiry Styles (ab 14 Nächte)
+   ========================================================================== */
+.stay-duration-pill.is-longterm {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+  color: #6b21a8;
+}
+
+.longterm-badge-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #7c3aed;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  margin-left: 0.5rem;
+}
+
+.longterm-prompt-callout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.btn-link-longterm {
+  background: none;
+  border: none;
+  color: #0f2b5c;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  transition: color 0.15s ease;
+}
+
+.btn-link-longterm:hover {
+  color: #1e40af;
+}
+
+.long-term-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  border-left: 4px solid #7c3aed;
+  border-radius: 10px;
+  padding: 1.35rem 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.long-term-banner-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #ede9fe;
+  color: #7c3aed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.long-term-banner-text h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #4c1d95;
+  margin: 0 0 0.4rem 0;
+}
+
+.long-term-banner-text p {
+  font-size: 0.875rem;
+  color: #5b21b6;
+  margin: 0;
+  line-height: 1.55;
+}
+
+.inquiry-block {
+  padding-bottom: 1.75rem;
+  margin-bottom: 1.75rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.inquiry-block:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 1.5rem;
+}
+
+.inquiry-block-title {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f2b5c;
+  margin: 0 0 0.5rem 0;
+}
+
+.inquiry-rooms-stepper-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .inquiry-rooms-stepper-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.inquiry-stepper-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+}
+
+.inquiry-stepper-info strong {
+  display: block;
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.inquiry-stepper-info span {
+  display: block;
+  font-size: 0.775rem;
+  color: #64748b;
+}
+
+.inquiry-stepper-control {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.stepper-count-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.stepper-count-btn:hover:not(:disabled) {
+  background: #0f2b5c;
+  color: #ffffff;
+  border-color: #0f2b5c;
+}
+
+.stepper-count-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.stepper-count-val {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+  min-width: 24px;
+  text-align: center;
+}
+
+.inquiry-guests-count-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75rem 1.15rem;
+}
+
+.inquiry-guests-count-row label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+  margin: 0;
+}
+
+.input-guest-count {
+  width: 70px;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-align: center;
+  background: #ffffff;
+}
+
+.inquiry-submit-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.btn-submit-inquiry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  background: #0f2b5c;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 4px 12px rgba(15, 43, 92, 0.15);
+}
+
+.btn-submit-inquiry:hover:not(:disabled) {
+  background: #163f87;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(15, 43, 92, 0.2);
+}
+
+.btn-submit-inquiry:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.inquiry-trust-points {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.25rem;
+  font-size: 0.775rem;
+  color: #64748b;
+}
+
+/* Sidebar Inquiry Card */
+.sidebar-inquiry-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.inquiry-stay-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.inquiry-stay-dates {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #334155;
+  font-weight: 500;
+}
+
+.inquiry-stay-nights {
+  color: #0f2b5c;
+  font-size: 0.95rem;
+}
+
+.inquiry-summary-label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 0.4rem;
+}
+
+.inquiry-summary-room-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.inquiry-rate-hint {
+  font-size: 0.75rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
 
 

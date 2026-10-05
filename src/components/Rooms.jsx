@@ -14,7 +14,8 @@ const Rooms = () => {
       tiers: [
         { duration: "1–3 Tage", price: "70,- €" },
         { duration: "4–6 Tage", price: "65,- €" },
-        { duration: "ab 7 Tage", price: "60,- €", highlight: true }
+        { duration: "ab 7 Tage", price: "60,- €", highlight: true },
+        { duration: "ab 14 Tage", price: "Auf Anfrage" }
       ],
       img: "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Gallerie/hf_20260609_133148_67288b61-b237-4d39-a77a-77344a73cdcc_ergebnis.webp",
       icons: [<Wifi key="w" size={18} />, <User key="u" size={18} />]
@@ -27,7 +28,8 @@ const Rooms = () => {
       tiers: [
         { duration: "1–3 Tage", price: "100,- €" },
         { duration: "4–6 Tage", price: "90,- €" },
-        { duration: "ab 7 Tage", price: "80,- €", highlight: true }
+        { duration: "ab 7 Tage", price: "80,- €", highlight: true },
+        { duration: "ab 14 Tage", price: "Auf Anfrage" }
       ],
       img: "https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Gallerie/hf_20260609_134014_fb04fac6-65c1-4b1e-b4b7-00038e0f899c_ergebnis.webp",
       icons: [<Wifi key="w" size={18} />, <User key="u1" size={18} />, <User key="u2" size={18} />]
@@ -107,10 +109,10 @@ const Rooms = () => {
               <strong>Für längerfristige Aufenthalte gelten Sonderkonditionen</strong>
               <p>Sie planen ein größeres Bauprojekt oder mehrere Wochen Aufenthalt? Wir erstellen Ihnen gerne ein individuelles Angebot.</p>
             </div>
-            <a href="mailto:info@hostel-neustadt.de?subject=Anfrage%20L%C3%A4ngerfristiger%20Aufenthalt" className="notice-link">
-              <span>Auf Anfrage</span>
+            <Link to="/buchen?inquiry=1" className="notice-link">
+              <span>Jetzt anfragen</span>
               <ArrowUpRight size={15} />
-            </a>
+            </Link>
           </div>
 
           <div className="notice-divider" />

@@ -396,9 +396,14 @@ export const bookingStore = {
     const customPeriods = this.getCustomPeriods().filter(p => p.active);
     const p = pricing[typeId] || DEFAULT_PRICING[typeId];
 
+    let isLongTerm = nights >= 14;
+    let requiresInquiry = isLongTerm;
     let tieredRate = p.tier1_3;
     let tierName = '1–3 Nächte';
-    if (nights >= 7) {
+    if (nights >= 14) {
+      tieredRate = p.tier7plus;
+      tierName = 'ab 14 Nächte (Individuelles Angebot)';
+    } else if (nights >= 7) {
       tieredRate = p.tier7plus;
       tierName = 'ab 7 Nächte (Sparpreis)';
     } else if (nights >= 4) {
@@ -448,6 +453,8 @@ export const bookingStore = {
       tieredRate,
       tierName,
       hasCustomPeriod,
+      isLongTerm,
+      requiresInquiry,
       breakdown
     };
   },
@@ -972,6 +979,85 @@ export const bookingStore = {
     this.setBookings([newBooking, ...currentBookings]);
 
     return newBooking;
+  },
+
+  // ---- Create Long-Term Stay Inquiry (Stays >= 14 Nights) ----
+  createInquiry({
+    checkin,
+    checkout,
+    nights,
+    rooms, // e.g. [{ typeId: 'einzelzimmer', count: 1, guests: 1 }, { typeId: 'doppelzimmer', count: 0, guests: 0 }]
+    guest, // { firstName, lastName, email, phone, company, street, zip, city, notes }
+    projectNotes = ''
+  }) {
+    if (!checkin || !checkout) {
+      throw new Error('Bitte wählen Sie Anreise- und Abreisedatum aus.');
+    }
+    const d1 = new Date(checkin);
+    const d2 = new Date(checkout);
+    const calculatedNights = Math.max(1, Math.ceil((d2 - d1) / (1000 * 60 * 60 * 24)));
+    const finalNights = nights || calculatedNights;
+
+    // Generate Sequential Inquiry Reference: ANF-YYYY-XXXX
+    const year = new Date().getFullYear();
+    const prefix = `ANF-${year}-`;
+    const bookings = this.getBookings();
+    let maxSeq = 0;
+    bookings.forEach(b => {
+      if (b.bookingNumber && b.bookingNumber.startsWith(prefix)) {
+        const numPart = b.bookingNumber.substring(prefix.length);
+        const parsed = parseInt(numPart, 10);
+        if (!isNaN(parsed) && parsed > maxSeq) maxSeq = parsed;
+      }
+    });
+    const inquiryNumber = `${prefix}${String(maxSeq + 1).padStart(4, '0')}`;
+    const nowIso = new Date().toISOString();
+
+    const roomItems = (rooms || []).map(r => ({
+      typeId: r.typeId,
+      name: r.name || (r.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer'),
+      count: Number(r.count) || 1,
+      guests: Number(r.guests) || 1,
+      pricePerNight: 0,
+      totalPrice: 0
+    }));
+
+    const newInquiry = {
+      id: `inq-${Date.now()}`,
+      bookingNumber: inquiryNumber,
+      invoiceNumber: 'Angebot auf Anfrage',
+      createdAt: nowIso,
+      status: 'inquiry', // 'inquiry' | 'confirmed' | 'open' | 'cancelled'
+      isInquiry: true,
+      paymentStatus: 'pending',
+      checkin,
+      checkout,
+      nights: finalNights,
+      rooms: roomItems,
+      totalPrice: 0,
+      guest: {
+        firstName: guest?.firstName || '',
+        lastName: guest?.lastName || '',
+        email: guest?.email || '',
+        phone: guest?.phone || '',
+        company: guest?.company || '',
+        street: guest?.street || '',
+        zip: guest?.zip || '',
+        city: guest?.city || '',
+        notes: [projectNotes, guest?.notes].filter(Boolean).join('\n')
+      },
+      payment: {
+        method: 'inquiry',
+        methodLabel: 'Individuelle Anfrage (Sonderkonditionen)',
+        status: 'pending',
+        amount: 0
+      }
+    };
+
+    const currentBookings = this.getBookings();
+    this.setBookings([newInquiry, ...currentBookings]);
+
+    return newInquiry;
   },
 
   // ---- Mark Booking as Paid (Admin Desk / Check-in) ----
