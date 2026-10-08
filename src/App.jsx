@@ -6,6 +6,7 @@ import ImprintPage from './pages/ImprintPage';
 import PrivacyPage from './pages/PrivacyPage';
 import TermsPage from './pages/TermsPage';
 import AdminPage from './pages/AdminPage';
+import AccessibilityPage from './pages/AccessibilityPage';
 import './App.css';
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/impressum" element={<ImprintPage />} />
         <Route path="/datenschutz" element={<PrivacyPage />} />
+        <Route path="/barrierefreiheit" element={<AccessibilityPage />} />
         <Route path="/agb" element={<TermsPage />} />
         <Route path="/stornierung" element={<TermsPage />} />
       </Routes>

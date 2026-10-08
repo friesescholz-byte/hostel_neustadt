@@ -76,6 +76,7 @@ const Footer = () => {
           <div className="footer-links">
             <Link to="/impressum">Impressum</Link>
             <Link to="/datenschutz">Datenschutz</Link>
+            <Link to="/barrierefreiheit">Barrierefreiheit</Link>
             <Link to="/agb">AGB & Stornierung</Link>
           </div>
         </div>

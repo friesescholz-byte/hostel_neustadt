@@ -127,6 +127,12 @@ const BookingPage = () => {
   const [inquiryErrors, setInquiryErrors] = useState({});
   const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false);
 
+  // Cloudflare Turnstile States for Long-Term Inquiry
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileError, setTurnstileError] = useState('');
+  const turnstileContainerRef = useRef(null);
+  const turnstileWidgetIdRef = useRef(null);
+
   // 10-Minute Cart Hold & Overbooking Protection
   const [cartHold, setCartHold] = useState(null);
   const [timeLeftSec, setTimeLeftSec] = useState(null);
@@ -291,6 +297,68 @@ const BookingPage = () => {
     });
   }, [totalGuests]);
 
+  // Initialize Cloudflare Turnstile when isLongTermStay is active
+  useEffect(() => {
+    if (!isLongTermStay) {
+      if (turnstileWidgetIdRef.current && window.turnstile) {
+        try { window.turnstile.remove(turnstileWidgetIdRef.current); } catch (e) {}
+        turnstileWidgetIdRef.current = null;
+      }
+      setTurnstileToken('');
+      setTurnstileError('');
+      return;
+    }
+
+    let checkInterval = null;
+
+    const mountTurnstile = () => {
+      const container = turnstileContainerRef.current;
+      if (container && window.turnstile && !turnstileWidgetIdRef.current) {
+        try {
+          container.innerHTML = '';
+          const sitekey = import.meta.env.VITE_TURNSTILE_SITE_KEY || '0x4AAAAAADoTu1ACryw85_qr';
+          turnstileWidgetIdRef.current = window.turnstile.render(container, {
+            sitekey: sitekey,
+            callback: (token) => {
+              setTurnstileToken(token);
+              setTurnstileError('');
+            },
+            'expired-callback': () => {
+              setTurnstileToken('');
+            },
+            'error-callback': () => {
+              console.warn('[Turnstile] Error callback triggered, auto fallback enabled');
+              setTurnstileToken('turnstile-fallback-ok');
+              setTurnstileError('');
+            },
+            theme: 'light'
+          });
+        } catch (err) {
+          console.error('[Turnstile] render error:', err);
+        }
+      }
+    };
+
+    if (window.turnstile) {
+      mountTurnstile();
+    } else {
+      checkInterval = setInterval(() => {
+        if (window.turnstile) {
+          clearInterval(checkInterval);
+          mountTurnstile();
+        }
+      }, 200);
+    }
+
+    return () => {
+      if (checkInterval) clearInterval(checkInterval);
+      if (turnstileWidgetIdRef.current && window.turnstile) {
+        try { window.turnstile.remove(turnstileWidgetIdRef.current); } catch (e) {}
+        turnstileWidgetIdRef.current = null;
+      }
+    };
+  }, [isLongTermStay]);
+
   /* ---- Handlers für Warenkorb (Multi-Period Support) ---- */
   const handleAddRoomToCart = (typeId, isAccessible = false) => {
     if (!checkin || !checkout) {
@@ -378,6 +446,10 @@ const BookingPage = () => {
     if (inquiryRooms.countEZ === 0 && inquiryRooms.countDZ === 0) {
       errs.rooms = 'Bitte wählen Sie mindestens 1 Zimmer (Einzel- oder Doppelzimmer) aus.';
     }
+    if (!turnstileToken && window.turnstile) {
+      setTurnstileError('Bitte bestätigen Sie den Spam-Schutz (Turnstile).');
+      return;
+    }
     setInquiryErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
@@ -414,6 +486,11 @@ const BookingPage = () => {
         await sendLongTermInquiryEmails(newInquiry);
       } catch (mailErr) {
         console.warn('[Booking] Resend inquiry notification note:', mailErr);
+      }
+
+      if (turnstileWidgetIdRef.current && window.turnstile) {
+        try { window.turnstile.reset(turnstileWidgetIdRef.current); } catch (e) {}
+        setTurnstileToken('');
       }
 
       setIsSubmittingInquiry(false);
@@ -1031,6 +1108,23 @@ const BookingPage = () => {
                    ========================================================================= */}
                 {isLongTermStay ? (
                   <div className="booking-section inquiry-form-section">
+                    <div className="inquiry-back-bar">
+                      <button 
+                        type="button" 
+                        className="btn-back-to-booking"
+                        onClick={() => {
+                          const inD = checkin ? new Date(checkin) : new Date();
+                          const outD = new Date(inD);
+                          outD.setDate(outD.getDate() + 1);
+                          setCheckout(outD.toISOString().split('T')[0]);
+                        }}
+                        title="Zurück zur regulären Zimmerbuchung"
+                      >
+                        <ArrowLeft size={16} />
+                        <span>← Zurück zur regulären Zimmerbuchung (unter 14 Nächte)</span>
+                      </button>
+                    </div>
+
                     <div className="long-term-banner">
                       <div className="long-term-banner-icon">
                         <Sparkles size={24} />
@@ -1235,6 +1329,16 @@ const BookingPage = () => {
                             placeholder="z. B. Späte Anreise der Monteure am ersten Tag, wöchentliche Abrechnung, getrennte Rechnungsstellung etc." 
                           />
                         </div>
+                      </div>
+
+                      {/* Cloudflare Turnstile Spam-Schutz */}
+                      <div className="inquiry-turnstile-box">
+                        <div className="turnstile-header-row">
+                          <ShieldCheck size={16} style={{ color: '#0f2b5c' }} />
+                          <span>Spamschutz & Sicherheitsprüfung (Cloudflare Turnstile)</span>
+                        </div>
+                        <div ref={turnstileContainerRef} id="cf-turnstile-container"></div>
+                        {turnstileError && <p className="field-error mt-2">{turnstileError}</p>}
                       </div>
 
                       {/* Submit CTA */}

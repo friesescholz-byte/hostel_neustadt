@@ -122,7 +122,21 @@ const PrivacyPage = () => {
               Rechtsgrundlage für diese Verarbeitung ist Art. 6 Abs. 1 lit. b DSGVO, sofern Ihre Kontaktaufnahme mit der Vorbereitung oder Durchführung einer Buchung zusammenhängt. In allen sonstigen Fällen stützt sich die Verarbeitung auf unser berechtigtes Interesse an einer schnellen und unkomplizierten Kundenkommunikation (Art. 6 Abs. 1 lit. f DSGVO) sowie auf Ihre konkludente Einwilligung durch die aktive Nutzung des WhatsApp-Dienstes (Art. 6 Abs. 1 lit. a DSGVO).
             </p>
 
-            <h2>11. Online-Buchungssystem & Zimmerreservierung</h2>
+            <h2>11. Cloudflare Turnstile (Bot- & Spamschutz für Formulare)</h2>
+            <p>
+              Wir nutzen auf unserer Website den Dienst <strong>Cloudflare Turnstile</strong> des Anbieters <strong>Cloudflare Inc.</strong> (101 Townsend St, San Francisco, CA 94107, USA; EU-Niederlassung: Cloudflare Germany GmbH, Rosental 7, 80331 München).
+            </p>
+            <p>
+              Turnstile dient der Überprüfung, ob Dateneingaben auf unserer Website (insbesondere im Anfrageformular für Langzeitaufenthalte) durch einen menschlichen Nutzer oder missbräuchlich durch automatisierte Programme (Bots) erfolgen. Hierdurch schützen wir unsere Systeme vor Spam, Überlastung und DoS-Angriffen.
+            </p>
+            <p>
+              Im Rahmen der Sicherheitsprüfung analysiert Turnstile verschiedene technische Merkmale des Endgeräts und Browsers (wie z.&nbsp;B. HTTP-Header, Browser-Konfiguration, Ausführungsverhalten von Skripten). Turnstile verzichtet dabei auf das Setzen von Tracking-Cookies für Werbezwecke und scannt keine privaten Gerätedaten.
+            </p>
+            <p>
+              Die Verarbeitung erfolgt auf Grundlage unseres berechtigten Interesses an der Sicherheit und Funktionsfähigkeit unseres Webangebots sowie der Vermeidung von automatisiertem Spam und Missbrauch gemäß <strong>Art. 6 Abs. 1 lit. f DSGVO</strong>. Soweit Daten in die USA übermittelt werden, stützt sich Cloudflare auf das <strong>EU-U.S. Data Privacy Framework (DPF)</strong> sowie von der EU-Kommission genehmigte Standardvertragsklauseln (SCCs). Weitere Informationen finden Sie in den Datenschutzbestimmungen von Cloudflare unter <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer">https://www.cloudflare.com/privacypolicy/</a>.
+            </p>
+
+            <h2>12. Online-Buchungssystem & Zimmerreservierung</h2>
             <p>
               Wenn Sie über unsere Website eine Reservierung vornehmen, erfassen wir die für die Buchung und Vertragsabwicklung erforderlichen Angaben:
             </p>
@@ -137,7 +151,7 @@ const PrivacyPage = () => {
               Rechtsgrundlage für die Datenverarbeitung ist Art. 6 Abs. 1 lit. b DSGVO (Erfüllung des Beherbergungsvertrags bzw. Durchführung vorvertraglicher Maßnahmen).
             </p>
 
-            <h2>12. Gesetzliche Gästedaten & Meldeschein</h2>
+            <h2>13. Gesetzliche Gästedaten & Meldeschein</h2>
             <p>
               Gemäß §§ 29 und 30 des Bundesmeldegesetzes (BMG) sind Beherbergungsstätten in Deutschland verpflichtet, von jedem Gast bei Ankunft einen besonderen Meldeschein mit personenbezogenen Daten (u. a. Name, Geburtsdatum, Staatsangehörigkeit, Anschrift) ausfüllen und unterschreiben zu lassen.
             </p>
@@ -145,7 +159,7 @@ const PrivacyPage = () => {
               Die Verarbeitung dieser Daten erfolgt zur Erfüllung einer rechtlichen Verpflichtung gemäß Art. 6 Abs. 1 lit. c DSGVO. Die Meldescheine werden gemäß den gesetzlichen Aufbewahrungsfristen für die Dauer eines Jahres aufbewahrt und anschließend vernichtet. Buchungs- und Rechnungsunterlagen werden gemäß § 147 AO und § 257 HGB für bis zu 10 Jahre archiviert.
             </p>
 
-            <h2>13. Zahlungsabwicklung über Mollie</h2>
+            <h2>14. Zahlungsabwicklung über Mollie</h2>
             <p>
               Für die sichere Abwicklung von Online-Zahlungen (Kreditkarte, PayPal, Klarna, Giropay, Apple Pay) nutzen wir die Zahlungsplattform des Zahlungsdienstleisters:
             </p>
@@ -158,7 +172,7 @@ const PrivacyPage = () => {
               Im Rahmen der Zahlungstransaktion werden Ihre Bestelldaten (z. B. Buchungsnummer, Rechnungsbetrag, Währung) an Mollie übermittelt. Mollie verarbeitet diese Daten zur Durchführung der Zahlung und zur Betrugsprävention als eigenständiger datenschutzrechtlicher Verantwortlicher. Rechtsgrundlage für die Übermittlung ist Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung).
             </p>
 
-            <h2>14. Social Media Links</h2>
+            <h2>15. Social Media Links</h2>
             <p>
               Auf unserer Website finden Sie Verlinkungen zu unseren Profilen in den sozialen Netzwerken <strong>Instagram</strong> und <strong>Facebook</strong> (Meta Platforms Ireland Limited).
             </p>
@@ -166,12 +180,12 @@ const PrivacyPage = () => {
               Hierbei handelt es sich um reguläre Hyperlinks und nicht um sogenannte Social Plugins, die bereits beim Laden der Seite Daten an die Plattformen übermitteln. Eine Verbindung zu den Servern der sozialen Netzwerke wird erst hergestellt, wenn Sie aktiv auf das entsprechende Icon klicken.
             </p>
 
-            <h2>15. SSL- bzw. TLS-Verschlüsselung</h2>
+            <h2>16. SSL- bzw. TLS-Verschlüsselung</h2>
             <p>
               Diese Seite nutzt aus Sicherheitsgründen und zum Schutz der Übertragung vertraulicher Inhalte, wie zum Beispiel Buchungsanfragen oder Zahlungsdaten, eine SSL- bzw. TLS-Verschlüsselung. Eine verschlüsselte Verbindung erkennen Sie daran, dass die Adresszeile des Browsers von „http://“ auf „https://“ wechselt und an dem Schloss-Symbol in Ihrer Browserzeile.
             </p>
 
-            <h2>16. Rechte der betroffenen Personen</h2>
+            <h2>17. Rechte der betroffenen Personen</h2>
             <p>Nach der Datenschutz-Grundverordnung stehen Ihnen umfassende Betroffenenrechte zu:</p>
             <ul>
               <li><strong>Recht auf Auskunft (Art. 15 DSGVO):</strong> Sie haben das Recht, jederzeit Auskunft über Ihre von uns verarbeiteten personenbezogenen Daten zu verlangen.</li>

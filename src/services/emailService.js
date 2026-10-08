@@ -1,7 +1,7 @@
 import { generateInvoicePDF } from './pdfGenerator.js';
 
 export const SENDER_EMAIL = 'Hostel Neustadt <noreply@scholz-friese-webdesign.de>';
-export const OWNER_NOTIFICATION_EMAIL = 'scholz.friese@gmail.com';
+export const OWNER_NOTIFICATION_EMAIL = 'friese.scholz@gmail.com';
 export const REPLY_TO_EMAIL = 'info@hostel-neustadt.de';
 
 const formatEuro = (val) => {
@@ -400,39 +400,94 @@ export async function sendLongTermInquiryEmails(inquiry) {
     <html lang="de">
     <head>
       <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
-        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1e293b; background: #f8fafc; margin: 0; padding: 24px; }
-        .container { max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 28px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
-        .badge { display: inline-block; background: #7c3aed; color: #ffffff; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 6px; }
-        .info-card { background: #f5f3ff; border: 1px solid #ddd6fe; padding: 16px; border-radius: 8px; margin: 16px 0; font-size: 14px; line-height: 1.6; }
-        .btn { display: inline-block; background: #0F2B5C; color: #ffffff !important; font-weight: 600; text-decoration: none; padding: 12px 22px; border-radius: 6px; margin-top: 20px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; background: #f8fafc; margin: 0; padding: 24px; line-height: 1.5; }
+        .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.04); }
+        .header { background: #0F2B5C; color: #ffffff; padding: 26px 30px; text-align: left; }
+        .header h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+        .header p { margin: 6px 0 0 0; color: #94a3b8; font-size: 13px; }
+        .content { padding: 30px; }
+        .badge { display: inline-block; background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 6px; }
+        .info-card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 18px; border-radius: 10px; margin: 18px 0; font-size: 14px; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+        .data-table td { padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
+        .data-table td.label { width: 130px; color: #64748b; font-weight: 500; }
+        .btn-primary { display: inline-block; background: #0F2B5C; color: #ffffff !important; font-weight: 600; text-decoration: none; padding: 12px 20px; border-radius: 6px; font-size: 14px; text-align: center; }
+        .btn-secondary { display: inline-block; background: #f1f5f9; color: #0F2B5C !important; font-weight: 600; text-decoration: none; padding: 12px 20px; border-radius: 6px; font-size: 14px; text-align: center; border: 1px solid #cbd5e1; }
+        .footer { background: #f8fafc; padding: 18px 30px; font-size: 12px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; }
       </style>
     </head>
     <body>
       <div class="container">
-        <span class="badge">📋 Langzeit-Anfrage (ab 14 Nächte)</span>
-        <h2 style="color: #0F2B5C; margin: 12px 0 6px 0;">Neue individuelle Anfrage eingegangen!</h2>
-        <p style="color: #64748b; font-size: 14px; margin-top: 0;">Ein Gast hat über das Langzeit-Formular angefragt:</p>
+        <div class="header">
+          <h1>HOSTEL NEUSTADT</h1>
+          <p>Neue Buchungsanfrage (Langzeitaufenthalt) eingegangen</p>
+        </div>
+        <div class="content">
+          <span class="badge">📋 Vorgang: ${inquiry.bookingNumber}</span>
+          <h2 style="color: #0F2B5C; margin: 16px 0 6px 0; font-size: 18px;">Anfrage über ${inquiry.nights || 14} Übernachtungen</h2>
+          <p style="color: #64748b; font-size: 14px; margin-top: 0;">Ein Kunde hat über die Website ein individuelles Angebot für einen längeren Aufenthalt angefragt:</p>
 
-        <div class="info-card">
-          <strong>Vorgangs-Nr.:</strong> ${inquiry.bookingNumber}<br>
-          <strong>Zeitraum:</strong> ${checkinDE} bis ${checkoutDE} (<strong>${inquiry.nights || 14} Nächte</strong>)<br>
-          <strong>Zimmerbedarf:</strong> ${roomsSummary}<br>
-          <strong>Kunde:</strong> ${guest.firstName || ''} ${guest.lastName || ''} ${guest.company ? `(${guest.company})` : ''}
+          <div class="info-card">
+            <table class="data-table">
+              <tr>
+                <td class="label">Reisezeitraum:</td>
+                <td><strong>${checkinDE} bis ${checkoutDE}</strong> (${inquiry.nights || 14} Nächte)</td>
+              </tr>
+              <tr>
+                <td class="label">Zimmerbedarf:</td>
+                <td><strong style="color: #0F2B5C;">${roomsSummary || 'Zimmer nach Vereinbarung'}</strong></td>
+              </tr>
+              <tr>
+                <td class="label">Kunde / Name:</td>
+                <td><strong>${guest.firstName || ''} ${guest.lastName || ''}</strong></td>
+              </tr>
+              ${guest.company ? `
+              <tr>
+                <td class="label">Firma:</td>
+                <td><strong>${guest.company}</strong></td>
+              </tr>` : ''}
+              <tr>
+                <td class="label">E-Mail:</td>
+                <td><a href="mailto:${guest.email}" style="color: #2563eb; font-weight: 600;">${guest.email}</a></td>
+              </tr>
+              <tr>
+                <td class="label">Telefon:</td>
+                <td><a href="tel:${guest.phone}" style="color: #2563eb; font-weight: 600;">${guest.phone || '-'}</a></td>
+              </tr>
+              ${guest.street || guest.city ? `
+              <tr>
+                <td class="label">Anschrift:</td>
+                <td>${guest.street || ''}, ${guest.zip || ''} ${guest.city || ''}</td>
+              </tr>` : ''}
+              ${guest.notes ? `
+              <tr>
+                <td class="label" style="vertical-align: top;">Projektnotiz:</td>
+                <td style="color: #b45309; font-weight: 500;">${guest.notes}</td>
+              </tr>` : ''}
+            </table>
+          </div>
+
+          <div style="margin-top: 24px; text-align: center;">
+            <a href="mailto:${guest.email}?subject=Ihr%20Angebot%20f%C3%BCr%20Ihren%20Aufenthalt%20im%20Hostel%20Neustadt%20(${inquiry.bookingNumber})" class="btn-primary" style="margin-right: 8px;">
+              ✉️ Angebot an Kunden senden
+            </a>
+            ${guest.phone ? `
+            <a href="tel:${guest.phone}" class="btn-secondary">
+              📞 Gast anrufen
+            </a>` : ''}
+          </div>
+
+          <div style="text-align: center; margin-top: 14px;">
+            <a href="https://hostel-neustadt.pages.dev/admin" style="font-size: 12.5px; color: #64748b; text-decoration: underline;">
+              Im Admin-Bereich ansehen & verwalten →
+            </a>
+          </div>
         </div>
 
-        <h4 style="margin: 20px 0 8px 0; color: #0F2B5C;">Kontaktdaten:</h4>
-        <div style="font-size: 13.5px; color: #334155; line-height: 1.6; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
-          <strong>Name:</strong> ${guest.firstName || ''} ${guest.lastName || ''}<br>
-          ${guest.company ? `<strong>Firma:</strong> ${guest.company}<br>` : ''}
-          <strong>E-Mail:</strong> <a href="mailto:${guest.email}">${guest.email}</a><br>
-          <strong>Telefon:</strong> <a href="tel:${guest.phone}">${guest.phone || '-'}</a><br>
-          <strong>Anschrift:</strong> ${guest.street || '-'}, ${guest.zip || ''} ${guest.city || ''}<br>
-          ${guest.notes ? `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e2e8f0;"><strong>Projektnotiz:</strong> <span style="color: #b45309;">${guest.notes}</span></div>` : ''}
-        </div>
-
-        <div style="text-align: center; margin-top: 24px;">
-          <a href="https://hostel-neustadt.pages.dev/admin" class="btn">Im Admin Hub ansehen & Angebot erstellen →</a>
+        <div class="footer">
+          <p style="margin: 0;">Automatisierte Anfragebenachrichtigung · Hostel Neustadt System</p>
         </div>
       </div>
     </body>
