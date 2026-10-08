@@ -65,10 +65,10 @@ export async function generateInvoicePDF(booking) {
   doc.setFontSize(8.5);
   doc.setTextColor(...COLOR_MUTED);
   doc.text('Hostel Neustadt', 190, 17, { align: 'right' });
-  doc.text('Bahnhofstraße 10', 190, 21.5, { align: 'right' });
+  doc.text('Bertha-Sicius-Str. 6', 190, 21.5, { align: 'right' });
   doc.text('31535 Neustadt am Rübenberge', 190, 26, { align: 'right' });
-  doc.text('Telefon: +49 123 4567890', 190, 30.5, { align: 'right' });
-  doc.text('E-Mail: info@hostel-neustadt.de', 190, 35, { align: 'right' });
+  doc.text('Telefon: +49 172 8572368', 190, 30.5, { align: 'right' });
+  doc.text('E-Mail: vermietung@bh-am-ruebenberge.de', 190, 35, { align: 'right' });
   doc.text('Web: www.hostel-neustadt.de', 190, 39.5, { align: 'right' });
 
   // Thin header rule
@@ -80,7 +80,7 @@ export async function generateInvoicePDF(booking) {
   // Small single-line sender address
   doc.setFontSize(7);
   doc.setTextColor(...COLOR_MUTED);
-  doc.text('Hostel Neustadt · Bahnhofstraße 10 · 31535 Neustadt am Rübenberge', 20, 50);
+  doc.text('Hostel Neustadt · Bertha-Sicius-Str. 6 · 31535 Neustadt am Rübenberge', 20, 50);
 
   // Recipient Address
   let yPos = 57;
@@ -134,15 +134,18 @@ export async function generateInvoicePDF(booking) {
   drawMetaRow('Rechnungsdatum:', invoiceDate);
   drawMetaRow('Buchungs-Nr.:', booking.bookingNumber || 'HN-2026-0001');
   drawMetaRow('Leistungszeitraum:', `${checkinFmt} – ${checkoutFmt}`);
-  drawMetaRow('USt-IdNr.:', 'DE315351234');
-  drawMetaRow('Steuernummer:', '34/123/45678');
+  drawMetaRow('Rechtsform:', 'GbR (HRB entfällt)');
+  drawMetaRow('USt-IdNr.:', 'In Zuteilung');
 
   // --- 4. Subject / Title ---
   yPos = 98;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
   doc.setTextColor(...COLOR_BLACK);
-  doc.text(`Rechnung ${booking.invoiceNumber || 'RE-2026-0001'}`, 20, yPos);
+  const docTitle = booking.status === 'cancelled'
+    ? `Stornierungsbeleg zu ${booking.invoiceNumber || 'HN'}`
+    : `Rechnung ${booking.invoiceNumber || 'RE-2026-0001'}`;
+  doc.text(docTitle, 20, yPos);
 
   yPos += 6;
   doc.setFont('helvetica', 'normal');
@@ -155,7 +158,10 @@ export async function generateInvoicePDF(booking) {
 
   doc.text(`${salutation}`, 20, yPos);
   yPos += 4.5;
-  doc.text(`wir bedanken uns für Ihre Buchung und stellen Ihnen die vereinbarten Leistungen wie folgt in Rechnung:`, 20, yPos);
+  const introMsg = booking.status === 'cancelled'
+    ? 'hiermit bestätigen wir Ihnen die Stornierung der gebuchten Beherbergungsleistung:'
+    : 'wir bedanken uns für Ihre Buchung und stellen Ihnen die vereinbarten Leistungen wie folgt in Rechnung:';
+  doc.text(introMsg, 20, yPos);
 
   // --- 5. Table Header ---
   yPos += 9;
@@ -186,6 +192,9 @@ export async function generateInvoicePDF(booking) {
     const roomTitle = r.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer';
     const qtyText = r.count > 1 ? `${r.count}x ` : '';
     const tierInfo = r.tierName ? ` (${r.tierName})` : '';
+    const roomNumStr = r.roomNumber 
+      ? ` · Zimmer ${r.roomNumber}${r.roomNumber === 2 ? ' (Barrierefrei ♿)' : ''}` 
+      : '';
 
     const itemInFmt = r.checkin ? new Date(r.checkin).toLocaleDateString('de-DE') : checkinFmt;
     const itemOutFmt = r.checkout ? new Date(r.checkout).toLocaleDateString('de-DE') : checkoutFmt;
@@ -200,7 +209,7 @@ export async function generateInvoicePDF(booking) {
     doc.text(String(idx + 1), 22, yPos);
 
     doc.setFont('helvetica', 'bold');
-    doc.text(`${qtyText}${roomTitle}${tierInfo}`, 34, yPos);
+    doc.text(`${qtyText}${roomTitle}${roomNumStr}${tierInfo}`, 34, yPos);
 
     doc.setFont('helvetica', 'normal');
     doc.text(String(itemNights), 114, yPos, { align: 'center' });
@@ -326,25 +335,25 @@ export async function generateInvoicePDF(booking) {
   doc.setFont('helvetica', 'bold');
   doc.text('Hostel Neustadt', 20, footY);
   doc.setFont('helvetica', 'normal');
-  doc.text('Bahnhofstraße 10', 20, footY + 3.5);
+  doc.text('Bertha-Sicius-Str. 6', 20, footY + 3.5);
   doc.text('31535 Neustadt am Rübenberge', 20, footY + 7);
-  doc.text('www.hostel-neustadt.de', 20, footY + 10.5);
+  doc.text('vermietung@bh-am-ruebenberge.de', 20, footY + 10.5);
 
   // Col 2: Bankverbindung
   doc.setFont('helvetica', 'bold');
   doc.text('Bankverbindung', 85, footY);
   doc.setFont('helvetica', 'normal');
-  doc.text('Sparkasse Hannover', 85, footY + 3.5);
-  doc.text('IBAN: DE89 2505 0180 1234 5678 90', 85, footY + 7);
-  doc.text('BIC: SPKHDE2HXXX', 85, footY + 10.5);
+  doc.text('IBAN: DE98 2506 9262 0011 3700 00', 85, footY + 3.5);
+  doc.text('Verwendungszweck: ' + (booking.invoiceNumber || booking.bookingNumber), 85, footY + 7);
+  doc.text('WhatsApp: +49 172 8572368', 85, footY + 10.5);
 
   // Col 3: Steuer & Register
   doc.setFont('helvetica', 'bold');
   doc.text('Unternehmensdaten', 145, footY);
   doc.setFont('helvetica', 'normal');
-  doc.text('Inh.: Scholz & Friese GbR', 145, footY + 3.5);
-  doc.text('USt-IdNr.: DE315351234', 145, footY + 7);
-  doc.text('Amtsgericht Neustadt / Hannover', 145, footY + 10.5);
+  doc.text('Eigentümergemeinschaft GbR', 145, footY + 3.5);
+  doc.text('Bagari und Pasqualini', 145, footY + 7);
+  doc.text('USt-IdNr.: In Zuteilung (GbR)', 145, footY + 10.5);
 
   return doc;
 }

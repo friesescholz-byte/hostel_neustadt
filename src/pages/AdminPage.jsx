@@ -6,10 +6,12 @@ import {
   CheckCircle2, XCircle, Clock, Search, Filter, Download,
   Trash2, Plus, Edit3, ArrowLeft, ChevronRight, ChevronLeft, AlertCircle,
   Eye, FileText, Check, Lock, LogOut, KeyRound, Sparkles, LogIn, DoorOpen,
-  Phone, PhoneCall, UserCheck, CalendarDays, ExternalLink, RefreshCw, Mail
+  Phone, PhoneCall, UserCheck, CalendarDays, ExternalLink, RefreshCw, Mail,
+  Accessibility, Send, LayoutGrid
 } from 'lucide-react';
-import { bookingStore } from '../services/bookingStore';
+import { bookingStore, ROOM_DEFINITIONS } from '../services/bookingStore';
 import { downloadInvoicePDF } from '../services/pdfGenerator';
+import { resendInvoiceEmail, sendCancellationEmail } from '../services/emailService';
 import './AdminPage.css';
 
 export default function AdminPage() {
@@ -26,7 +28,7 @@ export default function AdminPage() {
   
   // Dashboard Store Data
   const [bookings, setBookings] = useState([]);
-  const [inventory, setInventory] = useState({ einzelzimmer: 10, doppelzimmer: 8 });
+  const [inventory, setInventory] = useState({ einzelzimmer: 3, doppelzimmer: 12 });
   const [pricing, setPricing] = useState({
     einzelzimmer: { tier1_3: 70, tier4_6: 65, tier7plus: 60 },
     doppelzimmer: { tier1_3: 100, tier4_6: 90, tier7plus: 80 }
@@ -40,6 +42,9 @@ export default function AdminPage() {
   const [showAddPeriodModal, setShowAddPeriodModal] = useState(false);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState('');
   const [nowTime, setNowTime] = useState(Date.now());
+  const [isResendingInvoice, setIsResendingInvoice] = useState(false);
+  const [isCancellingBooking, setIsCancellingBooking] = useState(false);
+  const [calendarViewMode, setCalendarViewMode] = useState('grid'); // 'grid' | 'matrix'
 
   // Weekly Calendar Navigation State
   const getMonday = (d) => {
@@ -70,6 +75,7 @@ export default function AdminPage() {
     checkout: '',
     countEZ: 1,
     countDZ: 0,
+    roomNumber: '', // specific assigned room number 1-15 or '' for auto
     paymentStatus: 'paid', // 'paid' | 'pending'
     paymentMethod: 'bar', // 'bar' | 'ec' | 'ueberweisung' | 'rechnung' | 'online'
     customPrice: ''
@@ -245,15 +251,99 @@ export default function AdminPage() {
   };
 
   // --- Handlers: Bookings ---
-  const handleCancelBooking = (bookingId) => {
-    if (window.confirm('Buchung wirklich stornieren? Die gebuchten Zimmer werden sofort wieder für andere Gäste freigegeben.')) {
-      bookingStore.cancelBooking(bookingId);
-      if (selectedBooking && selectedBooking.id === bookingId) {
-        setSelectedBooking(prev => ({ ...prev, status: 'cancelled' }));
+  const handleCancelBooking = async (bookingId) => {
+    const b = bookings.find(item => item.id === bookingId || item.bookingNumber === bookingId);
+    if (!b) return;
+
+    const guestName = `${b.guest?.firstName || ''} ${b.guest?.lastName || ''}`.trim() || 'Gast';
+    const isPaid = (b.payment?.status === 'paid' || b.paymentStatus === 'paid');
+    const paymentId = b.payment?.transactionId;
+
+    const confirmMsg = isPaid
+      ? `Buchung ${b.bookingNumber} (${guestName}) wirklich stornieren?\n\n` +
+        `• Gebuchte Zimmer werden sofort freigegeben\n` +
+        `• Rückerstattung über Mollie (${Number(b.totalPrice || 0).toFixed(2)} €) wird angewiesen\n` +
+        `• Gast (${b.guest?.email || 'keine E-Mail'}) erhält eine Stornierungs-E-Mail mit Details zur Rückabwicklung (2–5 Werktage).`
+      : `Buchung ${b.bookingNumber} (${guestName}) wirklich stornieren? Die gebuchten Zimmer werden sofort freigegeben.`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setIsCancellingBooking(true);
+    let refundDetails = null;
+
+    if (isPaid && paymentId) {
+      try {
+        const refundRes = await fetch('/api/mollie/refund', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            paymentId,
+            amount: b.totalPrice,
+            description: `Stornierung Buchung ${b.bookingNumber}`
+          })
+        });
+        const refundData = await refundRes.json();
+        if (refundData.success) {
+          refundDetails = {
+            refundId: refundData.refundId,
+            status: refundData.status,
+            amount: b.totalPrice,
+            refundedAt: new Date().toISOString()
+          };
+        }
+      } catch (err) {
+        console.warn('[Admin] Mollie refund API call error:', err);
       }
-      loadData();
-      triggerSaveNotification('Buchung storniert und Zimmer freigegeben.');
     }
+
+    const cancelled = bookingStore.cancelBooking(bookingId, refundDetails);
+    loadData();
+
+    if (selectedBooking && (selectedBooking.id === bookingId || selectedBooking.bookingNumber === bookingId)) {
+      setSelectedBooking(cancelled);
+    }
+
+    // Send stylish cancellation email with explanation of refund timeframe (2-5 business days)
+    try {
+      await sendCancellationEmail(cancelled, refundDetails);
+    } catch (mailErr) {
+      console.warn('[Admin] Cancellation email dispatch note:', mailErr);
+    }
+
+    setIsCancellingBooking(false);
+    triggerSaveNotification(`Buchung ${b.bookingNumber} storniert, Zimmer freigegeben & Stornierungs-Mail gesendet.`);
+  };
+
+  const handleResendInvoice = async (b) => {
+    if (!b) return;
+    const email = b.guest?.email;
+    if (!email) {
+      alert('Für diesen Gast ist keine E-Mail-Adresse hinterlegt.');
+      return;
+    }
+    
+    setIsResendingInvoice(true);
+    try {
+      const res = await resendInvoiceEmail(b, email);
+      setIsResendingInvoice(false);
+      if (res.success) {
+        triggerSaveNotification(`Rechnung & Buchungsbestätigung erfolgreich erneut an ${email} versendet!`);
+      } else {
+        alert(res.error || 'Fehler beim erneuten E-Mail-Versand');
+      }
+    } catch (err) {
+      setIsResendingInvoice(false);
+      alert(err.message || 'Fehler beim Versenden der E-Mail');
+    }
+  };
+
+  const handleUpdateBookingRoomNumber = (bookingId, roomIndex, newRoomNum) => {
+    const updated = bookingStore.updateBookingRoom(bookingId, roomIndex, newRoomNum);
+    loadData();
+    if (selectedBooking && (selectedBooking.id === bookingId || selectedBooking.bookingNumber === bookingId)) {
+      setSelectedBooking(updated);
+    }
+    triggerSaveNotification(`Zimmernummer erfolgreich auf Zimmer ${newRoomNum} geändert!`);
   };
 
   const handleDeleteBooking = async (bookingId) => {
@@ -304,7 +394,7 @@ export default function AdminPage() {
   };
 
   // --- Handlers: Manual Bookings (Admin Hub) ---
-  const handleOpenManualBooking = (initialDate = null) => {
+  const handleOpenManualBooking = (initialDate = null, initialRoomNumber = null) => {
     const today = new Date();
     const checkinDate = initialDate ? new Date(initialDate) : today;
     const checkoutDate = new Date(checkinDate);
@@ -313,7 +403,14 @@ export default function AdminPage() {
     const checkinStr = checkinDate.toISOString().split('T')[0];
     const checkoutStr = checkoutDate.toISOString().split('T')[0];
 
-    const calcEZ = bookingStore.calculateRoomPrice('einzelzimmer', checkinStr, checkoutStr);
+    const initialDef = initialRoomNumber 
+      ? ROOM_DEFINITIONS.find(def => def.number === Number(initialRoomNumber))
+      : null;
+
+    const countEZ = initialDef ? (initialDef.typeId === 'einzelzimmer' ? 1 : 0) : 1;
+    const countDZ = initialDef ? (initialDef.typeId === 'doppelzimmer' ? 1 : 0) : 0;
+
+    const calcEZ = bookingStore.calculateRoomPrice(initialDef?.typeId || 'einzelzimmer', checkinStr, checkoutStr);
 
     setManualBooking({
       firstName: '',
@@ -327,8 +424,9 @@ export default function AdminPage() {
       notes: '',
       checkin: checkinStr,
       checkout: checkoutStr,
-      countEZ: 1,
-      countDZ: 0,
+      countEZ,
+      countDZ,
+      roomNumber: initialRoomNumber ? String(initialRoomNumber) : '',
       paymentStatus: 'paid',
       paymentMethod: 'bar',
       customPrice: calcEZ.total
@@ -362,18 +460,33 @@ export default function AdminPage() {
     }
     const countEZ = Number(manualBooking.countEZ) || 0;
     const countDZ = Number(manualBooking.countDZ) || 0;
-    if (countEZ === 0 && countDZ === 0) {
+    if (countEZ === 0 && countDZ === 0 && !manualBooking.roomNumber) {
       alert('Bitte wählen Sie mindestens 1 Zimmer (Einzel- oder Doppelzimmer) aus.');
       return;
     }
 
     try {
       const roomsToBook = [];
-      if (countEZ > 0) {
-        roomsToBook.push({ typeId: 'einzelzimmer', count: countEZ, guests: 1 });
-      }
-      if (countDZ > 0) {
-        roomsToBook.push({ typeId: 'doppelzimmer', count: countDZ, guests: 2 });
+      const chosenRoomDef = manualBooking.roomNumber
+        ? ROOM_DEFINITIONS.find(def => def.number === Number(manualBooking.roomNumber))
+        : null;
+
+      if (chosenRoomDef) {
+        roomsToBook.push({
+          typeId: chosenRoomDef.typeId,
+          count: 1,
+          guests: chosenRoomDef.typeId === 'doppelzimmer' ? 2 : 1,
+          roomNumber: chosenRoomDef.number,
+          accessible: chosenRoomDef.accessible,
+          name: chosenRoomDef.typeLabel
+        });
+      } else {
+        if (countEZ > 0) {
+          roomsToBook.push({ typeId: 'einzelzimmer', count: countEZ, guests: 1 });
+        }
+        if (countDZ > 0) {
+          roomsToBook.push({ typeId: 'doppelzimmer', count: countDZ, guests: 2 });
+        }
       }
 
       const newB = bookingStore.createManualBooking({
@@ -599,6 +712,11 @@ export default function AdminPage() {
   const manualModalAvailability = useMemo(() => {
     if (!manualBooking.checkin || !manualBooking.checkout) return null;
     return bookingStore.getAvailableRooms(manualBooking.checkin, manualBooking.checkout);
+  }, [manualBooking.checkin, manualBooking.checkout, bookings]);
+
+  const manualOccupiedRooms = useMemo(() => {
+    if (!manualBooking.checkin || !manualBooking.checkout) return [];
+    return bookingStore.getOccupiedRoomNumbers(manualBooking.checkin, manualBooking.checkout);
   }, [manualBooking.checkin, manualBooking.checkout, bookings]);
 
   // 7 Days of the currently selected week (Monday to Sunday)
@@ -1063,6 +1181,7 @@ export default function AdminPage() {
                                 <div className="cell-rooms">
                                   {(b.rooms || []).map((r, ri) => (
                                     <span key={ri} className="room-pill">
+                                      {r.roomNumber ? <strong>Zimmer {r.roomNumber}{r.roomNumber === 2 ? ' (♿)' : ''} · </strong> : ''}
                                       {r.count || 1}x {r.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer'}
                                     </span>
                                   ))}
@@ -1108,13 +1227,25 @@ export default function AdminPage() {
                               <td style={{ textAlign: 'right' }}>
                                 <div className="actions-cluster">
                                   {!isOpenHold && !isInquiry && (
-                                    <button 
-                                      className="btn-icon" 
-                                      title="PDF-Rechnung herunterladen"
-                                      onClick={() => downloadInvoicePDF(b)}
-                                    >
-                                      <Download size={16} />
-                                    </button>
+                                    <>
+                                      <button 
+                                        className="btn-icon" 
+                                        title="PDF-Rechnung herunterladen"
+                                        onClick={() => downloadInvoicePDF(b)}
+                                      >
+                                        <Download size={16} />
+                                      </button>
+                                      {b.guest?.email && (
+                                        <button 
+                                          className="btn-icon" 
+                                          title={`Rechnung & Bestätigung erneut per E-Mail an ${b.guest.email} senden`}
+                                          onClick={() => handleResendInvoice(b)}
+                                          disabled={isResendingInvoice}
+                                        >
+                                          <Mail size={16} />
+                                        </button>
+                                      )}
+                                    </>
                                   )}
                                   {isInquiry && b.guest?.email && (
                                     <a 
@@ -1145,8 +1276,9 @@ export default function AdminPage() {
                                     <button 
                                       className="btn-icon" 
                                       style={{ color: '#b45309' }}
-                                      title="Buchung stornieren (Zimmer sofort freigeben)"
+                                      title="Buchung stornieren (Zimmer sofort freigeben & Mollie-Erstattung)"
                                       onClick={() => handleCancelBooking(b.id)}
+                                      disabled={isCancellingBooking}
                                     >
                                       <XCircle size={16} />
                                     </button>
@@ -1250,7 +1382,7 @@ export default function AdminPage() {
                               <div className="mobile-meta-rooms">
                                 {(b.rooms || []).map((r, ri) => (
                                   <span key={ri} className="room-pill-mobile">
-                                    {r.count || 1}x {r.typeId === 'einzelzimmer' ? 'EZ' : 'DZ'}
+                                    {r.roomNumber ? `Zimmer ${r.roomNumber} · ` : ''}{r.count || 1}x {r.typeId === 'einzelzimmer' ? 'EZ' : 'DZ'}{r.roomNumber === 2 ? ' ♿' : ''}
                                   </span>
                                 ))}
                               </div>
@@ -1282,20 +1414,33 @@ export default function AdminPage() {
                             </button>
 
                             {!isOpenHold && !isInquiry && (
-                              <button 
-                                className="btn-mobile-act-sec"
-                                title="Rechnung PDF"
-                                onClick={() => downloadInvoicePDF(b)}
-                              >
-                                <Download size={15} /> PDF
-                              </button>
+                              <>
+                                <button 
+                                  className="btn-mobile-act-sec" 
+                                  title="Rechnung PDF herunterladen"
+                                  onClick={() => downloadInvoicePDF(b)}
+                                >
+                                  <Download size={15} /> PDF
+                                </button>
+                                {b.guest?.email && (
+                                  <button 
+                                    className="btn-mobile-act-sec" 
+                                    title="Rechnung erneut an Gast senden"
+                                    onClick={() => handleResendInvoice(b)}
+                                    disabled={isResendingInvoice}
+                                  >
+                                    <Mail size={15} /> Senden
+                                  </button>
+                                )}
+                              </>
                             )}
 
                             {b.status === 'confirmed' && (
                               <button 
-                                className="btn-mobile-act-warn"
+                                className="btn-mobile-act-warn" 
                                 title="Stornieren"
                                 onClick={() => handleCancelBooking(b.id)}
+                                disabled={isCancellingBooking}
                               >
                                 <XCircle size={15} />
                               </button>
@@ -1351,6 +1496,29 @@ export default function AdminPage() {
                     </div>
                   </div>
 
+                  <div className="calendar-view-toggle">
+                    <button 
+                      type="button" 
+                      className={`btn-view-toggle ${calendarViewMode === 'grid' ? 'active' : ''}`}
+                      onClick={() => setCalendarViewMode('grid')}
+                      title="Klassische 7-Tage Übersicht"
+                    >
+                      <CalendarDays size={15} />
+                      <span className="btn-week-text-desktop">Tages-Karten</span>
+                      <span className="btn-week-text-mobile">Karten</span>
+                    </button>
+                    <button 
+                      type="button" 
+                      className={`btn-view-toggle ${calendarViewMode === 'matrix' ? 'active' : ''}`}
+                      onClick={() => setCalendarViewMode('matrix')}
+                      title="Matrix aller Zimmer 1 bis 15"
+                    >
+                      <LayoutGrid size={15} />
+                      <span className="btn-week-text-desktop">Zimmer-Matrix (1–15)</span>
+                      <span className="btn-week-text-mobile">Matrix</span>
+                    </button>
+                  </div>
+
                   <div className="calendar-nav-controls">
                     <div className="calendar-btn-nav-group">
                       <button className="btn-week-nav" onClick={handlePrevWeek} title="Vorherige Woche">
@@ -1383,87 +1551,199 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* 7 Days Grid */}
-                <div className="week-grid-7">
-                  {currentWeekDays.map((d, di) => {
-                    const isHigh = d.rate >= 75;
-                    const isFull = d.availEZ === 0 && d.availDZ === 0;
+                {calendarViewMode === 'grid' ? (
+                  /* 7 Days Grid */
+                  <div className="week-grid-7">
+                    {currentWeekDays.map((d, di) => {
+                      const isHigh = d.rate >= 75;
+                      const isFull = d.availEZ === 0 && d.availDZ === 0;
 
-                    return (
-                      <div 
-                        key={di} 
-                        className={`day-col-card ${d.isToday ? 'is-today' : ''}`}
-                      >
-                        {/* Day Card Header */}
-                        <div className="day-card-header">
-                          <div>
-                            <span className="day-name-short">{d.dayName}</span>
-                            <span className="day-name-long">{d.weekdayName}</span>
-                          </div>
-                          {d.isToday && <span className="today-badge">Heute</span>}
-                        </div>
-
-                        {/* Occupancy Rate Bar */}
-                        <div className="day-rate-box">
-                          <div className="progress-track">
-                            <div 
-                              className={`progress-fill ${isFull ? 'red' : (isHigh ? 'amber' : 'green')}`}
-                              style={{ width: `${d.rate}%` }}
-                            ></div>
-                          </div>
-                          <span className="day-rate-text">{d.rate}% belegt</span>
-                        </div>
-
-                        {/* Room stats */}
-                        <div className="day-rooms-stat">
-                          <div className="room-stat-chip">
-                            <strong>EZ:</strong> <span className={d.availEZ === 0 ? 'text-danger' : 'text-success'}>{d.availEZ} frei</span>
-                          </div>
-                          <div className="room-stat-chip">
-                            <strong>DZ:</strong> <span className={d.availDZ === 0 ? 'text-danger' : 'text-success'}>{d.availDZ} frei</span>
-                          </div>
-                        </div>
-
-                        {/* Guests in House this day */}
-                        <div className="day-guests-container">
-                          <span className="day-guests-title">Gäste im Haus ({d.guests.length}):</span>
-                          {d.guests.length === 0 ? (
-                            <span className="no-guests-label">Keine Buchungen</span>
-                          ) : (
-                            <ul className="day-guests-list">
-                              {d.guests.map((g, gi) => {
-                                const ezCount = (g.rooms || []).filter(r => r.typeId === 'einzelzimmer').reduce((sum, r) => sum + (r.count || 1), 0);
-                                const dzCount = (g.rooms || []).filter(r => r.typeId === 'doppelzimmer').reduce((sum, r) => sum + (r.count || 1), 0);
-                                const roomDesc = [ezCount > 0 && `${ezCount}× EZ`, dzCount > 0 && `${dzCount}× DZ`].filter(Boolean).join(', ');
-
-                                return (
-                                  <li 
-                                    key={gi} 
-                                    className="day-guest-chip" 
-                                    onClick={() => setSelectedBooking(g)}
-                                    title={`Klicken für Details: ${g.guest?.firstName} ${g.guest?.lastName}`}
-                                  >
-                                    <span className="guest-chip-name">{g.guest?.lastName || 'Gast'}</span>
-                                    {roomDesc && <span className="guest-chip-rooms">({roomDesc})</span>}
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          )}
-                        </div>
-
-                        {/* Quick action: Add booking for this day */}
-                        <button 
-                          className="btn-add-booking-day"
-                          onClick={() => handleOpenManualBooking(d.dateStr)}
-                          title={`Neue Reservierung ab ${d.formattedDate} anlegen`}
+                      return (
+                        <div 
+                          key={di} 
+                          className={`day-col-card ${d.isToday ? 'is-today' : ''}`}
                         >
-                          <Plus size={13} /> Buchung eintragen
-                        </button>
+                          {/* Day Card Header */}
+                          <div className="day-card-header">
+                            <div>
+                              <span className="day-name-short">{d.dayName}</span>
+                              <span className="day-name-long">{d.weekdayName}</span>
+                            </div>
+                            {d.isToday && <span className="today-badge">Heute</span>}
+                          </div>
+
+                          {/* Occupancy Rate Bar */}
+                          <div className="day-rate-box">
+                            <div className="progress-track">
+                              <div 
+                                className={`progress-fill ${isFull ? 'red' : (isHigh ? 'amber' : 'green')}`}
+                                style={{ width: `${d.rate}%` }}
+                              ></div>
+                            </div>
+                            <span className="day-rate-text">{d.rate}% belegt</span>
+                          </div>
+
+                          {/* Room stats */}
+                          <div className="day-rooms-stat">
+                            <div className="room-stat-chip">
+                              <strong>EZ:</strong> <span className={d.availEZ === 0 ? 'text-danger' : 'text-success'}>{d.availEZ} frei</span>
+                            </div>
+                            <div className="room-stat-chip">
+                              <strong>DZ:</strong> <span className={d.availDZ === 0 ? 'text-danger' : 'text-success'}>{d.availDZ} frei</span>
+                            </div>
+                          </div>
+
+                          {/* Guests in House this day */}
+                          <div className="day-guests-container">
+                            <span className="day-guests-title">Gäste im Haus ({d.guests.length}):</span>
+                            {d.guests.length === 0 ? (
+                              <span className="no-guests-label">Keine Buchungen</span>
+                            ) : (
+                              <ul className="day-guests-list">
+                                {d.guests.map((g, gi) => {
+                                  const ezCount = (g.rooms || []).filter(r => r.typeId === 'einzelzimmer').reduce((sum, r) => sum + (r.count || 1), 0);
+                                  const dzCount = (g.rooms || []).filter(r => r.typeId === 'doppelzimmer').reduce((sum, r) => sum + (r.count || 1), 0);
+                                  const roomDesc = [ezCount > 0 && `${ezCount}× EZ`, dzCount > 0 && `${dzCount}× DZ`].filter(Boolean).join(', ');
+
+                                  return (
+                                    <li 
+                                      key={gi} 
+                                      className="day-guest-chip" 
+                                      onClick={() => setSelectedBooking(g)}
+                                      title={`Klicken für Details: ${g.guest?.firstName} ${g.guest?.lastName}`}
+                                    >
+                                      <span className="guest-chip-name">{g.guest?.lastName || 'Gast'}</span>
+                                      {roomDesc && <span className="guest-chip-rooms">({roomDesc})</span>}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            )}
+                          </div>
+
+                          {/* Quick action: Add booking for this day */}
+                          <button 
+                            className="btn-add-booking-day"
+                            onClick={() => handleOpenManualBooking(d.dateStr)}
+                            title={`Neue Reservierung ab ${d.formattedDate} anlegen`}
+                          >
+                            <Plus size={13} /> Buchung eintragen
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  /* Zimmer-Belegungsmatrix (Zimmer 1 bis 15) */
+                  <div className="room-matrix-container">
+                    <div className="room-matrix-legend">
+                      <div className="matrix-legend-item">
+                        <span className="legend-indicator indicator-free"></span>
+                        <span>Frei (Klick zum Reservieren)</span>
                       </div>
-                    );
-                  })}
-                </div>
+                      <div className="matrix-legend-item">
+                        <span className="legend-indicator indicator-occupied"></span>
+                        <span>Belegt (Klick für Gast-Details)</span>
+                      </div>
+                      <div className="matrix-legend-item">
+                        <span className="legend-indicator indicator-checkin"></span>
+                        <span>Anreise am Tag</span>
+                      </div>
+                      <div className="matrix-legend-item accessibility-legend">
+                        <Accessibility size={14} className="text-accessibility" />
+                        <span>Zimmer 2 ist barrierefrei / rollstuhlgerecht ♿</span>
+                      </div>
+                    </div>
+
+                    <div className="room-matrix-table-scroll">
+                      <table className="room-matrix-table">
+                        <thead>
+                          <tr>
+                            <th className="th-matrix-room">Zimmer (1–15)</th>
+                            {currentWeekDays.map((d, di) => (
+                              <th key={di} className={`th-matrix-day ${d.isToday ? 'is-today-th' : ''}`}>
+                                <div className="matrix-day-name">{d.dayName}</div>
+                                <div className="matrix-day-date">{d.formattedDate.slice(0, 5)}</div>
+                                {d.isToday && <span className="matrix-today-pill">Heute</span>}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ROOM_DEFINITIONS.map(def => {
+                            return (
+                              <tr key={def.number} className={`matrix-row ${def.accessible ? 'is-accessible-row' : ''}`}>
+                                <td className="td-matrix-room-meta">
+                                  <div className="matrix-room-info-cell">
+                                    <div className="matrix-room-number-wrap">
+                                      <span className="matrix-room-badge">Zimmer {def.number}</span>
+                                      {def.accessible && (
+                                        <span className="matrix-badge-accessible" title="Barrierefreies Einzelzimmer">
+                                          <Accessibility size={12} /> Barrierefrei
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="matrix-room-type-label">
+                                      {def.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer'}
+                                    </span>
+                                  </div>
+                                </td>
+
+                                {currentWeekDays.map((d, di) => {
+                                  const occBooking = bookings.find(b => {
+                                    if (b.status === 'cancelled') return false;
+                                    const inRange = b.checkin <= d.dateStr && b.checkout > d.dateStr;
+                                    if (!inRange) return false;
+                                    if (b.rooms && Array.isArray(b.rooms) && b.rooms.length > 0) {
+                                      return b.rooms.some(r => Number(r.roomNumber) === def.number);
+                                    }
+                                    return Number(b.roomNumber) === def.number;
+                                  });
+
+                                  const isCheckin = occBooking && occBooking.checkin === d.dateStr;
+
+                                  if (occBooking) {
+                                    return (
+                                      <td key={di} className="td-matrix-day-slot">
+                                        <div 
+                                          className={`matrix-slot-card slot-occupied ${isCheckin ? 'is-checkin' : ''}`}
+                                          onClick={() => setSelectedBooking(occBooking)}
+                                          title={`Buchung: ${occBooking.bookingNumber}\nGast: ${occBooking.guest?.firstName} ${occBooking.guest?.lastName}\nZeitraum: ${formatDateDE(occBooking.checkin)} – ${formatDateDE(occBooking.checkout)}\nKlicken für vollständige Details`}
+                                        >
+                                          <div className="slot-guest-header">
+                                            {isCheckin && <span className="slot-badge-checkin">IN</span>}
+                                            <span className="slot-guest-name">
+                                              {occBooking.guest?.lastName || 'Gast'}
+                                            </span>
+                                          </div>
+                                          <div className="slot-booking-no">{occBooking.bookingNumber}</div>
+                                        </div>
+                                      </td>
+                                    );
+                                  }
+
+                                  return (
+                                    <td key={di} className="td-matrix-day-slot">
+                                      <button 
+                                        type="button"
+                                        className="matrix-slot-free-btn"
+                                        onClick={() => handleOpenManualBooking(d.dateStr, def.number)}
+                                        title={`Zimmer ${def.number} ab ${d.formattedDate} reservieren`}
+                                      >
+                                        <Plus size={13} />
+                                        <span>Frei</span>
+                                      </button>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
 
             </div>
@@ -1859,14 +2139,42 @@ export default function AdminPage() {
                       const price = r.total || r.totalPrice || 0;
 
                       return (
-                        <div key={i} className="modal-room-item">
-                          <div>
-                            <strong>{r.count || 1}x {roomName}</strong>
-                            <div className="text-muted" style={{ fontSize: '0.75rem', marginTop: '0.15rem' }}>
-                              {formatDateDE(rCin)} – {formatDateDE(rCout)} ({nights} {nights === 1 ? 'Nacht' : 'Nächte'})
+                        <div key={i} className="modal-room-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.65rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                              <strong>{r.count || 1}x {roomName}</strong>
+                              <div className="text-muted" style={{ fontSize: '0.75rem', marginTop: '0.15rem' }}>
+                                {formatDateDE(rCin)} – {formatDateDE(rCout)} ({nights} {nights === 1 ? 'Nacht' : 'Nächte'})
+                              </div>
                             </div>
+                            <strong>{selectedBooking.status === 'inquiry' ? 'Auf Anfrage' : `${Number(price).toFixed(2)} €`}</strong>
                           </div>
-                          <strong>{selectedBooking.status === 'inquiry' ? 'Auf Anfrage' : `${Number(price).toFixed(2)} €`}</strong>
+
+                          {selectedBooking.status !== 'inquiry' && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.825rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 600, color: '#0369a1' }}>
+                                <DoorOpen size={15} />
+                                <span>{r.roomNumber ? `Zimmer ${r.roomNumber}${r.roomNumber === 2 ? ' (Barrierefrei ♿)' : ''}` : 'Noch kein Zimmer zugewiesen'}</span>
+                              </span>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <label style={{ fontSize: '0.75rem', color: '#64748b' }}>Zimmer ändern:</label>
+                                <select 
+                                  value={r.roomNumber || ''} 
+                                  onChange={(e) => handleUpdateBookingRoomNumber(selectedBooking.id, i, e.target.value)}
+                                  style={{ padding: '0.3rem 0.6rem', borderRadius: '5px', border: '1px solid #cbd5e1', fontSize: '0.8rem', background: '#fff' }}
+                                  title="Zimmer für diesen Gast neu zuweisen"
+                                >
+                                  <option value="" disabled>Zimmer wählen...</option>
+                                  {ROOM_DEFINITIONS.map(def => (
+                                    <option key={def.number} value={def.number}>
+                                      Zimmer {def.number} – {def.typeLabel}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1983,20 +2291,35 @@ export default function AdminPage() {
 
               <div className="modal-footer">
                 {selectedBooking.status !== 'open' && selectedBooking.status !== 'inquiry' && (
-                  <button 
-                    className="btn-admin-primary" 
-                    onClick={() => downloadInvoicePDF(selectedBooking)}
-                  >
-                    <Download size={16} /> PDF-Rechnung herunterladen
-                  </button>
+                  <>
+                    <button 
+                      className="btn-admin-primary" 
+                      onClick={() => downloadInvoicePDF(selectedBooking)}
+                    >
+                      <Download size={16} /> PDF-Rechnung
+                    </button>
+                    {selectedBooking.guest?.email && (
+                      <button 
+                        className="btn-admin-secondary" 
+                        onClick={() => handleResendInvoice(selectedBooking)}
+                        disabled={isResendingInvoice}
+                        title={`Rechnung erneut an ${selectedBooking.guest.email} senden`}
+                      >
+                        {isResendingInvoice ? <RefreshCw size={16} className="spin-icon" /> : <Mail size={16} />}
+                        Rechnung erneut versenden
+                      </button>
+                    )}
+                  </>
                 )}
                 {selectedBooking.status === 'confirmed' && (
                   <button 
                     className="btn-admin-secondary" 
                     onClick={() => handleCancelBooking(selectedBooking.id)}
+                    disabled={isCancellingBooking}
                     style={{ color: '#b45309', borderColor: '#fde68a' }}
+                    title="Buchung stornieren (Zimmer sofort freigeben & Mollie-Erstattung)"
                   >
-                    <XCircle size={16} /> Buchung stornieren
+                    <XCircle size={16} /> {isCancellingBooking ? 'Storniere...' : 'Buchung stornieren'}
                   </button>
                 )}
                 <button 
@@ -2188,6 +2511,51 @@ export default function AdminPage() {
                       </div>
                     )}
 
+                    <div className="form-group-admin mt-3">
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <DoorOpen size={16} /> Zimmernummer gezielt zuweisen (Zimmer 1–15)
+                      </label>
+                      <select
+                        value={manualBooking.roomNumber}
+                        onChange={(e) => {
+                          const chosenNum = e.target.value;
+                          if (!chosenNum) {
+                            setManualBooking(prev => ({ ...prev, roomNumber: '' }));
+                          } else {
+                            const def = ROOM_DEFINITIONS.find(r => r.number === Number(chosenNum));
+                            const newEZ = def?.typeId === 'einzelzimmer' ? 1 : 0;
+                            const newDZ = def?.typeId === 'doppelzimmer' ? 1 : 0;
+                            setManualBooking(prev => ({
+                              ...prev,
+                              roomNumber: chosenNum,
+                              countEZ: newEZ,
+                              countDZ: newDZ
+                            }));
+                            updateManualSuggestedPrice(manualBooking.checkin, manualBooking.checkout, newEZ, newDZ);
+                          }
+                        }}
+                      >
+                        <option value="">Automatische Zuweisung nach Zimmerkontingent</option>
+                        {ROOM_DEFINITIONS.map(def => {
+                          const isOccupied = manualOccupiedRooms.includes(def.number);
+                          return (
+                            <option key={def.number} value={def.number} disabled={isOccupied}>
+                              Zimmer {def.number} · {def.typeLabel} {def.accessible ? '♿' : ''} {isOccupied ? '— [Belegt]' : '— [Frei]'}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <small className="form-help-text">
+                        {manualBooking.roomNumber ? (
+                          <span style={{ color: '#059669', fontWeight: 600 }}>
+                            Feste Zuweisung aktiv: Zimmer {manualBooking.roomNumber} ({ROOM_DEFINITIONS.find(r => r.number === Number(manualBooking.roomNumber))?.typeLabel})
+                          </span>
+                        ) : (
+                          <span>Standardmäßig wählt das System beim Eintragen automatisch ein freies Zimmer.</span>
+                        )}
+                      </small>
+                    </div>
+
                     <div className="form-grid-2-admin mt-3">
                       <div className="form-group-admin">
                         <label>Anzahl Einzelzimmer</label>
@@ -2196,6 +2564,7 @@ export default function AdminPage() {
                           min="0" 
                           max="20"
                           value={manualBooking.countEZ} 
+                          disabled={Boolean(manualBooking.roomNumber)}
                           onChange={(e) => {
                             const val = parseInt(e.target.value) || 0;
                             setManualBooking(prev => ({ ...prev, countEZ: val }));
@@ -2210,6 +2579,7 @@ export default function AdminPage() {
                           min="0" 
                           max="20"
                           value={manualBooking.countDZ} 
+                          disabled={Boolean(manualBooking.roomNumber)}
                           onChange={(e) => {
                             const val = parseInt(e.target.value) || 0;
                             setManualBooking(prev => ({ ...prev, countDZ: val }));

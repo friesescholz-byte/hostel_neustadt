@@ -16,36 +16,57 @@ const ImprintPage = () => {
           <h1 className="legal-title">Impressum</h1>
           
           <div className="legal-content">
-            <h2>Angaben gemäß § 5 TMG</h2>
+            <h2>Angaben gemäß § 5 DDG</h2>
             <p>
-              <strong>Hostel Neustadt</strong><br/>
-              Inhaber: Max Mustermann<br/>
-              Musterstraße 1<br/>
+              <strong>Eigentümergemeinschaft GbR Bagari und Pasqualini</strong><br/>
+              Bertha-Sicius-Str. 6<br/>
               31535 Neustadt am Rübenberge<br/>
               Deutschland
             </p>
 
+            <h2>Rechtsform & Vertretung</h2>
+            <p>
+              <strong>Rechtsform:</strong> Gesellschaft bürgerlichen Rechts (GbR)<br/>
+              <strong>Vertretungsberechtigte Gesellschafter:</strong> Bagari und Pasqualini
+            </p>
+
             <h2>Kontakt</h2>
             <p>
-              Telefon: +49 (0) 123 456789<br/>
-              E-Mail: kontakt@hostel-neustadt.de<br/>
-              Website: www.hostel-neustadt.de
+              Telefon / WhatsApp: +49 172 8572368<br/>
+              E-Mail: <a href="mailto:vermietung@bh-am-ruebenberge.de">vermietung@bh-am-ruebenberge.de</a><br/>
+              Website: <a href="https://hostel-neustadt.de">www.hostel-neustadt.de</a>
             </p>
 
-            <h2>Umsatzsteuer-ID</h2>
+            <h2>Registereintrag</h2>
+            <p>
+              Eine Eintragung im Handelsregister ist für eine Gesellschaft bürgerlichen Rechts (GbR) gesetzlich nicht vorgesehen und liegt nicht vor.
+            </p>
+
+            <h2>Zuständige Aufsichts- & Gewerbebehörde</h2>
+            <p>
+              Gewerbeanmeldung nach § 14 GewO erteilt durch:<br/>
+              Stadt Neustadt am Rübenberge – Fachbereich Bürgerdienste / Gewerbeamt<br/>
+              Theodor-Heuss-Straße 18<br/>
+              31535 Neustadt am Rübenberge
+            </p>
+
+            <h2>Umsatzsteuer-Identifikationsnummer</h2>
             <p>
               Umsatzsteuer-Identifikationsnummer gemäß § 27 a Umsatzsteuergesetz:<br/>
-              DE 123 456 789
+              Wird auf Anfrage mitgeteilt bzw. befindet sich in Zuteilung durch das zuständige Finanzamt.
             </p>
 
-            <h2>Verbraucherstreitbeilegung/Universalschlichtungsstelle</h2>
+            <h2>Verbraucherstreitbeilegung / Universalschlichtungsstelle</h2>
             <p>
-              Wir sind nicht bereit oder verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen. Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit, die Sie unter <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer">https://ec.europa.eu/consumers/odr</a> finden.
+              Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit, die Sie unter <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer">https://ec.europa.eu/consumers/odr</a> finden. Unsere E-Mail-Adresse finden Sie oben in den Kontaktdaten dieses Impressums.
+            </p>
+            <p>
+              Wir sind nicht bereit oder verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.
             </p>
 
             <h2>Haftung für Inhalte</h2>
             <p>
-              Als Diensteanbieter sind wir gemäß § 7 Abs.1 TMG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 TMG sind wir als Diensteanbieter jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen oder nach Umständen zu forschen, die auf eine rechtswidrige Tätigkeit hinweisen.
+              Als Diensteanbieter sind wir gemäß § 7 Abs. 1 DDG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 DDG sind wir als Diensteanbieter jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen oder nach Umständen zu forschen, die auf eine rechtswidrige Tätigkeit hinweisen.
             </p>
             <p>
               Verpflichtungen zur Entfernung oder Sperrung der Nutzung von Informationen nach den allgemeinen Gesetzen bleiben hiervon unberührt. Eine diesbezügliche Haftung ist jedoch erst ab dem Zeitpunkt der Kenntnis einer konkreten Rechtsverletzung möglich. Bei Bekanntwerden von entsprechenden Rechtsverletzungen werden wir diese Inhalte umgehend entfernen.

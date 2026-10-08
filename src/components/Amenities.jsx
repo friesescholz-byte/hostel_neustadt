@@ -1,10 +1,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Utensils, Coffee, WashingMachine, Lock, Briefcase, Bike, Wifi } from 'lucide-react';
+import { Utensils, Coffee, WashingMachine, Lock, Briefcase, Bike, Wifi, Accessibility } from 'lucide-react';
 import './Amenities.css';
 
 const Amenities = () => {
   const amenities = [
+    { icon: <Accessibility size={32} />, name: "Barrierefreies Zimmer (Zimmer 2)" },
     { icon: <Utensils size={32} />, name: "Gemeinschaftsküche" },
     { icon: <Coffee size={32} />, name: "Aufenthaltsraum" },
     { icon: <WashingMachine size={32} />, name: "Waschmaschine" },

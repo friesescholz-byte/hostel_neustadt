@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Wifi, User, Info, ArrowUpRight, Bed } from 'lucide-react';
+import { Wifi, User, Info, ArrowUpRight, Bed, Accessibility } from 'lucide-react';
 import './Rooms.css';
 
 const Rooms = () => {
@@ -10,6 +10,7 @@ const Rooms = () => {
       id: "einzelzimmer",
       name: "Einzelzimmer",
       desc: "Ideal für Handwerker, Monteure & Alleinreisende",
+      accessibleNote: "Barrierefreies Einzelzimmer (Zimmer 2 · ♿) vorhanden",
       basePrice: "ab 60 €",
       tiers: [
         { duration: "1–3 Tage", price: "70,- €" },
@@ -69,6 +70,12 @@ const Rooms = () => {
                   </div>
                 </div>
                 <p className="room-desc">{room.desc}</p>
+                {room.accessibleNote && (
+                  <div className="room-accessible-tag">
+                    <Accessibility size={15} />
+                    <span>{room.accessibleNote}</span>
+                  </div>
+                )}
 
                 {/* Staffelpreise Tabelle */}
                 <div className="room-pricing-table">

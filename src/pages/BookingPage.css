@@ -2011,5 +2011,33 @@
   line-height: 1.35;
 }
 
+/* Accessible Room Option in Step 1 */
+.room-accessible-option-box {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  margin: 0.75rem 0;
+}
+
+.room-accessible-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #14532d;
+  cursor: pointer;
+  user-select: none;
+}
+
+.room-accessible-checkbox input {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: #16a34a;
+}
+
+
 
 

@@ -3040,4 +3040,330 @@
   }
 }
 
+/* ==========================================================================
+   CALENDAR VIEW TOGGLE & ROOM MATRIX (ZIMMER 1 BIS 15)
+   ========================================================================== */
+.calendar-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  gap: 2px;
+}
+
+.btn-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.825rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-view-toggle:hover {
+  color: #0f172a;
+}
+
+.btn-view-toggle.active {
+  background: #ffffff;
+  color: #0f2b5c;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.room-matrix-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.room-matrix-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  font-size: 0.8rem;
+  color: #64748b;
+  background: #f8fafc;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.matrix-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.legend-indicator {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.indicator-free {
+  background: #e2e8f0;
+  border: 1px dashed #94a3b8;
+}
+
+.indicator-occupied {
+  background: #3b82f6;
+}
+
+.indicator-checkin {
+  background: #10b981;
+}
+
+.accessibility-legend {
+  color: #047857;
+  font-weight: 500;
+}
+
+.text-accessibility {
+  color: #059669;
+}
+
+.room-matrix-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.room-matrix-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.85rem;
+  min-width: 900px;
+}
+
+.th-matrix-room {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #f8fafc;
+  text-align: left;
+  padding: 0.85rem 1rem;
+  font-weight: 700;
+  color: #334155;
+  border-bottom: 1px solid #cbd5e1;
+  border-right: 1px solid #e2e8f0;
+  width: 180px;
+  min-width: 180px;
+}
+
+.th-matrix-day {
+  background: #f8fafc;
+  text-align: center;
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid #cbd5e1;
+  border-right: 1px solid #f1f5f9;
+  min-width: 105px;
+}
+
+.th-matrix-day.is-today-th {
+  background: #eff6ff;
+  border-bottom-color: #3b82f6;
+}
+
+.matrix-day-name {
+  font-weight: 700;
+  font-size: 0.825rem;
+  color: #0f172a;
+}
+
+.matrix-day-date {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+.matrix-today-pill {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: #2563eb;
+  color: #ffffff;
+  padding: 1px 6px;
+  border-radius: 999px;
+  margin-top: 3px;
+}
+
+.matrix-row {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.1s ease;
+}
+
+.matrix-row:hover {
+  background: #f8fafc;
+}
+
+.matrix-row.is-accessible-row {
+  background: #f0fdf4;
+}
+
+.matrix-row.is-accessible-row:hover {
+  background: #ecfdf5;
+}
+
+.td-matrix-room-meta {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: inherit;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.matrix-room-info-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.matrix-room-number-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.matrix-room-badge {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.85rem;
+}
+
+.matrix-badge-accessible {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  background: #dcfce7;
+  color: #047857;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.matrix-room-type-label {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.td-matrix-day-slot {
+  padding: 0.4rem;
+  border-bottom: 1px solid #f1f5f9;
+  border-right: 1px solid #f1f5f9;
+  vertical-align: middle;
+  height: 62px;
+}
+
+.matrix-slot-card {
+  height: 100%;
+  min-height: 48px;
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.matrix-slot-card.slot-occupied {
+  background: #dbeafe;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.matrix-slot-card.slot-occupied:hover {
+  background: #bfdbfe;
+  border-color: #93c5fd;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.matrix-slot-card.slot-occupied.is-checkin {
+  background: #d1fae5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+
+.matrix-slot-card.slot-occupied.is-checkin:hover {
+  background: #a7f3d0;
+}
+
+.slot-guest-header {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  overflow: hidden;
+}
+
+.slot-badge-checkin {
+  font-size: 0.6rem;
+  font-weight: 700;
+  background: #059669;
+  color: #ffffff;
+  padding: 1px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.slot-guest-name {
+  font-weight: 700;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slot-booking-no {
+  font-size: 0.68rem;
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.matrix-slot-free-btn {
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  border: 1px dashed #cbd5e1;
+  background: #fafafa;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.matrix-slot-free-btn:hover {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #15803d;
+  font-weight: 600;
+}
+
 

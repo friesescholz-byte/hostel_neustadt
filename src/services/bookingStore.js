@@ -17,9 +17,27 @@ const STORAGE_KEYS = {
   HOLDS: 'hostel_holds_v2'
 };
 
+export const ROOM_DEFINITIONS = [
+  { number: 1, typeId: 'einzelzimmer', name: 'Zimmer 1', typeLabel: 'Einzelzimmer', accessible: false },
+  { number: 2, typeId: 'einzelzimmer', name: 'Zimmer 2', typeLabel: 'Einzelzimmer (Barrierefrei ♿)', accessible: true },
+  { number: 3, typeId: 'doppelzimmer', name: 'Zimmer 3', typeLabel: 'Doppelzimmer', accessible: false },
+  { number: 4, typeId: 'doppelzimmer', name: 'Zimmer 4', typeLabel: 'Doppelzimmer', accessible: false },
+  { number: 5, typeId: 'doppelzimmer', name: 'Zimmer 5', typeLabel: 'Doppelzimmer', accessible: false },
+  { number: 6, typeId: 'doppelzimmer', name: 'Zimmer 6', typeLabel: 'Doppelzimmer', accessible: false },
+  { number: 7, typeId: 'doppelzimmer', name: 'Zimmer 7', typeLabel: 'Doppelzimmer', accessible: false },
+  { number: 8, typeId: 'doppelzimmer', name: 'Zimmer 8', typeLabel: 'Doppelzimmer', accessible: false },
+  { number: 9, typeId: 'doppelzimmer', name: 'Zimmer 9', typeLabel: 'Doppelzimmer', accessible: false },
+  { number: 10, typeId: 'doppelzimmer', name: 'Zimmer 10', typeLabel: 'Doppelzimmer', accessible: false },
+  { number: 11, typeId: 'doppelzimmer', name: 'Zimmer 11', typeLabel: 'Doppelzimmer', accessible: false },
+  { number: 12, typeId: 'doppelzimmer', name: 'Zimmer 12', typeLabel: 'Doppelzimmer', accessible: false },
+  { number: 13, typeId: 'doppelzimmer', name: 'Zimmer 13', typeLabel: 'Doppelzimmer', accessible: false },
+  { number: 14, typeId: 'doppelzimmer', name: 'Zimmer 14', typeLabel: 'Doppelzimmer', accessible: false },
+  { number: 15, typeId: 'einzelzimmer', name: 'Zimmer 15', typeLabel: 'Einzelzimmer', accessible: false }
+];
+
 const DEFAULT_INVENTORY = {
-  einzelzimmer: 10,
-  doppelzimmer: 8
+  einzelzimmer: 3, // Zimmer 1, Zimmer 2 (Barrierefrei), Zimmer 15
+  doppelzimmer: 12 // Zimmer 3 bis 14
 };
 
 const DEFAULT_PRICING = {
@@ -61,11 +79,13 @@ const DEFAULT_CUSTOM_PERIODS = [
 const DEFAULT_SETTINGS = {
   hostEmail: 'scholz.friese@gmail.com',
   hotelName: 'Hostel Neustadt',
-  hotelAddress: 'Bahnhofstraße 10, 31535 Neustadt am Rübenberge',
-  hotelPhone: '+49 123 4567890',
-  hotelEmail: 'info@hostel-neustadt.de',
+  companyName: 'Eigentümergemeinschaft GbR Bagari und Pasqualini',
+  hotelAddress: 'Bertha-Sicius-Str. 6, 31535 Neustadt am Rübenberge',
+  hotelPhone: '+49 172 8572368',
+  hotelEmail: 'vermietung@bh-am-ruebenberge.de',
+  iban: 'DE98 2506 9262 0011 3700 00',
   taxRate: 7,
-  mollieApiKey: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MOLLIE_API_KEY) || '',
+  mollieApiKey: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MOLLIE_API_KEY) || 'test_Bf8wMeDwtf9jmmqSBEdqPDMADEd5eh',
   currency: 'EUR'
 };
 
@@ -79,13 +99,26 @@ const DEFAULT_BOOKINGS = [
     checkin: '2026-06-12',
     checkout: '2026-06-16',
     nights: 4,
+    roomNumbers: [1, 15],
+    roomNumber: 1,
     rooms: [
       {
         typeId: 'einzelzimmer',
-        count: 2,
-        guests: 2,
+        name: 'Einzelzimmer',
+        roomNumber: 1,
+        count: 1,
+        guests: 1,
         pricePerNight: 65,
-        totalPrice: 520
+        totalPrice: 260
+      },
+      {
+        typeId: 'einzelzimmer',
+        name: 'Einzelzimmer',
+        roomNumber: 15,
+        count: 1,
+        guests: 1,
+        pricePerNight: 65,
+        totalPrice: 260
       }
     ],
     totalPrice: 520,
@@ -118,9 +151,13 @@ const DEFAULT_BOOKINGS = [
     checkin: '2026-06-20',
     checkout: '2026-06-22',
     nights: 2,
+    roomNumbers: [3],
+    roomNumber: 3,
     rooms: [
       {
         typeId: 'doppelzimmer',
+        name: 'Doppelzimmer',
+        roomNumber: 3,
         count: 1,
         guests: 2,
         pricePerNight: 100,
@@ -225,12 +262,131 @@ export const bookingStore = {
 
   // ---- Inventory ----
   getInventory() {
-    return readStorage(STORAGE_KEYS.INVENTORY, DEFAULT_INVENTORY);
+    const inv = readStorage(STORAGE_KEYS.INVENTORY, DEFAULT_INVENTORY);
+    if (inv && inv.einzelzimmer === 10 && inv.doppelzimmer === 8) {
+      writeStorage(STORAGE_KEYS.INVENTORY, DEFAULT_INVENTORY);
+      return DEFAULT_INVENTORY;
+    }
+    return inv;
   },
 
   setInventory(inventory) {
     writeStorage(STORAGE_KEYS.INVENTORY, inventory);
     this.pushToServer();
+  },
+
+  // ---- Room Numbers (1 to 15) & Allocation ----
+  getRoomDefinitions() {
+    return ROOM_DEFINITIONS;
+  },
+
+  /**
+   * Returns list of room numbers currently occupied during a date range
+   */
+  getOccupiedRoomNumbers(checkin, checkout, excludeBookingId = null) {
+    if (!checkin || !checkout) return [];
+    const activeBookings = this.getBookings().filter(b => 
+      b.status !== 'cancelled' && 
+      b.id !== excludeBookingId &&
+      b.bookingNumber !== excludeBookingId
+    );
+
+    const occupied = new Set();
+
+    for (const b of activeBookings) {
+      if (b.rooms && Array.isArray(b.rooms) && b.rooms.length > 0) {
+        for (const r of b.rooms) {
+          const rIn = r.checkin || b.checkin;
+          const rOut = r.checkout || b.checkout;
+          const overlaps = rIn < checkout && rOut > checkin;
+          if (overlaps && r.roomNumber) {
+            occupied.add(Number(r.roomNumber));
+          }
+        }
+      } else if (b.roomNumber) {
+        const overlaps = b.checkin < checkout && b.checkout > checkin;
+        if (overlaps) {
+          occupied.add(Number(b.roomNumber));
+        }
+      }
+    }
+
+    return Array.from(occupied);
+  },
+
+  /**
+   * Finds the best next available room number of a given type
+   */
+  findAvailableRoomNumber(typeId, checkin, checkout, requiresAccessible = false, excludeBookingId = null, alreadyAssigned = []) {
+    const occupied = new Set([
+      ...this.getOccupiedRoomNumbers(checkin, checkout, excludeBookingId),
+      ...alreadyAssigned.map(Number)
+    ]);
+
+    // Zimmer 1: EZ, Zimmer 2: EZ (Barrierefrei), Zimmer 15: EZ
+    // Zimmer 3 bis 14: DZ
+    if (typeId === 'einzelzimmer') {
+      if (requiresAccessible) {
+        if (!occupied.has(2)) return 2;
+        const ezFallbacks = [1, 15];
+        for (const num of ezFallbacks) {
+          if (!occupied.has(num)) return num;
+        }
+        return null;
+      }
+      // Standard EZ: Prefer 1 and 15 first, keeping 2 free for guests requiring accessibility
+      const ezCandidates = [1, 15, 2];
+      for (const num of ezCandidates) {
+        if (!occupied.has(num)) return num;
+      }
+      return null;
+    } else if (typeId === 'doppelzimmer') {
+      const dzCandidates = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+      for (const num of dzCandidates) {
+        if (!occupied.has(num)) return num;
+      }
+      return null;
+    }
+
+    return null;
+  },
+
+  /**
+   * Allows the admin to change or reassign the room number for an existing booking
+   */
+  updateBookingRoom(bookingId, roomIndex = 0, newRoomNumber) {
+    const num = Number(newRoomNumber);
+    const bookings = this.getBookings();
+    let updatedBooking = null;
+
+    const updated = bookings.map(b => {
+      if (b.id === bookingId || b.bookingNumber === bookingId) {
+        const rooms = Array.isArray(b.rooms) ? [...b.rooms] : [];
+        if (rooms.length === 0) {
+          rooms.push({ count: 1, roomNumber: num });
+        } else if (rooms[roomIndex]) {
+          const roomDef = ROOM_DEFINITIONS.find(def => def.number === num);
+          const typeName = roomDef?.typeLabel || (rooms[roomIndex].typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer');
+          rooms[roomIndex] = {
+            ...rooms[roomIndex],
+            roomNumber: num,
+            name: typeName
+          };
+        }
+        const roomNumbers = rooms.map(r => r.roomNumber).filter(Boolean);
+        updatedBooking = {
+          ...b,
+          rooms,
+          roomNumbers,
+          roomNumber: roomNumbers[0] || num
+        };
+        return updatedBooking;
+      }
+      return b;
+    });
+
+    this.setBookings(updated);
+    return updatedBooking;
   },
 
   // ---- Base Pricing ----
@@ -680,8 +836,8 @@ export const bookingStore = {
 
     const inventory = this.getInventory();
     const result = {
-      einzelzimmer: inventory.einzelzimmer || 10,
-      doppelzimmer: inventory.doppelzimmer || 8,
+      einzelzimmer: inventory.einzelzimmer ?? 3,
+      doppelzimmer: inventory.doppelzimmer ?? 12,
       isFullyBooked: false
     };
 
@@ -740,8 +896,8 @@ export const bookingStore = {
       }
     }
 
-    result.einzelzimmer = Math.max(0, (inventory.einzelzimmer || 10) - bookedEZ);
-    result.doppelzimmer = Math.max(0, (inventory.doppelzimmer || 8) - bookedDZ);
+    result.einzelzimmer = Math.max(0, (inventory.einzelzimmer ?? 3) - bookedEZ);
+    result.doppelzimmer = Math.max(0, (inventory.doppelzimmer ?? 12) - bookedDZ);
     result.isFullyBooked = (result.einzelzimmer === 0 && result.doppelzimmer === 0);
 
     return result;
@@ -773,8 +929,9 @@ export const bookingStore = {
       }
     }
 
-    // 2. Prepare detailed room items with individual date ranges
+    // 2. Prepare detailed room items with individual date ranges & assigned room numbers
     let grandTotal = 0;
+    const assignedSoFar = [];
     const roomItems = cart.map(item => {
       const itemIn = item.checkin || checkin;
       const itemOut = item.checkout || checkout;
@@ -782,9 +939,29 @@ export const bookingStore = {
       const itemPrice = item.totalPrice || calc.total;
       grandTotal += itemPrice;
 
+      const requiresAccessible = Boolean(item.requiresAccessible || item.accessible);
+      let assignedRoom = item.roomNumber ? Number(item.roomNumber) : null;
+      if (!assignedRoom) {
+        assignedRoom = this.findAvailableRoomNumber(
+          item.typeId, 
+          itemIn, 
+          itemOut, 
+          requiresAccessible,
+          null,
+          assignedSoFar
+        );
+      }
+      if (assignedRoom) assignedSoFar.push(assignedRoom);
+
+      const typeLabel = assignedRoom === 2 
+        ? 'Einzelzimmer (Barrierefrei ♿)' 
+        : (item.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer');
+
       return {
         typeId: item.typeId,
-        name: item.name || (item.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer'),
+        name: item.name || typeLabel,
+        roomNumber: assignedRoom || null,
+        accessible: assignedRoom === 2,
         checkin: itemIn,
         checkout: itemOut,
         nights: item.nights || calc.nights,
@@ -831,6 +1008,8 @@ export const bookingStore = {
       checkout: overallCheckout,
       nights: totalNights,
       rooms: roomItems,
+      roomNumbers: roomItems.map(r => r.roomNumber).filter(Boolean),
+      roomNumber: roomItems[0]?.roomNumber || null,
       totalPrice: grandTotal,
       guest: {
         firstName: mainGuest.firstName || '',
@@ -901,15 +1080,36 @@ export const bookingStore = {
 
     const roomItems = [];
     let calculatedTotal = 0;
+    const assignedSoFar = [];
 
     for (const r of (rooms || [])) {
       const count = r.count || 1;
       for (let i = 0; i < count; i++) {
         const calc = this.calculateRoomPrice(r.typeId, checkin, checkout);
         calculatedTotal += calc.total;
+
+        let assignedRoom = r.roomNumber ? Number(r.roomNumber) : null;
+        if (!assignedRoom) {
+          assignedRoom = this.findAvailableRoomNumber(
+            r.typeId,
+            checkin,
+            checkout,
+            Boolean(r.requiresAccessible || r.accessible),
+            null,
+            assignedSoFar
+          );
+        }
+        if (assignedRoom) assignedSoFar.push(assignedRoom);
+
+        const typeLabel = assignedRoom === 2 
+          ? 'Einzelzimmer (Barrierefrei ♿)' 
+          : (r.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer');
+
         roomItems.push({
           typeId: r.typeId,
-          name: r.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer',
+          name: r.name || typeLabel,
+          roomNumber: assignedRoom || null,
+          accessible: assignedRoom === 2,
           checkin,
           checkout,
           nights,
@@ -951,6 +1151,8 @@ export const bookingStore = {
       checkout,
       nights,
       rooms: roomItems,
+      roomNumbers: roomItems.map(r => r.roomNumber).filter(Boolean),
+      roomNumber: roomItems[0]?.roomNumber || null,
       totalPrice: finalTotal,
       paymentStatus: isPaid ? 'paid' : 'pending',
       guest: {
@@ -1090,20 +1292,24 @@ export const bookingStore = {
     this.setBookings(updated);
   },
 
-  // ---- Cancel Booking (Instantly Frees Up Inventory) ----
-  cancelBooking(bookingId) {
+  // ---- Cancel Booking (Instantly Frees Up Inventory & Tracks Refund) ----
+  cancelBooking(bookingId, refundDetails = null) {
     const bookings = this.getBookings();
+    let cancelledBooking = null;
     const updated = bookings.map(b => {
-      if (b.id === bookingId) {
-        return {
+      if (b.id === bookingId || b.bookingNumber === bookingId) {
+        cancelledBooking = {
           ...b,
           status: 'cancelled',
-          cancelledAt: new Date().toISOString()
+          cancelledAt: new Date().toISOString(),
+          refund: refundDetails || b.refund || null
         };
+        return cancelledBooking;
       }
       return b;
     });
     this.setBookings(updated);
+    return cancelledBooking;
   }
 };
 
