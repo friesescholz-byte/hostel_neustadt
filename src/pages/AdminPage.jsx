@@ -1226,45 +1226,6 @@ export default function AdminPage() {
                               </td>
                               <td style={{ textAlign: 'right' }}>
                                 <div className="actions-cluster">
-                                  {!isOpenHold && !isInquiry && (
-                                    <>
-                                      <button 
-                                        className="btn-icon" 
-                                        title="PDF-Rechnung herunterladen"
-                                        onClick={() => downloadInvoicePDF(b)}
-                                      >
-                                        <Download size={16} />
-                                      </button>
-                                      {b.guest?.email && (
-                                        <button 
-                                          className="btn-icon" 
-                                          title={`Rechnung & Bestätigung erneut per E-Mail an ${b.guest.email} senden`}
-                                          onClick={() => handleResendInvoice(b)}
-                                          disabled={isResendingInvoice}
-                                        >
-                                          <Mail size={16} />
-                                        </button>
-                                      )}
-                                    </>
-                                  )}
-                                  {isInquiry && b.guest?.email && (
-                                    <a 
-                                      href={`mailto:${b.guest.email}?subject=Angebot%20f%C3%BCr%20Ihre%20Buchungsanfrage%20${b.bookingNumber}`}
-                                      className="btn-icon"
-                                      title="E-Mail Angebot senden"
-                                    >
-                                      <Mail size={16} />
-                                    </a>
-                                  )}
-                                  {isInquiry && b.guest?.phone && (
-                                    <a 
-                                      href={`tel:${b.guest.phone}`}
-                                      className="btn-icon"
-                                      title="Gast anrufen"
-                                    >
-                                      <PhoneCall size={16} />
-                                    </a>
-                                  )}
                                   <button 
                                     className="btn-icon" 
                                     title="Buchungsdetails ansehen"
@@ -1272,24 +1233,15 @@ export default function AdminPage() {
                                   >
                                     <Eye size={16} />
                                   </button>
-                                  {b.status === 'confirmed' && (
+                                  {!isOpenHold && !isInquiry && (
                                     <button 
                                       className="btn-icon" 
-                                      style={{ color: '#b45309' }}
-                                      title="Buchung stornieren (Zimmer sofort freigeben & Mollie-Erstattung)"
-                                      onClick={() => handleCancelBooking(b.id)}
-                                      disabled={isCancellingBooking}
+                                      title="PDF-Rechnung herunterladen"
+                                      onClick={() => downloadInvoicePDF(b)}
                                     >
-                                      <XCircle size={16} />
+                                      <Download size={16} />
                                     </button>
                                   )}
-                                  <button 
-                                    className="btn-icon danger" 
-                                    title={isOpenHold ? 'Hold abbrechen & Zimmer sofort freigeben' : isInquiry ? 'Anfrage entfernen' : 'Buchung dauerhaft aus dem System löschen'}
-                                    onClick={() => handleDeleteBooking(b.id)}
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
                                 </div>
                               </td>
                             </tr>
@@ -1414,45 +1366,14 @@ export default function AdminPage() {
                             </button>
 
                             {!isOpenHold && !isInquiry && (
-                              <>
-                                <button 
-                                  className="btn-mobile-act-sec" 
-                                  title="Rechnung PDF herunterladen"
-                                  onClick={() => downloadInvoicePDF(b)}
-                                >
-                                  <Download size={15} /> PDF
-                                </button>
-                                {b.guest?.email && (
-                                  <button 
-                                    className="btn-mobile-act-sec" 
-                                    title="Rechnung erneut an Gast senden"
-                                    onClick={() => handleResendInvoice(b)}
-                                    disabled={isResendingInvoice}
-                                  >
-                                    <Mail size={15} /> Senden
-                                  </button>
-                                )}
-                              </>
-                            )}
-
-                            {b.status === 'confirmed' && (
                               <button 
-                                className="btn-mobile-act-warn" 
-                                title="Stornieren"
-                                onClick={() => handleCancelBooking(b.id)}
-                                disabled={isCancellingBooking}
+                                className="btn-mobile-act-sec" 
+                                title="Rechnung PDF herunterladen"
+                                onClick={() => downloadInvoicePDF(b)}
                               >
-                                <XCircle size={15} />
+                                <Download size={15} /> PDF
                               </button>
                             )}
-
-                            <button 
-                              className="btn-mobile-act-danger"
-                              title="Löschen"
-                              onClick={() => handleDeleteBooking(b.id)}
-                            >
-                              <Trash2 size={15} />
-                            </button>
                           </div>
                         </div>
                       );
