@@ -354,29 +354,52 @@ export const bookingStore = {
   /**
    * Allows the admin to change or reassign the room number for an existing booking
    */
-  updateBookingRoom(bookingId, roomIndex = 0, newRoomNumber) {
+  updateBookingRoom(bookingId, slotOrRoomIndex = 0, newRoomNumber) {
     const num = Number(newRoomNumber);
     const bookings = this.getBookings();
     let updatedBooking = null;
 
     const updated = bookings.map(b => {
       if (b.id === bookingId || b.bookingNumber === bookingId) {
-        const rooms = Array.isArray(b.rooms) ? [...b.rooms] : [];
-        if (rooms.length === 0) {
-          rooms.push({ count: 1, roomNumber: num });
-        } else if (rooms[roomIndex]) {
+        // Flatten any grouped rooms (count > 1) so each room slot has its own independent roomNumber
+        let flatRooms = [];
+        const sourceRooms = (Array.isArray(b.rooms) && b.rooms.length > 0)
+          ? b.rooms
+          : (b.roomNumbers || [b.roomNumber || 1]).map(rn => ({
+              roomNumber: rn,
+              typeId: (rn === 1 || rn === 2 || rn === 15) ? 'einzelzimmer' : 'doppelzimmer',
+              count: 1
+            }));
+
+        sourceRooms.forEach(r => {
+          const count = Math.max(1, Number(r.count) || 1);
+          for (let c = 0; c < count; c++) {
+            const rNum = (c === 0 && r.roomNumber) ? r.roomNumber : (r.roomNumbers?.[c] || r.roomNumber || null);
+            flatRooms.push({
+              ...r,
+              count: 1,
+              roomNumber: rNum
+            });
+          }
+        });
+
+        const targetIdx = Math.max(0, Math.min(flatRooms.length - 1, Number(slotOrRoomIndex) || 0));
+        if (flatRooms[targetIdx]) {
           const roomDef = ROOM_DEFINITIONS.find(def => def.number === num);
-          const typeName = roomDef?.typeLabel || (rooms[roomIndex].typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer');
-          rooms[roomIndex] = {
-            ...rooms[roomIndex],
+          const typeName = roomDef?.typeLabel || (roomDef?.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer');
+          flatRooms[targetIdx] = {
+            ...flatRooms[targetIdx],
             roomNumber: num,
-            name: typeName
+            name: typeName,
+            typeId: roomDef?.typeId || flatRooms[targetIdx].typeId,
+            accessible: Boolean(roomDef?.accessible)
           };
         }
-        const roomNumbers = rooms.map(r => r.roomNumber).filter(Boolean);
+
+        const roomNumbers = flatRooms.map(r => r.roomNumber).filter(Boolean);
         updatedBooking = {
           ...b,
-          rooms,
+          rooms: flatRooms,
           roomNumbers,
           roomNumber: roomNumbers[0] || num
         };

@@ -7,7 +7,8 @@ import {
   Trash2, Plus, Edit3, ArrowLeft, ChevronRight, ChevronLeft, AlertCircle,
   Eye, FileText, Check, Lock, LogOut, KeyRound, Sparkles, LogIn, DoorOpen,
   Phone, PhoneCall, UserCheck, CalendarDays, ExternalLink, RefreshCw, Mail,
-  Accessibility, Send, LayoutGrid, ChevronDown, ChevronUp, User, Building2, MapPin
+  Accessibility, Send, LayoutGrid, ChevronDown, ChevronUp, User, Building2, MapPin,
+  ArrowLeftRight
 } from 'lucide-react';
 import { bookingStore, ROOM_DEFINITIONS } from '../services/bookingStore';
 import { downloadInvoicePDF } from '../services/pdfGenerator';
@@ -453,7 +454,33 @@ export default function AdminPage() {
       }
     });
 
-    // Rule: "erst alle Zimmer befüllen dann doppelt"
+    // Check if custom guest assignments were saved by the admin
+    if (booking.customGuestAssignments && Array.isArray(booking.customGuestAssignments)) {
+      const assignedNames = new Set();
+      booking.customGuestAssignments.forEach((namesInSlot, sIdx) => {
+        if (slots[sIdx] && Array.isArray(namesInSlot)) {
+          namesInSlot.forEach(pName => {
+            const matched = allPersons.find(p => p.name === pName);
+            const personObj = matched || { name: pName, isMain: pName === mainGuestName };
+            slots[sIdx].guests.push(personObj);
+            assignedNames.add(pName);
+          });
+        }
+      });
+
+      // Any person from allPersons not yet assigned to any slot (e.g. if new guests were added)
+      const unassigned = allPersons.filter(p => !assignedNames.has(p.name));
+      unassigned.forEach(p => {
+        const openSlot = slots.find(s => s.guests.length < s.maxCap) || slots[0];
+        if (openSlot) {
+          openSlot.guests.push(p);
+        }
+      });
+
+      return slots;
+    }
+
+    // Default rule: "erst alle Zimmer befüllen dann doppelt"
     const queue = [...allPersons];
 
     // Pass 1: Erst alle Zimmer befüllen mit je 1 Person
@@ -481,6 +508,44 @@ export default function AdminPage() {
     }
 
     return slots;
+  };
+
+  // Switch or move guests between rooms within the same booking
+  const handleGuestRoomAction = (bookingId, sourceSlotIndex, guestName, actionValue) => {
+    if (!actionValue) return;
+    const parts = actionValue.split(':');
+    const actionType = parts[0];
+    const targetSlotIndex = parseInt(parts[1], 10);
+    const targetGuestName = parts.slice(2).join(':');
+
+    const b = bookings.find(item => item.id === bookingId || item.bookingNumber === bookingId);
+    if (!b) return;
+
+    const currentSlots = computeRoomGuestAssignments(b);
+    const slotGuestNames = currentSlots.map(s => s.guests.map(g => g.name));
+
+    if (actionType === 'move') {
+      slotGuestNames[sourceSlotIndex] = (slotGuestNames[sourceSlotIndex] || []).filter(n => n !== guestName);
+      if (!slotGuestNames[targetSlotIndex]) slotGuestNames[targetSlotIndex] = [];
+      slotGuestNames[targetSlotIndex].push(guestName);
+    } else if (actionType === 'swap') {
+      slotGuestNames[sourceSlotIndex] = (slotGuestNames[sourceSlotIndex] || []).map(n => n === guestName ? targetGuestName : n);
+      slotGuestNames[targetSlotIndex] = (slotGuestNames[targetSlotIndex] || []).map(n => n === targetGuestName ? guestName : n);
+    }
+
+    const updated = bookingStore.updateBooking(bookingId, current => ({
+      ...current,
+      customGuestAssignments: slotGuestNames
+    }));
+
+    loadData();
+    if (selectedBooking && (selectedBooking.id === bookingId || selectedBooking.bookingNumber === bookingId)) {
+      setSelectedBooking(updated);
+    }
+    triggerSaveNotification(actionType === 'swap' 
+      ? `${guestName} erfolgreich mit ${targetGuestName} getauscht!` 
+      : `${guestName} erfolgreich in das andere Zimmer verschoben!`
+    );
   };
 
   const isRoomCheckedIn = (booking, roomNumber, slotIndex = 0) => {
@@ -748,24 +813,38 @@ export default function AdminPage() {
                     </div>
 
                     {/* Room Reassign Select */}
-                    {!isInquiry && (
-                      <div className="exp-room-reassign-bar">
-                        <label htmlFor={`reassign-select-${b.id}-${slot.slotIndex}`}>Zimmernummer ändern:</label>
-                        <select 
-                          id={`reassign-select-${b.id}-${slot.slotIndex}`}
-                          value={slot.roomNumber || ''} 
-                          onChange={(e) => handleUpdateBookingRoomNumber(b.id, slot.originalRoomIndex, e.target.value)}
-                          className="exp-reassign-select"
-                        >
-                          <option value="" disabled>Zimmer auswählen...</option>
-                          {ROOM_DEFINITIONS.map(def => (
-                            <option key={def.number} value={def.number}>
-                              Zimmer {def.number} – {def.typeLabel}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                    {!isInquiry && (() => {
+                      const stayCheckin = slot.checkin || getBookingCheckin(b);
+                      const stayCheckout = slot.checkout || getBookingCheckout(b);
+                      const occupiedOtherBookings = bookingStore.getOccupiedRoomNumbers(stayCheckin, stayCheckout, b.id);
+                      const otherSlotsRooms = assignedSlots
+                        .filter(s => s.slotIndex !== slot.slotIndex && s.roomNumber)
+                        .map(s => Number(s.roomNumber));
+                      const allOccupiedNumbers = new Set([...occupiedOtherBookings, ...otherSlotsRooms]);
+
+                      return (
+                        <div className="exp-room-reassign-bar">
+                          <label htmlFor={`reassign-select-${b.id}-${slot.slotIndex}`}>Zimmernummer ändern:</label>
+                          <select 
+                            id={`reassign-select-${b.id}-${slot.slotIndex}`}
+                            value={slot.roomNumber || ''} 
+                            onChange={(e) => handleUpdateBookingRoomNumber(b.id, slot.slotIndex, e.target.value)}
+                            className="exp-reassign-select"
+                          >
+                            <option value="" disabled>Zimmer auswählen...</option>
+                            {ROOM_DEFINITIONS.map(def => {
+                              const isCurrent = Number(slot.roomNumber) === def.number;
+                              const isOccupied = allOccupiedNumbers.has(def.number) && !isCurrent;
+                              return (
+                                <option key={def.number} value={def.number} disabled={isOccupied}>
+                                  Zimmer {def.number} – {def.typeLabel} {def.accessible ? '(♿ Barrierefrei)' : ''} {isCurrent ? '✓ (Aktuell zugewiesen)' : isOccupied ? '✕ (Bereits belegt)' : '(Frei)'}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                      );
+                    })()}
 
                     {/* Assigned Travelers for this specific room */}
                     <div className="exp-assigned-travelers">
@@ -778,15 +857,59 @@ export default function AdminPage() {
                         {slot.guests.length === 0 ? (
                           <span className="text-muted text-xs">Kein Name hinterlegt</span>
                         ) : (
-                          slot.guests.map((g, gIdx) => (
-                            <div key={gIdx} className={`exp-traveler-pill ${g.isMain ? 'is-main-guest' : ''}`}>
-                              <User size={13} className="pill-user-icon" />
-                              <span className="pill-traveler-name">{g.name}</span>
-                              <span className="pill-traveler-role">
-                                {g.isMain ? 'Hauptbucher' : `Reisender ${gIdx + 1}`}
-                              </span>
-                            </div>
-                          ))
+                          slot.guests.map((g, gIdx) => {
+                            const canSwitch = assignedSlots.length > 1;
+
+                            return (
+                              <div key={gIdx} className={`exp-traveler-row ${g.isMain ? 'is-main-guest' : ''}`}>
+                                <div className="exp-traveler-info">
+                                  <User size={13} className="pill-user-icon" />
+                                  <span className="pill-traveler-name">{g.name}</span>
+                                  <span className="pill-traveler-role">
+                                    {g.isMain ? 'Hauptbucher' : `Reisender ${gIdx + 1}`}
+                                  </span>
+                                </div>
+
+                                {canSwitch && (
+                                  <div className="exp-traveler-switch-wrap">
+                                    <ArrowLeftRight size={12} className="switch-icon" />
+                                    <select
+                                      className="exp-traveler-switch-select"
+                                      defaultValue=""
+                                      onChange={(e) => {
+                                        handleGuestRoomAction(b.id, slot.slotIndex, g.name, e.target.value);
+                                        e.target.value = '';
+                                      }}
+                                      title="Person mit anderem Zimmer tauschen oder verschieben"
+                                    >
+                                      <option value="" disabled>Zimmer wechseln / tauschen...</option>
+                                      {assignedSlots.filter(otherSlot => otherSlot.slotIndex !== slot.slotIndex).map(otherSlot => {
+                                        const roomLabel = otherSlot.roomNumber 
+                                          ? `Zimmer ${otherSlot.roomNumber}` 
+                                          : `Zimmer (${otherSlot.name})`;
+                                        const hasCapacity = otherSlot.guests.length < otherSlot.maxCap;
+
+                                        return (
+                                          <React.Fragment key={otherSlot.slotIndex}>
+                                            {hasCapacity && (
+                                              <option value={`move:${otherSlot.slotIndex}`}>
+                                                ➜ In {roomLabel} verschieben (Freier Platz)
+                                              </option>
+                                            )}
+                                            {otherSlot.guests.map((og, ogIdx) => (
+                                              <option key={ogIdx} value={`swap:${otherSlot.slotIndex}:${og.name}`}>
+                                                ⇄ Tauschen mit {og.name} ({roomLabel})
+                                              </option>
+                                            ))}
+                                          </React.Fragment>
+                                        );
+                                      })}
+                                    </select>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
                         )}
                       </div>
                     </div>
@@ -1099,7 +1222,7 @@ export default function AdminPage() {
       }
       // 'all': shows all
 
-      // Search term filter (Phone, Name, Company, Email, Booking #, Notes)
+      // Search term filter (Phone, Name, Company, Email, Booking #, Notes, Co-Travelers, Room Numbers)
       if (searchTerm) {
         const term = searchTerm.toLowerCase().trim();
         const cleanTerm = term.replace(/[\s\-\/\(\)]/g, '');
@@ -1111,8 +1234,25 @@ export default function AdminPage() {
         const invNum = (b.invoiceNumber || '').toLowerCase();
         const notes = (b.guest?.notes || '').toLowerCase();
 
+        // Search across all co-travelers / additional guests
+        const coTravelers = [
+          ...(Array.isArray(b.guest?.allGuests) ? b.guest.allGuests.map(g => `${g.firstName || ''} ${g.lastName || ''} ${g.fullName || ''}`) : []),
+          ...(Array.isArray(b.guest?.additionalGuests) ? b.guest.additionalGuests.map(g => typeof g === 'string' ? g : `${g.firstName || ''} ${g.lastName || ''}`) : []),
+          ...(Array.isArray(b.customGuestAssignments) ? b.customGuestAssignments.flat() : [])
+        ].join(' ').toLowerCase();
+
+        // Search across assigned rooms
+        const roomNumbers = [
+          b.roomNumber,
+          ...(Array.isArray(b.roomNumbers) ? b.roomNumbers : []),
+          ...(Array.isArray(b.rooms) ? b.rooms.flatMap(r => [r.roomNumber, ...(Array.isArray(r.roomNumbers) ? r.roomNumbers : [])]) : [])
+        ].filter(Boolean);
+        const roomTerms = roomNumbers.map(n => `zimmer ${n} zimmer${n} ${n}`).join(' ').toLowerCase();
+
         const matches = (
           guestName.includes(term) ||
+          coTravelers.includes(term) ||
+          roomTerms.includes(term) ||
           guestPhone.includes(cleanTerm) ||
           guestEmail.includes(term) ||
           company.includes(term) ||
@@ -1525,7 +1665,7 @@ export default function AdminPage() {
                   <Search size={16} className="search-icon" />
                   <input 
                     type="text" 
-                    placeholder="Gast suchen (Name, Telefon, Buchungsnr., E-Mail)..." 
+                    placeholder="Gast oder Reisenden suchen (Name, Zimmer, Telefon, Buchungsnr.)..." 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />

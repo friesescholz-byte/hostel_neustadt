@@ -633,10 +633,17 @@ const BookingPage = () => {
 
     try {
       const res = await fetch(`/api/mollie/verify?id=${encodeURIComponent(paymentId)}`);
-      if (!res.ok) {
-        throw new Error('Zahlungsstatus konnte von Mollie nicht abgerufen werden.');
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`Ungültige Server-Antwort (${res.status}): ${text || res.statusText}`);
       }
-      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Zahlungsstatus konnte von Mollie nicht abgerufen werden.');
+      }
 
       if (data.isPaid || data.status === 'paid') {
         const draftStr = localStorage.getItem('hostel_pending_checkout');
@@ -748,7 +755,14 @@ const BookingPage = () => {
         })
       });
 
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`Ungültige Server-Antwort (${res.status}): ${text || res.statusText}`);
+      }
+
       if (!res.ok || !data.success || !data.checkoutUrl) {
         throw new Error(data.error || 'Mollie Checkout konnte nicht initialisiert werden.');
       }

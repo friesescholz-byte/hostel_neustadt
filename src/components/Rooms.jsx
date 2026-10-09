@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Wifi, User, Info, ArrowUpRight, Bed, Accessibility } from 'lucide-react';
+import { Wifi, User, Info, ArrowUpRight, Accessibility } from 'lucide-react';
 import './Rooms.css';
 
 const Rooms = () => {
@@ -70,12 +70,6 @@ const Rooms = () => {
                   </div>
                 </div>
                 <p className="room-desc">{room.desc}</p>
-                {room.accessibleNote && (
-                  <div className="room-accessible-tag">
-                    <Accessibility size={15} />
-                    <span>{room.accessibleNote}</span>
-                  </div>
-                )}
 
                 {/* Staffelpreise Tabelle */}
                 <div className="room-pricing-table">
@@ -89,6 +83,13 @@ const Rooms = () => {
                     ))}
                   </div>
                 </div>
+
+                {room.accessibleNote && (
+                  <div className="room-accessible-tag">
+                    <Accessibility size={15} />
+                    <span>{room.accessibleNote}</span>
+                  </div>
+                )}
 
                 <div className="room-footer">
                   <Link to={`/buchen?room=${room.id}`} className="btn-primary w-100">
@@ -118,22 +119,6 @@ const Rooms = () => {
             </div>
             <Link to="/buchen?inquiry=1" className="notice-link">
               <span>Jetzt anfragen</span>
-              <ArrowUpRight size={15} />
-            </Link>
-          </div>
-
-          <div className="notice-divider" />
-
-          <div className="notice-item">
-            <div className="notice-icon">
-              <Bed size={18} />
-            </div>
-            <div className="notice-text">
-              <strong>Zu Messezeiten gelten Sonderkonditionen</strong>
-              <p>Für Messen in Hannover & Großevents gelten gesonderte Saisonraten. Verfügbarkeit und aktuelle Tagespreise werden im Buchungssystem live berechnet.</p>
-            </div>
-            <Link to="/buchen" className="notice-link">
-              <span>Termin prüfen</span>
               <ArrowUpRight size={15} />
             </Link>
           </div>

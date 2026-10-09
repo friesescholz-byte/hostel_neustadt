@@ -59,7 +59,8 @@
   text-align: center;
   line-height: 1.35;
   color: #334155;
-  word-break: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 /* Tablet: 4x2 Grid (Symmetrisch) */

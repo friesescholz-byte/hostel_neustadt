@@ -11,7 +11,7 @@ const Amenities = () => {
     { icon: <WashingMachine size={32} />, name: "Waschmaschine" },
     { icon: <Lock size={32} />, name: "Schließfächer" },
     { icon: <Briefcase size={32} />, name: "Gepäckaufbewahrung" },
-    { icon: <Bike size={32} />, name: "Fahrradstellplätze" },
+    { icon: <Bike size={32} />, name: <>Fahrrad-<br />stellplätze</> },
     { icon: <Wifi size={32} />, name: "Kostenloses WLAN" }
   ];
 
