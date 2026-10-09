@@ -3,6 +3,7 @@ import { generateInvoicePDF } from './pdfGenerator.js';
 export const SENDER_EMAIL = 'Hostel Neustadt <noreply@scholz-friese-webdesign.de>';
 export const OWNER_NOTIFICATION_EMAIL = 'friese.scholz@gmail.com';
 export const REPLY_TO_EMAIL = 'info@hostel-neustadt.de';
+export const ADMIN_DASHBOARD_URL = 'https://hostel-neustadt.friese-scholz.workers.dev/admin';
 
 const formatEuro = (val) => {
   return Number(val || 0).toLocaleString('de-DE', {
@@ -251,7 +252,7 @@ export async function sendBookingConfirmationEmails(booking) {
         </table>
 
         <div style="text-align: center; margin-top: 24px;">
-          <a href="https://hostel-neustadt.pages.dev/admin" class="btn">Zum Admin Dashboard & Belegungsplan →</a>
+          <a href="${ADMIN_DASHBOARD_URL}" class="btn">Zum Admin Dashboard & Belegungsplan →</a>
         </div>
       </div>
     </body>
@@ -480,7 +481,7 @@ export async function sendLongTermInquiryEmails(inquiry) {
           </div>
 
           <div style="text-align: center; margin-top: 14px;">
-            <a href="https://hostel-neustadt.pages.dev/admin" style="font-size: 12.5px; color: #64748b; text-decoration: underline;">
+            <a href="${ADMIN_DASHBOARD_URL}" style="font-size: 12.5px; color: #64748b; text-decoration: underline;">
               Im Admin-Bereich ansehen & verwalten →
             </a>
           </div>
@@ -766,7 +767,7 @@ export async function sendCancellationEmail(booking, refundDetails = null) {
         <li><strong>Betrag / Erstattung:</strong> ${formatEuro(refundAmount)}</li>
         <li><strong>Zimmer:</strong> ${rooms.map(r => r.name || r.typeId).join(', ')}</li>
       </ul>
-      <p><a href="https://hostel-neustadt.pages.dev/admin">Zum Admin Dashboard</a></p>
+      <p><a href="${ADMIN_DASHBOARD_URL}">Zum Admin Dashboard</a></p>
     </div>
   `;
 

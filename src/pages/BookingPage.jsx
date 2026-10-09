@@ -104,10 +104,10 @@ const BookingPage = () => {
   const [errors, setErrors] = useState({});
   const [preferAccessible, setPreferAccessible] = useState(false);
 
-  // Mollie Modal & Confirmation States
-  const [showMollieModal, setShowMollieModal] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('mollie_card');
+  // Mollie Payment & Verification States
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
   const [confirmedBooking, setConfirmedBooking] = useState(null);
 
   // Long-Term Inquiry States (Stays >= 14 Nights)
@@ -221,6 +221,7 @@ const BookingPage = () => {
       if (n > 0) {
         const calc = bookingStore.calculateRoomPrice(initialRoom, checkin, checkout);
         const roomDef = ROOM_DEFINITIONS.find(r => r.id === initialRoom);
+        const maxCap = roomDef ? roomDef.maxCapacity : (initialRoom === 'doppelzimmer' ? 2 : 1);
         setCart([{
           instanceId: 0,
           typeId: initialRoom,
@@ -228,8 +229,8 @@ const BookingPage = () => {
           checkin,
           checkout,
           nights: n,
-          guests: 1,
-          maxCapacity: roomDef ? roomDef.maxCapacity : 1,
+          guests: initialRoom === 'doppelzimmer' ? 2 : 1,
+          maxCapacity: maxCap,
           pricePerNight: calc.avgPerNight,
           totalPrice: calc.total,
           tierName: calc.tierName,
@@ -279,23 +280,28 @@ const BookingPage = () => {
     return cart.reduce((sum, item) => sum + (item.nights || 0), 0);
   }, [cart]);
 
-  const totalGuests = useMemo(() => {
-    return cart.reduce((sum, item) => sum + item.guests, 0);
+  const totalCapacity = useMemo(() => {
+    return cart.reduce((sum, item) => sum + (item.maxCapacity || (item.typeId === 'doppelzimmer' ? 2 : 1)), 0);
   }, [cart]);
 
-  // Adjust guest data array size
+  const totalGuests = useMemo(() => {
+    return cart.reduce((sum, item) => sum + (item.guests || (item.typeId === 'doppelzimmer' ? 2 : 1)), 0);
+  }, [cart]);
+
+  // Adjust guest data array size to maximum possible capacity so all slots are available
   useEffect(() => {
+    const targetCount = Math.max(1, totalCapacity);
     setGuestData(prev => {
       const newArr = [...prev];
-      while (newArr.length < totalGuests) {
+      while (newArr.length < targetCount) {
         newArr.push({ isMain: false, firstName: '', lastName: '' });
       }
-      while (newArr.length > totalGuests && newArr.length > 1) {
+      while (newArr.length > targetCount && newArr.length > 1) {
         newArr.pop();
       }
       return newArr;
     });
-  }, [totalGuests]);
+  }, [totalCapacity]);
 
   // Initialize Cloudflare Turnstile when isLongTermStay is active
   useEffect(() => {
@@ -410,8 +416,8 @@ const BookingPage = () => {
       checkin,
       checkout,
       nights: activeNights,
-      guests: 1,
-      maxCapacity: roomDef ? roomDef.maxCapacity : 1,
+      guests: typeId === 'doppelzimmer' ? 2 : 1,
+      maxCapacity: roomDef ? roomDef.maxCapacity : (typeId === 'doppelzimmer' ? 2 : 1),
       pricePerNight: calc.avgPerNight,
       totalPrice: calc.total,
       tierName: calc.tierName,
@@ -609,98 +615,181 @@ const BookingPage = () => {
     });
   }
 
-  // Open Mollie modal
-  function handleOpenMollieModal() {
-    if (!validateStep1() || !validateStep2()) return;
-    setShowMollieModal(true);
-  }
+  // Verify Mollie payment on return redirect from Mollie checkout
+  useEffect(() => {
+    const paymentStatusParam = searchParams.get('payment_status');
+    const paymentId = searchParams.get('payment_id') || localStorage.getItem('hostel_pending_payment_id');
 
-  // Execute payment & create booking with verified Mollie transaction
-  async function handleExecuteMolliePayment() {
-    setIsProcessingPayment(true);
+    if (paymentStatusParam === 'check' || (paymentId && !confirmedBooking && !confirmedInquiry)) {
+      handleVerifyMollieReturn(paymentId);
+    }
+  }, [searchParams]);
+
+  async function handleVerifyMollieReturn(paymentId) {
+    if (!paymentId) return;
+
+    setIsVerifyingPayment(true);
+    setPaymentError('');
 
     try {
-      const token = getSessionToken();
+      const res = await fetch(`/api/mollie/verify?id=${encodeURIComponent(paymentId)}`);
+      if (!res.ok) {
+        throw new Error('Zahlungsstatus konnte von Mollie nicht abgerufen werden.');
+      }
+      const data = await res.json();
+
+      if (data.isPaid || data.status === 'paid') {
+        const draftStr = localStorage.getItem('hostel_pending_checkout');
+        const draft = draftStr ? JSON.parse(draftStr) : null;
+
+        const effectiveCart = (draft?.cart && draft.cart.length > 0) ? draft.cart : cart;
+        const effectiveGuestData = (draft?.guestData && draft.guestData.length > 0) ? draft.guestData : guestData;
+        const effectiveCheckin = draft?.checkin || checkin;
+        const effectiveCheckout = draft?.checkout || checkout;
+        const effectiveNights = draft?.totalCartNights || activeNights;
+
+        if (effectiveCart && effectiveCart.length > 0) {
+          const token = getSessionToken();
+          const newBooking = bookingStore.createBooking({
+            checkin: effectiveCheckin,
+            checkout: effectiveCheckout,
+            nights: effectiveNights,
+            cart: effectiveCart,
+            guestData: effectiveGuestData,
+            paymentMethod: data.method || 'mollie_online',
+            holdToken: token
+          });
+
+          newBooking.payment.transactionId = paymentId;
+          newBooking.payment.status = 'paid';
+          newBooking.payment.paidAt = data.paidAt || new Date().toISOString();
+
+          // Dispatch confirmation emails
+          try {
+            await sendBookingConfirmationEmails(newBooking);
+          } catch (mailErr) {
+            console.warn('[Booking] Resend dispatch note:', mailErr);
+          }
+
+          localStorage.removeItem('hostel_pending_checkout');
+          localStorage.removeItem('hostel_pending_payment_id');
+          setCart([]);
+          setCartHold(null);
+          setConfirmedBooking(newBooking);
+
+          window.history.replaceState({}, '', '/buchen?step=confirmation');
+        } else {
+          throw new Error('Buchungsdaten konnten nach Rückkehr von Mollie nicht wiederhergestellt werden.');
+        }
+      } else {
+        // Canceled or not paid
+        const draftStr = localStorage.getItem('hostel_pending_checkout');
+        if (draftStr) {
+          try {
+            const draft = JSON.parse(draftStr);
+            if (draft.cart && draft.cart.length > 0) setCart(draft.cart);
+            if (draft.guestData && draft.guestData.length > 0) setGuestData(draft.guestData);
+            if (draft.checkin) setCheckin(draft.checkin);
+            if (draft.checkout) setCheckout(draft.checkout);
+          } catch (e) {}
+        }
+        setStep(2);
+        setPaymentError(
+          data.status === 'canceled'
+            ? 'Die Zahlung bei Mollie wurde abgebrochen. Ihre ausgewählten Zimmer sind weiterhin im Warenkorb reserviert.'
+            : `Zahlung nicht abgeschlossen (Status: ${data.status || 'offen'}). Sie können die Zahlung jederzeit erneut starten.`
+        );
+        window.history.replaceState({}, '', '/buchen');
+      }
+    } catch (err) {
+      console.error('[Booking] Mollie verification error:', err);
+      setStep(2);
+      setPaymentError(err.message || 'Fehler bei der Zahlungsüberprüfung.');
+      window.history.replaceState({}, '', '/buchen');
+    } finally {
+      setIsVerifyingPayment(false);
+    }
+  }
+
+  // Initiate official Mollie Hosted Checkout
+  async function handleStartMolliePayment() {
+    if (!validateStep1() || !validateStep2()) return;
+
+    setIsProcessingPayment(true);
+    setPaymentError('');
+
+    try {
       const mainGuest = guestData[0] || {};
-
-      // 1. Create payment session via /api/mollie/create-payment
-      let paymentId = null;
-      try {
-        const createRes = await fetch('/api/mollie/create-payment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: totalPrice,
-            description: `Hostel Neustadt Buchung ${mainGuest.lastName || ''} (${cart.length} Zimmer)`,
-            redirectUrl: `${window.location.origin}/buchen?payment_status=check`,
-            metadata: {
-              guestName: `${mainGuest.firstName} ${mainGuest.lastName}`,
-              email: mainGuest.email,
-              phone: mainGuest.phone,
-              checkin,
-              checkout
-            },
-            method: selectedPaymentMethod
-          })
-        });
-
-        if (createRes.ok) {
-          const createData = await createRes.json();
-          paymentId = createData.paymentId;
-        }
-      } catch (apiErr) {
-        console.warn('[Booking] Mollie API session creation note:', apiErr);
-      }
-
-      // Fallback transaction ID if mock or local offline
-      if (!paymentId) {
-        paymentId = `tr_test_${Date.now().toString(36)}`;
-      }
-
-      // 2. Verify payment status via /api/mollie/verify
-      let isVerified = false;
-      try {
-        const verifyRes = await fetch(`/api/mollie/verify?id=${paymentId}`);
-        if (verifyRes.ok) {
-          const verifyData = await verifyRes.json();
-          // In Mollie Sandbox / Test mode: confirmed test authorization is verified
-          isVerified = true;
-        }
-      } catch (verifyErr) {
-        console.warn('[Booking] Verification check note:', verifyErr);
-      }
-
-      // 3. Create the confirmed booking in the store
-      const newBooking = bookingStore.createBooking({
-        checkin,
-        checkout,
-        nights: totalCartNights,
+      const draft = {
         cart,
         guestData,
-        paymentMethod: selectedPaymentMethod,
-        holdToken: token,
-        holdId: cartHold?.id
+        checkin,
+        checkout,
+        totalCartNights,
+        totalPrice,
+        activeNights
+      };
+      localStorage.setItem('hostel_pending_checkout', JSON.stringify(draft));
+
+      const res = await fetch('/api/mollie/create-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: totalPrice,
+          description: `Hostel Neustadt Buchung ${mainGuest.lastName || ''} (${cart.length} Zimmer)`,
+          redirectUrl: `${window.location.origin}/buchen?payment_status=check`,
+          metadata: {
+            guestName: `${mainGuest.firstName || ''} ${mainGuest.lastName || ''}`.trim(),
+            company: mainGuest.company || '',
+            email: mainGuest.email || '',
+            phone: mainGuest.phone || '',
+            rooms: cart.map(c => `${c.name} (${c.nights}N)`).join(', ')
+          }
+        })
       });
 
-      if (paymentId) {
-        newBooking.payment.transactionId = paymentId;
+      const data = await res.json();
+      if (!res.ok || !data.success || !data.checkoutUrl) {
+        throw new Error(data.error || 'Mollie Checkout konnte nicht initialisiert werden.');
       }
 
-      // 4. Send official confirmation email with PDF invoice ONLY when payment is successfully confirmed
-      try {
-        await sendBookingConfirmationEmails(newBooking);
-      } catch (mailErr) {
-        console.warn('[Booking] Resend dispatch note:', mailErr);
-      }
-
-      setIsProcessingPayment(false);
-      setShowMollieModal(false);
-      setCartHold(null);
-      setConfirmedBooking(newBooking);
+      localStorage.setItem('hostel_pending_payment_id', data.paymentId);
+      // Redirect browser directly to Mollie hosted checkout page
+      window.location.href = data.checkoutUrl;
     } catch (err) {
+      console.error('[Booking] Mollie checkout start error:', err);
       setIsProcessingPayment(false);
-      alert(err.message || 'Fehler bei der Zahlungsabwicklung');
+      setPaymentError(err.message || 'Verbindung zu Mollie fehlgeschlagen. Bitte versuchen Sie es erneut.');
     }
+  }
+
+  /* ============ RENDER: MOLLIE VERIFICATION SPINNER ============ */
+  if (isVerifyingPayment) {
+    return (
+      <div className="booking-page">
+        <header className="booking-header">
+          <div className="booking-header-inner">
+            <Link to="/" className="booking-logo">
+              <img src="https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Logo_Hostel_Neustadt_transparent.png" alt="Hostel Neustadt" />
+            </Link>
+            <div className="booking-header-trust">
+              <ShieldCheck size={18} />
+              <span>Sichere Verifizierung</span>
+            </div>
+          </div>
+        </header>
+        <main className="booking-main" style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center', maxWidth: '460px', padding: '2.5rem 1.5rem', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
+            <RefreshCw size={42} className="spin-icon" style={{ color: '#0F2B5C', marginBottom: '1.25rem' }} />
+            <h2 style={{ color: '#0F2B5C', fontSize: '1.35rem', fontWeight: 700, margin: '0 0 0.5rem 0' }}>Zahlung wird verifiziert...</h2>
+            <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.6, margin: 0 }}>
+              Ihre Zahlung bei Mollie wird geprüft und Ihre Buchungsbestätigung inkl. PDF-Rechnung erstellt. Bitte schließen Sie diese Seite nicht.
+            </p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
   }
 
   /* ============ RENDER: INQUIRY SUCCESS SCREEN (AB 14 NÄCHTE) ============ */
@@ -1607,17 +1696,19 @@ const BookingPage = () => {
                 </div>
 
                 {/* Mitreisende (Optional) */}
-                {totalGuests > 1 && (
+                {(totalCapacity > 1 || totalGuests > 1) && (
                   <div className="booking-section">
                     <h2 className="booking-section-title">
                       <Users size={24} />
-                      Weitere Gäste (Optional)
+                      Weitere Mitreisende ({guestData.length - 1} {guestData.length - 1 === 1 ? 'Person' : 'Personen'} · Optional)
                     </h2>
-                    <p className="text-muted mb-4">Namen der Mitreisenden können hier für die Gästeliste hinterlegt werden.</p>
+                    <p className="text-muted mb-4">
+                      Ihre gebuchten Zimmer bieten Platz für bis zu <strong>{totalCapacity} Gäste</strong>. Geben Sie hier gerne die Namen der weiteren Mitreisenden für die Gästeliste an.
+                    </p>
                     
                     {guestData.slice(1).map((guest, idx) => (
                       <div key={idx} className="sub-guest-form">
-                        <h4>Gast {idx + 2}</h4>
+                        <h4>Gast {idx + 2} (Mitreisender)</h4>
                         <div className="form-grid-2">
                           <div className="booking-field mb-0">
                             <input 
@@ -1738,13 +1829,40 @@ const BookingPage = () => {
                   )}
                 </button>
               ) : (
-                <button 
-                  className="btn-booking-pay" 
-                  onClick={handleOpenMollieModal}
-                  disabled={isCheckingHold}
-                >
-                  <CreditCard size={18} /> Zahlungspflichtig buchen ({totalPrice.toFixed(2)} €)
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+                  <button 
+                    className="btn-booking-pay" 
+                    onClick={handleStartMolliePayment}
+                    disabled={isCheckingHold || isProcessingPayment}
+                  >
+                    {isProcessingPayment ? (
+                      <>
+                        <RefreshCw size={18} className="spin-icon" /> Zu Mollie weiterleiten...
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard size={18} /> Zahlungspflichtig buchen über Mollie ({totalPrice.toFixed(2)} €)
+                      </>
+                    )}
+                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#64748b', fontSize: '0.78rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <span>💳 Kreditkarte</span>
+                    <span>•</span>
+                    <span>🅿️ PayPal</span>
+                    <span>•</span>
+                    <span>⚡ Klarna</span>
+                    <span>•</span>
+                    <span>🏦 Giropay</span>
+                    <span>•</span>
+                    <span>📱 Apple Pay</span>
+                  </div>
+                  {paymentError && (
+                    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', padding: '0.65rem 0.85rem', borderRadius: '6px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.35rem' }}>
+                      <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                      <span>{paymentError}</span>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -1849,105 +1967,6 @@ const BookingPage = () => {
 
       {/* Footer across the booking page */}
       <Footer />
-
-      {/* =========================================================================
-          MOLLIE PAYMENT MODAL SIMULATION
-         ========================================================================= */}
-      <AnimatePresence>
-        {showMollieModal && (
-          <div className="mollie-modal-backdrop" onClick={() => !isProcessingPayment && setShowMollieModal(false)}>
-            <motion.div 
-              className="mollie-modal-card"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Mollie Header */}
-              <div className="mollie-header">
-                <div className="mollie-brand">
-                  <div className="mollie-logo-badge">mollie</div>
-                  <span className="mollie-mode-badge">Sandbox / Test-Modus</span>
-                </div>
-                {!isProcessingPayment && (
-                  <button className="mollie-close" onClick={() => setShowMollieModal(false)}>×</button>
-                )}
-              </div>
-
-              {/* Order Info */}
-              <div className="mollie-body">
-                <div className="mollie-order-summary">
-                  <div>
-                    <span className="mollie-merchant">Hostel Neustadt</span>
-                    <h3 className="mollie-title">Buchung ({cart.length} Zimmer)</h3>
-                  </div>
-                  <div className="mollie-amount">
-                    <span className="mollie-total">{totalPrice.toFixed(2)} €</span>
-                    <small>inkl. 7% USt.</small>
-                  </div>
-                </div>
-
-                <div className="mollie-methods-title">
-                  <span>Wählen Sie Ihre bevorzugte Zahlungsart</span>
-                </div>
-
-                {/* Methods List */}
-                <div className="mollie-methods-list">
-                  {PAYMENT_METHODS.map(method => (
-                    <label 
-                      key={method.id} 
-                      className={`mollie-method-item ${selectedPaymentMethod === method.id ? 'active' : ''}`}
-                    >
-                      <input 
-                        type="radio" 
-                        name="paymentMethod" 
-                        checked={selectedPaymentMethod === method.id}
-                        onChange={() => setSelectedPaymentMethod(method.id)}
-                        disabled={isProcessingPayment}
-                      />
-                      <span className="mollie-method-icon">{method.icon}</span>
-                      <span className="mollie-method-label">{method.label}</span>
-                    </label>
-                  ))}
-                </div>
-
-                <div className="mollie-security-notice">
-                  <ShieldCheck size={16} />
-                  <span>Test-Zahlungsumgebung. Keine Belastung Ihres Bankkontos.</span>
-                </div>
-              </div>
-
-              {/* Mollie Footer */}
-              <div className="mollie-footer">
-                <button 
-                  className="btn-mollie-cancel"
-                  onClick={() => setShowMollieModal(false)}
-                  disabled={isProcessingPayment}
-                >
-                  Abbrechen
-                </button>
-                <button 
-                  className="btn-mollie-pay"
-                  onClick={handleExecuteMolliePayment}
-                  disabled={isProcessingPayment}
-                >
-                  {isProcessingPayment ? (
-                    <>
-                      <RefreshCw size={16} className="spin-icon" />
-                      <span>Zahlung wird autorisiert...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>{totalPrice.toFixed(2)} € bezahlen</span>
-                      <ChevronRight size={16} />
-                    </>
-                  )}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

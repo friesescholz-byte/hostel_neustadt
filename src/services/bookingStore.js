@@ -1021,7 +1021,13 @@ export const bookingStore = {
         zip: mainGuest.zip || '',
         city: mainGuest.city || '',
         notes: mainGuest.notes || '',
-        additionalGuests: guestData.slice(1).map(g => `${g.firstName || ''} ${g.lastName || ''}`.trim()).filter(Boolean)
+        additionalGuests: guestData.slice(1).map(g => `${g.firstName || ''} ${g.lastName || ''}`.trim()).filter(Boolean),
+        allGuests: guestData.filter(g => (g.firstName || g.lastName || g.isMain)).map((g, idx) => ({
+          isMain: idx === 0,
+          firstName: g.firstName || '',
+          lastName: g.lastName || '',
+          fullName: `${g.firstName || ''} ${g.lastName || ''}`.trim()
+        }))
       },
       payment: {
         method: paymentMethod,
@@ -1310,6 +1316,21 @@ export const bookingStore = {
     });
     this.setBookings(updated);
     return cancelledBooking;
+  },
+
+  // ---- Generic Update Booking (Check-in, Check-out, Notes, Room Assignments) ----
+  updateBooking(bookingId, patch) {
+    const bookings = this.getBookings();
+    let updatedBooking = null;
+    const updated = bookings.map(b => {
+      if (b.id === bookingId || b.bookingNumber === bookingId) {
+        updatedBooking = typeof patch === 'function' ? patch(b) : { ...b, ...patch };
+        return updatedBooking;
+      }
+      return b;
+    });
+    this.setBookings(updated);
+    return updatedBooking;
   }
 };
 

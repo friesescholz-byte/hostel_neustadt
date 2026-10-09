@@ -7,7 +7,7 @@ import {
   Trash2, Plus, Edit3, ArrowLeft, ChevronRight, ChevronLeft, AlertCircle,
   Eye, FileText, Check, Lock, LogOut, KeyRound, Sparkles, LogIn, DoorOpen,
   Phone, PhoneCall, UserCheck, CalendarDays, ExternalLink, RefreshCw, Mail,
-  Accessibility, Send, LayoutGrid
+  Accessibility, Send, LayoutGrid, ChevronDown, ChevronUp, User, Building2, MapPin
 } from 'lucide-react';
 import { bookingStore, ROOM_DEFINITIONS } from '../services/bookingStore';
 import { downloadInvoicePDF } from '../services/pdfGenerator';
@@ -39,6 +39,7 @@ export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'today_checkin' | 'today_inhouse' | 'today_checkout' | 'upcoming' | 'open' | 'inquiry' | 'cancelled'
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [expandedBookingId, setExpandedBookingId] = useState(null);
   const [showAddPeriodModal, setShowAddPeriodModal] = useState(false);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState('');
   const [nowTime, setNowTime] = useState(Date.now());
@@ -391,6 +392,493 @@ export default function AdminPage() {
       }));
     }
     triggerSaveNotification('Zahlung erfolgreich erfasst! Status ist nun Bezahlt.');
+  };
+
+  // --- Helpers: Room & Guest Assignment ("erst alle Zimmer befüllen dann doppelt") ---
+  const computeRoomGuestAssignments = (booking) => {
+    if (!booking) return [];
+
+    // 1. Gather all persons
+    const mainGuestName = `${booking.guest?.firstName || ''} ${booking.guest?.lastName || ''}`.trim() || 'Hauptbucher';
+    let additional = [];
+    if (Array.isArray(booking.guest?.allGuests) && booking.guest.allGuests.length > 0) {
+      additional = booking.guest.allGuests
+        .filter(g => !g.isMain)
+        .map(g => g.fullName || `${g.firstName || ''} ${g.lastName || ''}`.trim())
+        .filter(Boolean);
+    } else if (Array.isArray(booking.guest?.additionalGuests)) {
+      additional = booking.guest.additionalGuests
+        .map(g => typeof g === 'string' ? g.trim() : `${g.firstName || ''} ${g.lastName || ''}`.trim())
+        .filter(Boolean);
+    }
+
+    const allPersons = [
+      { name: mainGuestName, isMain: true },
+      ...additional.map(name => ({ name, isMain: false }))
+    ];
+
+    // 2. Gather individual room slots (expanding multiple room counts)
+    const rawRooms = (Array.isArray(booking.rooms) && booking.rooms.length > 0)
+      ? booking.rooms
+      : (booking.roomNumbers || [booking.roomNumber || 1]).map(rn => {
+          const def = ROOM_DEFINITIONS.find(d => d.number === rn);
+          return {
+            roomNumber: rn,
+            typeId: def?.typeId || ((rn === 1 || rn === 2 || rn === 15) ? 'einzelzimmer' : 'doppelzimmer'),
+            name: def?.typeLabel || 'Zimmer ' + rn
+          };
+        });
+
+    const slots = [];
+    let slotCounter = 0;
+    rawRooms.forEach((r, originalIdx) => {
+      const count = Math.max(1, Number(r.count) || 1);
+      for (let c = 0; c < count; c++) {
+        const rNum = (c === 0 && r.roomNumber) ? r.roomNumber : (r.roomNumbers?.[c] || r.roomNumber || null);
+        const isDouble = r.typeId === 'doppelzimmer' || (rNum && rNum >= 3 && rNum <= 14);
+        slots.push({
+          slotIndex: slotCounter++,
+          originalRoomIndex: originalIdx,
+          roomNumber: rNum,
+          typeId: r.typeId,
+          name: r.name || (isDouble ? 'Doppelzimmer' : 'Einzelzimmer'),
+          accessible: Boolean(r.accessible || rNum === 2),
+          maxCap: isDouble ? 2 : 1,
+          checkin: r.checkin || booking.checkin,
+          checkout: r.checkout || booking.checkout,
+          nights: r.nights || booking.nights || 1,
+          price: r.total || r.totalPrice || 0,
+          guests: []
+        });
+      }
+    });
+
+    // Rule: "erst alle Zimmer befüllen dann doppelt"
+    const queue = [...allPersons];
+
+    // Pass 1: Erst alle Zimmer befüllen mit je 1 Person
+    for (let i = 0; i < slots.length; i++) {
+      if (queue.length > 0) {
+        slots[i].guests.push(queue.shift());
+      }
+    }
+
+    // Pass 2: Dann Doppelzimmer mit zweiter Person befüllen
+    for (let i = 0; i < slots.length; i++) {
+      if (slots[i].maxCap > 1 && slots[i].guests.length < slots[i].maxCap) {
+        if (queue.length > 0) {
+          slots[i].guests.push(queue.shift());
+        }
+      }
+    }
+
+    // Pass 3: Übrige Personen anhängen, damit kein Name verloren geht
+    while (queue.length > 0) {
+      const extra = queue.shift();
+      if (slots.length > 0) {
+        slots[slots.length - 1].guests.push(extra);
+      }
+    }
+
+    return slots;
+  };
+
+  const isRoomCheckedIn = (booking, roomNumber, slotIndex = 0) => {
+    const key = String(roomNumber ?? `slot_${slotIndex}`);
+    return Boolean(booking?.checkinState?.[key]?.checkedIn || (slotIndex === 0 && booking?.checkedIn));
+  };
+
+  const isRoomCheckedOut = (booking, roomNumber, slotIndex = 0) => {
+    const key = String(roomNumber ?? `slot_${slotIndex}`);
+    return Boolean(booking?.checkinState?.[key]?.checkedOut || (slotIndex === 0 && booking?.checkedOut));
+  };
+
+  const handleToggleRoomStatus = (bookingId, roomNumber, slotIndex = 0, field) => {
+    bookingStore.updateBooking(bookingId, current => {
+      const key = String(roomNumber ?? `slot_${slotIndex}`);
+      const existingState = current.checkinState || {};
+      const roomState = existingState[key] || { checkedIn: false, checkedOut: false };
+
+      const newVal = !roomState[field];
+      const updatedRoomState = {
+        ...roomState,
+        [field]: newVal,
+        [`${field}At`]: newVal ? new Date().toISOString() : null
+      };
+
+      if (field === 'checkedOut' && newVal) {
+        updatedRoomState.checkedIn = true;
+      }
+
+      return {
+        ...current,
+        checkinState: {
+          ...existingState,
+          [key]: updatedRoomState
+        }
+      };
+    });
+
+    loadData();
+    triggerSaveNotification(field === 'checkedIn' ? 'Check-in Status aktualisiert' : 'Check-out Status aktualisiert');
+  };
+
+  const handleSelectBookingFromCalendar = (b) => {
+    if (!b) return;
+    setActiveTab('bookings');
+    setStatusFilter('all');
+    setExpandedBookingId(b.id);
+    setTimeout(() => {
+      const el = document.getElementById(`booking-row-${b.id}`) || document.getElementById(`booking-card-${b.id}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+  };
+
+  // --- Inline Accordion Renderer: Grosses, übersichtliches Aufklapp-Panel ---
+  const renderExpandedBooking = (b) => {
+    const assignedSlots = computeRoomGuestAssignments(b);
+    const isInquiry = b.status === 'inquiry';
+    const isOpenHold = b.status === 'open';
+    const isCancelled = b.status === 'cancelled';
+    const isPendingPayment = !isCancelled && !isInquiry && (b.paymentStatus === 'pending' || b.payment?.status === 'pending');
+
+    return (
+      <div className="expanded-booking-panel-inner">
+        {/* Banner for Special Statuses */}
+        {isInquiry && (
+          <div className="desk-notes-banner banner-inquiry">
+            <Sparkles size={18} className="notes-icon" />
+            <div>
+              <strong>Individuelle Buchungsanfrage ({b.nights || 14}+ Nächte)</strong>
+              <p>Der Gast hat ein individuelles Angebot für einen Langzeitaufenthalt angefragt. Nutzen Sie die Kontaktdaten unten, um direkt per Mail oder Anruf ein Angebot zu unterbreiten.</p>
+            </div>
+          </div>
+        )}
+
+        {isOpenHold && (
+          <div className="desk-notes-banner banner-hold">
+            <Clock size={18} className="notes-icon" />
+            <div>
+              <strong>Gast befindet sich im 10-Minuten-Buchungsprozess ({formatHoldTimer(b.expiresAt)})</strong>
+              <p>Zimmer sind temporär blockiert. Schließt der Kunde die Zahlung erfolgreich ab, wird die Buchung automatisch als Bezahlt übernommen.</p>
+            </div>
+          </div>
+        )}
+
+        <div className="exp-grid-container">
+          {/* Column 1: Kunde & Kontaktdaten + Abrechnung */}
+          <div className="exp-card-col">
+            <div className="exp-subhead">
+              <User size={16} />
+              <h4>Kundendaten & Kontakt</h4>
+            </div>
+
+            <div className="exp-info-box">
+              <div className="exp-field-row">
+                <span className="exp-label">Hauptbucher:</span>
+                <span className="exp-val"><strong>{b.guest?.firstName} {b.guest?.lastName}</strong></span>
+              </div>
+
+              {b.guest?.company && (
+                <div className="exp-field-row">
+                  <span className="exp-label">Firma:</span>
+                  <span className="exp-val"><strong>{b.guest.company}</strong></span>
+                </div>
+              )}
+
+              <div className="exp-field-row">
+                <span className="exp-label">E-Mail:</span>
+                <span className="exp-val">
+                  {b.guest?.email ? (
+                    <a href={`mailto:${b.guest.email}`} className="exp-link">
+                      <Mail size={13} /> {b.guest.email}
+                    </a>
+                  ) : '-'}
+                </span>
+              </div>
+
+              <div className="exp-field-row">
+                <span className="exp-label">Telefon:</span>
+                <span className="exp-val">
+                  {b.guest?.phone ? (
+                    <a href={`tel:${b.guest.phone}`} className="exp-link">
+                      <PhoneCall size={13} /> {b.guest.phone}
+                    </a>
+                  ) : <span className="text-muted">Keine Angabe</span>}
+                </span>
+              </div>
+
+              {(b.guest?.street || b.guest?.city) && (
+                <div className="exp-field-row">
+                  <span className="exp-label">Anschrift:</span>
+                  <span className="exp-val">
+                    {b.guest?.street ? `${b.guest.street}, ` : ''}{b.guest?.zip || ''} {b.guest?.city || ''}
+                  </span>
+                </div>
+              )}
+
+              {b.guest?.notes && (
+                <div className="exp-notes-box">
+                  <span className="exp-label">Anmerkungen des Gastes:</span>
+                  <p className="exp-notes-text">„{b.guest.notes}“</p>
+                </div>
+              )}
+            </div>
+
+            {/* Rechnungs- und Zahlungsdetails */}
+            <div className="exp-subhead mt-4">
+              <DollarSign size={16} />
+              <h4>Zahlung & Rechnung</h4>
+            </div>
+
+            <div className="exp-info-box">
+              <div className="exp-field-row">
+                <span className="exp-label">Rechnungs-Nr.:</span>
+                <span className="exp-val font-mono"><strong>{b.invoiceNumber || '-'}</strong></span>
+              </div>
+
+              <div className="exp-field-row">
+                <span className="exp-label">Gesamtbetrag:</span>
+                <span className="exp-val exp-price-highlight">
+                  {isInquiry ? 'Auf Anfrage' : `${Number(b.totalPrice || 0).toFixed(2)} €`}
+                </span>
+              </div>
+
+              <div className="exp-field-row">
+                <span className="exp-label">Zahlungsstatus:</span>
+                <span className="exp-val">
+                  {isCancelled ? (
+                    <span className="badge-cancelled-inline">✕ Storniert</span>
+                  ) : isPendingPayment ? (
+                    <span className="badge-pending-inline">⏳ Offen (nicht bezahlt)</span>
+                  ) : (
+                    <span className="badge-paid-inline">✓ Bezahlt ({b.payment?.methodLabel || 'Online-Zahlung'})</span>
+                  )}
+                </span>
+              </div>
+
+              {b.payment?.transactionId && (
+                <div className="exp-field-row">
+                  <span className="exp-label">Transaktion:</span>
+                  <span className="exp-val font-mono text-muted text-xs">{b.payment.transactionId}</span>
+                </div>
+              )}
+
+              {/* Quick Pay Buttons if pending */}
+              {isPendingPayment && (
+                <div className="exp-quick-pay-actions">
+                  <span className="exp-quick-pay-title">Zahlungseingang erfassen:</span>
+                  <div className="exp-quick-pay-btns">
+                    <button type="button" className="btn-mark-paid" onClick={() => handleMarkBookingPaid(b.id, 'bar')}>
+                      ✓ Bar bezahlt
+                    </button>
+                    <button type="button" className="btn-mark-paid" onClick={() => handleMarkBookingPaid(b.id, 'ec')}>
+                      ✓ EC-Karte
+                    </button>
+                    <button type="button" className="btn-mark-paid" onClick={() => handleMarkBookingPaid(b.id, 'ueberweisung')}>
+                      ✓ Überweisung
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Column 2: Zimmer & Reisende (mit Zimmerzuteilung & Check-in Checkboxen) */}
+          <div className="exp-card-col exp-rooms-col">
+            <div className="exp-subhead">
+              <DoorOpen size={16} />
+              <h4>Gebuchte Zimmer & Reisende</h4>
+              <span className="exp-subtitle-pill">
+                {assignedSlots.length} {assignedSlots.length === 1 ? 'Zimmer' : 'Zimmer'} · Erst alle Zimmer befüllen, dann doppelt
+              </span>
+            </div>
+
+            <div className="exp-rooms-list">
+              {assignedSlots.map((slot) => {
+                const checkedIn = isRoomCheckedIn(b, slot.roomNumber, slot.slotIndex);
+                const checkedOut = isRoomCheckedOut(b, slot.roomNumber, slot.slotIndex);
+
+                return (
+                  <div key={slot.slotIndex} className={`exp-room-card ${checkedOut ? 'room-checked-out' : checkedIn ? 'room-checked-in' : ''}`}>
+                    {/* Room Header */}
+                    <div className="exp-room-top">
+                      <div className="exp-room-title-cluster">
+                        <span className={`exp-room-badge ${slot.accessible ? 'badge-accessible' : ''}`}>
+                          {slot.roomNumber ? `Zimmer ${slot.roomNumber}` : 'Zimmer unzugewiesen'}
+                          {slot.accessible ? ' (♿ Barrierefrei)' : ''}
+                        </span>
+                        <span className="exp-room-type-text">
+                          {slot.typeId === 'einzelzimmer' ? 'Einzelzimmer (1 Person)' : 'Doppelzimmer (max. 2 Personen)'}
+                        </span>
+                      </div>
+
+                      {/* Discrete Checkboxen: Eingecheckt / Ausgecheckt */}
+                      <div className="exp-room-check-cluster">
+                        <label 
+                          className={`exp-discrete-checkbox ${checkedIn ? 'checked-in' : ''}`}
+                          title="Häkchen setzen wenn der Gast anwesend / eingecheckt ist"
+                        >
+                          <input 
+                            type="checkbox" 
+                            checked={checkedIn} 
+                            onChange={() => handleToggleRoomStatus(b.id, slot.roomNumber, slot.slotIndex, 'checkedIn')} 
+                          />
+                          <span className="exp-checkbox-box">
+                            {checkedIn && <Check size={12} strokeWidth={3} />}
+                          </span>
+                          <span className="exp-checkbox-text">Anwesend</span>
+                        </label>
+
+                        <label 
+                          className={`exp-discrete-checkbox ${checkedOut ? 'checked-out' : ''}`}
+                          title="Häkchen setzen wenn der Gast abgereist / ausgecheckt ist"
+                        >
+                          <input 
+                            type="checkbox" 
+                            checked={checkedOut} 
+                            onChange={() => handleToggleRoomStatus(b.id, slot.roomNumber, slot.slotIndex, 'checkedOut')} 
+                          />
+                          <span className="exp-checkbox-box">
+                            {checkedOut && <Check size={12} strokeWidth={3} />}
+                          </span>
+                          <span className="exp-checkbox-text">Ausgecheckt</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Room Reassign Select */}
+                    {!isInquiry && (
+                      <div className="exp-room-reassign-bar">
+                        <label htmlFor={`reassign-select-${b.id}-${slot.slotIndex}`}>Zimmernummer ändern:</label>
+                        <select 
+                          id={`reassign-select-${b.id}-${slot.slotIndex}`}
+                          value={slot.roomNumber || ''} 
+                          onChange={(e) => handleUpdateBookingRoomNumber(b.id, slot.originalRoomIndex, e.target.value)}
+                          className="exp-reassign-select"
+                        >
+                          <option value="" disabled>Zimmer auswählen...</option>
+                          {ROOM_DEFINITIONS.map(def => (
+                            <option key={def.number} value={def.number}>
+                              Zimmer {def.number} – {def.typeLabel}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Assigned Travelers for this specific room */}
+                    <div className="exp-assigned-travelers">
+                      <div className="exp-travelers-header">
+                        <Users size={13} />
+                        <span>Zugeordnete Gäste für dieses Zimmer ({slot.guests.length}/{slot.maxCap}):</span>
+                      </div>
+
+                      <div className="exp-travelers-list">
+                        {slot.guests.length === 0 ? (
+                          <span className="text-muted text-xs">Kein Name hinterlegt</span>
+                        ) : (
+                          slot.guests.map((g, gIdx) => (
+                            <div key={gIdx} className={`exp-traveler-pill ${g.isMain ? 'is-main-guest' : ''}`}>
+                              <User size={13} className="pill-user-icon" />
+                              <span className="pill-traveler-name">{g.name}</span>
+                              <span className="pill-traveler-role">
+                                {g.isMain ? 'Hauptbucher' : `Reisender ${gIdx + 1}`}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Actions Bar */}
+        <div className="exp-bottom-actions-bar">
+          <div className="exp-actions-left">
+            {!isOpenHold && !isInquiry && (
+              <>
+                <button 
+                  className="btn-admin-primary" 
+                  onClick={() => downloadInvoicePDF(b)}
+                  title="PDF-Rechnung herunterladen"
+                >
+                  <Download size={15} /> PDF-Rechnung
+                </button>
+
+                {b.guest?.email && (
+                  <button 
+                    className="btn-admin-secondary" 
+                    onClick={() => handleResendInvoice(b)}
+                    disabled={isResendingInvoice}
+                    title={`Rechnung erneut an ${b.guest.email} senden`}
+                  >
+                    {isResendingInvoice ? <RefreshCw size={15} className="spin-icon" /> : <Mail size={15} />}
+                    Rechnung erneut senden
+                  </button>
+                )}
+              </>
+            )}
+
+            {isInquiry && (
+              <>
+                {b.guest?.email && (
+                  <a 
+                    href={`mailto:${b.guest.email}?subject=Angebot%20f%C3%BCr%20Ihre%20Buchungsanfrage%20${b.bookingNumber}%20-%20Hostel%20Neustadt`}
+                    className="btn-admin-primary"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <Mail size={15} /> Angebot per E-Mail senden
+                  </a>
+                )}
+                {b.guest?.phone && (
+                  <a 
+                    href={`tel:${b.guest.phone}`}
+                    className="btn-admin-secondary"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <PhoneCall size={15} /> Jetzt anrufen ({b.guest.phone})
+                  </a>
+                )}
+              </>
+            )}
+
+            {b.status === 'confirmed' && (
+              <button 
+                className="btn-admin-secondary btn-cancel-booking" 
+                onClick={() => handleCancelBooking(b.id)}
+                disabled={isCancellingBooking}
+                title="Buchung stornieren (Zimmer sofort freigeben & Mollie-Erstattung)"
+              >
+                <XCircle size={15} /> {isCancellingBooking ? 'Storniere...' : 'Buchung stornieren'}
+              </button>
+            )}
+          </div>
+
+          <div className="exp-actions-right">
+            <button 
+              className="btn-admin-danger" 
+              onClick={() => handleDeleteBooking(b.id)}
+              title={b.status === 'open' ? 'Hold abbrechen & Zimmer freigeben' : 'Buchung endgültig löschen'}
+            >
+              <Trash2 size={15} /> {b.status === 'open' ? 'Hold abbrechen' : 'Löschen'}
+            </button>
+            
+            <button 
+              className="btn-admin-ghost"
+              onClick={() => setExpandedBookingId(null)}
+              title="Details einklappen"
+            >
+              <ChevronUp size={15} /> Zuklappen
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   // --- Handlers: Manual Bookings (Admin Hub) ---
@@ -1156,95 +1644,125 @@ export default function AdminPage() {
                           const isCancelled = b.status === 'cancelled';
                           const isOpenHold = b.status === 'open';
                           const isInquiry = b.status === 'inquiry';
+                          const isExpanded = expandedBookingId === b.id;
                           return (
-                            <tr key={b.id} className={`${isCancelled ? 'row-cancelled' : ''} ${isOpenHold ? 'row-hold' : ''} ${isInquiry ? 'row-inquiry' : ''}`}>
-                              <td>
-                                <div className="cell-id">
-                                  <strong>{b.bookingNumber}</strong>
-                                  <small className="text-muted">{b.invoiceNumber || (isInquiry ? 'Langzeit-Anfrage' : '')}</small>
-                                </div>
-                              </td>
-                              <td>
-                                <div className="cell-guest">
-                                  <span className="guest-name">{b.guest?.firstName} {b.guest?.lastName}</span>
-                                  {b.guest?.company && <span className="guest-company">{b.guest.company}</span>}
-                                  <small className="guest-contact">{b.guest?.email || b.guest?.phone || '-'}</small>
-                                </div>
-                              </td>
-                              <td>
-                                <div className="cell-dates">
-                                  <span>{new Date(b.checkin).toLocaleDateString('de-DE')} – {new Date(b.checkout).toLocaleDateString('de-DE')}</span>
-                                  <small className="text-muted">{b.nights} {b.nights === 1 ? 'Nacht' : 'Nächte'}</small>
-                                </div>
-                              </td>
-                              <td>
-                                <div className="cell-rooms">
-                                  {(b.rooms || []).map((r, ri) => (
-                                    <span key={ri} className="room-pill">
-                                      {r.roomNumber ? <strong>Zimmer {r.roomNumber}{r.roomNumber === 2 ? ' (♿)' : ''} · </strong> : ''}
-                                      {r.count || 1}x {r.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer'}
+                            <React.Fragment key={b.id}>
+                              <tr 
+                                id={`booking-row-${b.id}`}
+                                className={`${isCancelled ? 'row-cancelled' : ''} ${isOpenHold ? 'row-hold' : ''} ${isInquiry ? 'row-inquiry' : ''} ${isExpanded ? 'row-expanded-active' : ''}`}
+                              >
+                                <td>
+                                  <div className="cell-id">
+                                    <strong>{b.bookingNumber}</strong>
+                                    <small className="text-muted">{b.invoiceNumber || (isInquiry ? 'Langzeit-Anfrage' : '')}</small>
+                                  </div>
+                                </td>
+                                <td>
+                                  <div className="cell-guest">
+                                    {b.guest?.company?.trim() ? (
+                                      <>
+                                        <strong className="guest-name guest-company-only">{b.guest.company.trim()}</strong>
+                                        <small className="guest-contact">{b.guest?.email || b.guest?.phone || '-'}</small>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <span className="guest-name">{b.guest?.firstName} {b.guest?.lastName}</span>
+                                        <small className="guest-contact">{b.guest?.email || b.guest?.phone || '-'}</small>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                                <td>
+                                  <div className="cell-dates">
+                                    <span>{new Date(b.checkin).toLocaleDateString('de-DE')} – {new Date(b.checkout).toLocaleDateString('de-DE')}</span>
+                                    <small className="text-muted">{b.nights} {b.nights === 1 ? 'Nacht' : 'Nächte'}</small>
+                                  </div>
+                                </td>
+                                <td>
+                                  <div className="cell-rooms">
+                                    {(b.rooms || []).map((r, ri) => (
+                                      <span key={ri} className="room-pill">
+                                        {r.roomNumber ? <strong>Zimmer {r.roomNumber}{r.roomNumber === 2 ? ' (♿)' : ''} · </strong> : ''}
+                                        {r.count || 1}x {r.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer'}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </td>
+                                <td>
+                                  <div className="cell-price">
+                                    <strong>{isInquiry ? 'Auf Anfrage' : `${Number(b.totalPrice || 0).toFixed(2)} €`}</strong>
+                                    <small className="text-muted">
+                                      {isInquiry
+                                        ? 'Sonderangebot'
+                                        : isOpenHold 
+                                        ? '⏳ In Bearbeitung'
+                                        : (b.paymentStatus === 'pending' || b.payment?.status === 'pending') 
+                                        ? 'Zahlung offen' 
+                                        : (b.payment?.methodLabel || 'Online-Zahlung')}
+                                    </small>
+                                  </div>
+                                </td>
+                                <td>
+                                  {isOpenHold ? (
+                                    <span className="status-badge amber" title="Zimmer für 10 Min. reserviert – Zahlung noch offen">
+                                      <Clock size={14} /> In Buchung ({formatHoldTimer(b.expiresAt)})
                                     </span>
-                                  ))}
-                                </div>
-                              </td>
-                              <td>
-                                <div className="cell-price">
-                                  <strong>{isInquiry ? 'Auf Anfrage' : `${Number(b.totalPrice || 0).toFixed(2)} €`}</strong>
-                                  <small className="text-muted">
-                                    {isInquiry
-                                      ? 'Sonderangebot'
-                                      : isOpenHold 
-                                      ? '⏳ In Bearbeitung'
-                                      : (b.paymentStatus === 'pending' || b.payment?.status === 'pending') 
-                                      ? 'Zahlung offen' 
-                                      : (b.payment?.methodLabel || 'Online-Zahlung')}
-                                  </small>
-                                </div>
-                              </td>
-                              <td>
-                                {isOpenHold ? (
-                                  <span className="status-badge amber" title="Zimmer für 10 Min. reserviert – Zahlung noch offen">
-                                    <Clock size={14} /> In Buchung ({formatHoldTimer(b.expiresAt)})
-                                  </span>
-                                ) : isInquiry ? (
-                                  <span className="status-badge purple" title="Individuelle Langzeit-Anfrage (ab 14 Nächte)">
-                                    <Sparkles size={14} /> Langzeit-Anfrage
-                                  </span>
-                                ) : isCancelled ? (
-                                  <span className="status-badge red">
-                                    <XCircle size={14} /> Storniert
-                                  </span>
-                                ) : (b.paymentStatus === 'pending' || b.payment?.status === 'pending') ? (
-                                  <span className="status-badge amber">
-                                    <Clock size={14} /> Offen
-                                  </span>
-                                ) : (
-                                  <span className="status-badge green">
-                                    <CheckCircle2 size={14} /> Bezahlt
-                                  </span>
-                                )}
-                              </td>
-                              <td style={{ textAlign: 'right' }}>
-                                <div className="actions-cluster">
-                                  <button 
-                                    className="btn-icon" 
-                                    title="Buchungsdetails ansehen"
-                                    onClick={() => setSelectedBooking(b)}
-                                  >
-                                    <Eye size={16} />
-                                  </button>
-                                  {!isOpenHold && !isInquiry && (
-                                    <button 
-                                      className="btn-icon" 
-                                      title="PDF-Rechnung herunterladen"
-                                      onClick={() => downloadInvoicePDF(b)}
-                                    >
-                                      <Download size={16} />
-                                    </button>
+                                  ) : isInquiry ? (
+                                    <span className="status-badge purple" title="Individuelle Langzeit-Anfrage (ab 14 Nächte)">
+                                      <Sparkles size={14} /> Langzeit-Anfrage
+                                    </span>
+                                  ) : isCancelled ? (
+                                    <span className="status-badge red">
+                                      <XCircle size={14} /> Storniert
+                                    </span>
+                                  ) : (b.paymentStatus === 'pending' || b.payment?.status === 'pending') ? (
+                                    <span className="status-badge amber">
+                                      <Clock size={14} /> Offen
+                                    </span>
+                                  ) : (
+                                    <span className="status-badge green">
+                                      <CheckCircle2 size={14} /> Bezahlt
+                                    </span>
                                   )}
-                                </div>
-                              </td>
-                            </tr>
+                                </td>
+                                <td style={{ textAlign: 'right' }}>
+                                  <div className="actions-cluster">
+                                    <button 
+                                      className={`btn-icon ${isExpanded ? 'btn-icon-active' : ''}`}
+                                      title={isExpanded ? "Details einklappen" : "Buchungsdetails aufklappen"}
+                                      onClick={() => setExpandedBookingId(isExpanded ? null : b.id)}
+                                      aria-expanded={isExpanded}
+                                    >
+                                      <Eye size={16} />
+                                    </button>
+                                    {!isOpenHold && !isInquiry && (
+                                      <button 
+                                        className="btn-icon" 
+                                        title="PDF-Rechnung herunterladen"
+                                        onClick={() => downloadInvoicePDF(b)}
+                                      >
+                                        <Download size={16} />
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                              {isExpanded && (
+                                <tr className="expanded-booking-tr">
+                                  <td colSpan={7} className="expanded-booking-td">
+                                    <motion.div 
+                                      initial={{ opacity: 0, height: 0 }}
+                                      animate={{ opacity: 1, height: 'auto' }}
+                                      exit={{ opacity: 0, height: 0 }}
+                                      transition={{ duration: 0.25, ease: 'easeOut' }}
+                                      className="expanded-booking-panel-wrapper"
+                                    >
+                                      {renderExpandedBooking(b)}
+                                    </motion.div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
                           );
                         })}
                       </tbody>
@@ -1257,10 +1775,12 @@ export default function AdminPage() {
                       const isCancelled = b.status === 'cancelled';
                       const isOpenHold = b.status === 'open';
                       const isInquiry = b.status === 'inquiry';
+                      const isExpanded = expandedBookingId === b.id;
                       return (
                         <div 
                           key={b.id} 
-                          className={`mobile-booking-card ${isCancelled ? 'card-cancelled' : ''} ${isOpenHold ? 'card-hold' : ''} ${isInquiry ? 'card-inquiry' : ''}`}
+                          id={`booking-card-${b.id}`}
+                          className={`mobile-booking-card ${isCancelled ? 'card-cancelled' : ''} ${isOpenHold ? 'card-hold' : ''} ${isInquiry ? 'card-inquiry' : ''} ${isExpanded ? 'mobile-card-expanded' : ''}`}
                         >
                           <div className="mobile-card-top">
                             <div className="mobile-card-ids">
@@ -1294,11 +1814,14 @@ export default function AdminPage() {
                           </div>
 
                           <div className="mobile-card-guest-info">
-                            <h4 className="mobile-guest-name">
-                              {b.guest?.firstName} {b.guest?.lastName}
-                            </h4>
-                            {b.guest?.company && (
-                              <span className="mobile-guest-company">{b.guest.company}</span>
+                            {b.guest?.company?.trim() ? (
+                              <h4 className="mobile-guest-name">
+                                {b.guest.company.trim()}
+                              </h4>
+                            ) : (
+                              <h4 className="mobile-guest-name">
+                                {b.guest?.firstName} {b.guest?.lastName}
+                              </h4>
                             )}
                           </div>
 
@@ -1359,10 +1882,10 @@ export default function AdminPage() {
 
                           <div className="mobile-card-action-bar">
                             <button 
-                              className="btn-mobile-act-primary"
-                              onClick={() => setSelectedBooking(b)}
+                              className={`btn-mobile-act-primary ${isExpanded ? 'active' : ''}`}
+                              onClick={() => setExpandedBookingId(isExpanded ? null : b.id)}
                             >
-                              <Eye size={15} /> Details
+                              <Eye size={15} /> {isExpanded ? 'Zuklappen' : 'Details'}
                             </button>
 
                             {!isOpenHold && !isInquiry && (
@@ -1375,6 +1898,12 @@ export default function AdminPage() {
                               </button>
                             )}
                           </div>
+
+                          {isExpanded && (
+                            <div className="mobile-expanded-booking-panel">
+                              {renderExpandedBooking(b)}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1530,7 +2059,7 @@ export default function AdminPage() {
                                     <li 
                                       key={gi} 
                                       className="day-guest-chip" 
-                                      onClick={() => setSelectedBooking(g)}
+                                      onClick={() => handleSelectBookingFromCalendar(g)}
                                       title={`Klicken für Details: ${g.guest?.firstName} ${g.guest?.lastName}`}
                                     >
                                       <span className="guest-chip-name">{g.guest?.lastName || 'Gast'}</span>
@@ -1628,7 +2157,7 @@ export default function AdminPage() {
                                       <td key={di} className="td-matrix-day-slot">
                                         <div 
                                           className={`matrix-slot-card slot-occupied ${isCheckin ? 'is-checkin' : ''}`}
-                                          onClick={() => setSelectedBooking(occBooking)}
+                                          onClick={() => handleSelectBookingFromCalendar(occBooking)}
                                           title={`Buchung: ${occBooking.bookingNumber}\nGast: ${occBooking.guest?.firstName} ${occBooking.guest?.lastName}\nZeitraum: ${formatDateDE(occBooking.checkin)} – ${formatDateDE(occBooking.checkout)}\nKlicken für vollständige Details`}
                                         >
                                           <div className="slot-guest-header">
@@ -1949,311 +2478,7 @@ export default function AdminPage() {
         )}
       </main>
 
-      {/* =========================================================================
-          MODAL: BUCHUNGSDETAILS
-         ========================================================================= */}
-      <AnimatePresence>
-        {selectedBooking && (
-          <div className="admin-modal-backdrop" onClick={() => setSelectedBooking(null)}>
-            <motion.div 
-              className="admin-modal-card"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="modal-header">
-                <div>
-                  <span className={`modal-badge ${selectedBooking.status === 'inquiry' ? 'badge-inquiry' : ''}`}>
-                    {selectedBooking.bookingNumber} {selectedBooking.status === 'inquiry' ? '· Langzeit-Anfrage' : ''}
-                  </span>
-                  <h3>{selectedBooking.status === 'inquiry' ? 'Individuelle Buchungsanfrage (ab 14 Nächte)' : 'Buchungsdetails & Kundendaten'}</h3>
-                </div>
-                <button className="modal-close" onClick={() => setSelectedBooking(null)}>×</button>
-              </div>
 
-              <div className="modal-body">
-                {selectedBooking.status === 'inquiry' && (
-                  <div className="desk-notes-banner" style={{ background: '#f5f3ff', borderColor: '#ddd6fe', color: '#5b21b6', marginBottom: '1.25rem' }}>
-                    <Sparkles size={18} className="notes-icon" style={{ color: '#7c3aed' }} />
-                    <div>
-                      <strong>Individuelle Buchungsanfrage ({selectedBooking.nights} Nächte)</strong>
-                      <p style={{ margin: '4px 0 0 0', fontSize: '13px' }}>
-                        Dieser Gast hat ein individuelles Angebot für einen Aufenthalt ab 14 Tagen angefragt. Sie können ihn direkt telefonisch oder per E-Mail kontaktieren, um ein passendes Angebot zu unterbreiten.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {selectedBooking.status === 'open' && (
-                  <div className="desk-notes-banner" style={{ background: '#fffbeb', borderColor: '#fde68a', color: '#92400e', marginBottom: '1.25rem' }}>
-                    <Clock size={18} className="notes-icon" style={{ color: '#b45309' }} />
-                    <div>
-                      <strong>Gast befindet sich gerade im 10-Minuten-Buchungsprozess ({formatHoldTimer(selectedBooking.expiresAt)})</strong>
-                      <p style={{ margin: '4px 0 0 0', fontSize: '13px' }}>
-                        Die Zimmer sind für diesen Gast reserviert. Wenn der Gast die Online-Zahlung abschließt, wechselt der Status automatisch zu „Bezahlt“. Bricht er ab oder geht zurück, wird der Eintrag sofort entfernt.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Guest Data */}
-                <div className="modal-section">
-                  <h4>Hauptbucher</h4>
-                  <div className="modal-grid-2">
-                    <div>
-                      <small className="text-muted">Name:</small>
-                      <p><strong>{selectedBooking.guest?.firstName} {selectedBooking.guest?.lastName}</strong></p>
-                    </div>
-                    <div>
-                      <small className="text-muted">Firma:</small>
-                      <p>{selectedBooking.guest?.company || 'Privat'}</p>
-                    </div>
-                    <div>
-                      <small className="text-muted">E-Mail:</small>
-                      <p>{selectedBooking.guest?.email}</p>
-                    </div>
-                    <div>
-                      <small className="text-muted">Telefon:</small>
-                      <p>
-                        {selectedBooking.guest?.phone ? (
-                          <a href={`tel:${selectedBooking.guest.phone}`} className="modal-phone-link">
-                            <PhoneCall size={13} /> {selectedBooking.guest.phone}
-                          </a>
-                        ) : (
-                          <span className="text-muted">Keine Angabe</span>
-                        )}
-                      </p>
-                    </div>
-                    <div style={{ gridColumn: 'span 2' }}>
-                      <small className="text-muted">Anschrift:</small>
-                      <p>{selectedBooking.guest?.street}, {selectedBooking.guest?.zip} {selectedBooking.guest?.city}</p>
-                    </div>
-                  </div>
-                  {selectedBooking.guest?.notes && (
-                    <div className="modal-note-box">
-                      <small className="text-muted">Anmerkungen des Gastes:</small>
-                      <p>{selectedBooking.guest.notes}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Stay & Room Data */}
-                <div className="modal-section">
-                  <h4>Aufenthalt & Zimmer</h4>
-                  <div className="modal-grid-2">
-                    <div>
-                      <small className="text-muted">Früheste Anreise:</small>
-                      <p><strong>{formatDateDE(getBookingCheckin(selectedBooking))}</strong></p>
-                    </div>
-                    <div>
-                      <small className="text-muted">Späteste Abreise:</small>
-                      <p><strong>{formatDateDE(getBookingCheckout(selectedBooking))}</strong></p>
-                    </div>
-                  </div>
-                  <div className="modal-rooms-summary">
-                    {(selectedBooking.rooms || []).map((r, i) => {
-                      const roomName = r.name || (r.type === 'doppelzimmer' || r.typeId === 'doppelzimmer' ? 'Doppelzimmer' : 'Einzelzimmer');
-                      const rCin = r.checkin || selectedBooking.checkin;
-                      const rCout = r.checkout || selectedBooking.checkout;
-                      const nights = r.nights || selectedBooking.nights || 1;
-                      const price = r.total || r.totalPrice || 0;
-
-                      return (
-                        <div key={i} className="modal-room-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.65rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                              <strong>{r.count || 1}x {roomName}</strong>
-                              <div className="text-muted" style={{ fontSize: '0.75rem', marginTop: '0.15rem' }}>
-                                {formatDateDE(rCin)} – {formatDateDE(rCout)} ({nights} {nights === 1 ? 'Nacht' : 'Nächte'})
-                              </div>
-                            </div>
-                            <strong>{selectedBooking.status === 'inquiry' ? 'Auf Anfrage' : `${Number(price).toFixed(2)} €`}</strong>
-                          </div>
-
-                          {selectedBooking.status !== 'inquiry' && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.825rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 600, color: '#0369a1' }}>
-                                <DoorOpen size={15} />
-                                <span>{r.roomNumber ? `Zimmer ${r.roomNumber}${r.roomNumber === 2 ? ' (Barrierefrei ♿)' : ''}` : 'Noch kein Zimmer zugewiesen'}</span>
-                              </span>
-
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                <label style={{ fontSize: '0.75rem', color: '#64748b' }}>Zimmer ändern:</label>
-                                <select 
-                                  value={r.roomNumber || ''} 
-                                  onChange={(e) => handleUpdateBookingRoomNumber(selectedBooking.id, i, e.target.value)}
-                                  style={{ padding: '0.3rem 0.6rem', borderRadius: '5px', border: '1px solid #cbd5e1', fontSize: '0.8rem', background: '#fff' }}
-                                  title="Zimmer für diesen Gast neu zuweisen"
-                                >
-                                  <option value="" disabled>Zimmer wählen...</option>
-                                  {ROOM_DEFINITIONS.map(def => (
-                                    <option key={def.number} value={def.number}>
-                                      Zimmer {def.number} – {def.typeLabel}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Payment & Invoice / Inquiry Status */}
-                {selectedBooking.status === 'inquiry' ? (
-                  <div className="modal-section">
-                    <h4>Anfragestatus & Direktkontakt</h4>
-                    <div className="modal-grid-2">
-                      <div>
-                        <small className="text-muted">Status:</small>
-                        <p style={{ color: '#7c3aed', fontWeight: 600 }}>📋 Anfrage eingegangen</p>
-                      </div>
-                      <div>
-                        <small className="text-muted">Gewünschte Dauer:</small>
-                        <p><strong>{selectedBooking.nights} Nächte</strong></p>
-                      </div>
-                      <div>
-                        <small className="text-muted">Preiskondition:</small>
-                        <p>Individuell auf Anfrage</p>
-                      </div>
-                      <div>
-                        <small className="text-muted">Eingang am:</small>
-                        <p>{selectedBooking.createdAt ? new Date(selectedBooking.createdAt).toLocaleString('de-DE') : '-'}</p>
-                      </div>
-                    </div>
-
-                    <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                      {selectedBooking.guest?.email && (
-                        <a 
-                          href={`mailto:${selectedBooking.guest.email}?subject=Angebot%20f%C3%BCr%20Ihre%20Buchungsanfrage%20${selectedBooking.bookingNumber}%20-%20Hostel%20Neustadt`}
-                          className="btn-admin-primary"
-                          style={{ textDecoration: 'none' }}
-                        >
-                          <Mail size={16} /> E-Mail Angebot senden
-                        </a>
-                      )}
-                      {selectedBooking.guest?.phone && (
-                        <a 
-                          href={`tel:${selectedBooking.guest.phone}`}
-                          className="btn-admin-secondary"
-                          style={{ textDecoration: 'none' }}
-                        >
-                          <PhoneCall size={16} /> Jetzt anrufen ({selectedBooking.guest.phone})
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="modal-section">
-                    <h4>Zahlung & Rechnung</h4>
-                    <div className="modal-grid-2">
-                      <div>
-                        <small className="text-muted">Zahlungsart:</small>
-                        <p>
-                          {(selectedBooking.paymentStatus === 'pending' || selectedBooking.payment?.status === 'pending')
-                            ? 'Noch keine (Zahlung offen)'
-                            : (selectedBooking.payment?.methodLabel || 'Online-Zahlung')}
-                        </p>
-                      </div>
-                      <div>
-                        <small className="text-muted">Status:</small>
-                        {selectedBooking.status === 'cancelled' ? (
-                          <p className="text-danger">Storniert</p>
-                        ) : (selectedBooking.paymentStatus === 'pending' || selectedBooking.payment?.status === 'pending') ? (
-                          <p style={{ color: '#d97706', fontWeight: 600 }}>⏳ Nicht bezahlt (Offen)</p>
-                        ) : (
-                          <p className="text-success">✓ Vollständig bezahlt</p>
-                        )}
-                      </div>
-                      <div>
-                        <small className="text-muted">Rechnungsnummer:</small>
-                        <p><strong>{selectedBooking.invoiceNumber}</strong></p>
-                      </div>
-                      <div>
-                        <small className="text-muted">Transaktions-ID:</small>
-                        <p className="font-mono text-muted">{selectedBooking.payment?.transactionId || '-'}</p>
-                      </div>
-                    </div>
-
-                    {selectedBooking.status !== 'cancelled' && (selectedBooking.paymentStatus === 'pending' || selectedBooking.payment?.status === 'pending') && (
-                      <div className="quick-pay-action-box">
-                        <span>Zahlung jetzt erfassen & als bezahlt markieren:</span>
-                        <div className="quick-pay-btn-group">
-                          <button 
-                            type="button" 
-                            className="btn-mark-paid"
-                            onClick={() => handleMarkBookingPaid(selectedBooking.id, 'bar')}
-                          >
-                            ✓ Bar bezahlt
-                          </button>
-                          <button 
-                            type="button" 
-                            className="btn-mark-paid"
-                            onClick={() => handleMarkBookingPaid(selectedBooking.id, 'ec')}
-                          >
-                            ✓ EC / Karte bezahlt
-                          </button>
-                          <button 
-                            type="button" 
-                            className="btn-mark-paid"
-                            onClick={() => handleMarkBookingPaid(selectedBooking.id, 'ueberweisung')}
-                          >
-                            ✓ Banküberweisung
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="modal-footer">
-                {selectedBooking.status !== 'open' && selectedBooking.status !== 'inquiry' && (
-                  <>
-                    <button 
-                      className="btn-admin-primary" 
-                      onClick={() => downloadInvoicePDF(selectedBooking)}
-                    >
-                      <Download size={16} /> PDF-Rechnung
-                    </button>
-                    {selectedBooking.guest?.email && (
-                      <button 
-                        className="btn-admin-secondary" 
-                        onClick={() => handleResendInvoice(selectedBooking)}
-                        disabled={isResendingInvoice}
-                        title={`Rechnung erneut an ${selectedBooking.guest.email} senden`}
-                      >
-                        {isResendingInvoice ? <RefreshCw size={16} className="spin-icon" /> : <Mail size={16} />}
-                        Rechnung erneut versenden
-                      </button>
-                    )}
-                  </>
-                )}
-                {selectedBooking.status === 'confirmed' && (
-                  <button 
-                    className="btn-admin-secondary" 
-                    onClick={() => handleCancelBooking(selectedBooking.id)}
-                    disabled={isCancellingBooking}
-                    style={{ color: '#b45309', borderColor: '#fde68a' }}
-                    title="Buchung stornieren (Zimmer sofort freigeben & Mollie-Erstattung)"
-                  >
-                    <XCircle size={16} /> {isCancellingBooking ? 'Storniere...' : 'Buchung stornieren'}
-                  </button>
-                )}
-                <button 
-                  className="btn-admin-danger" 
-                  onClick={() => handleDeleteBooking(selectedBooking.id)}
-                >
-                  <Trash2 size={16} /> {selectedBooking.status === 'open' ? 'Hold abbrechen & Zimmer freigeben' : selectedBooking.status === 'inquiry' ? 'Anfrage löschen' : 'Buchung endgültig löschen'}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* =========================================================================
           MODAL: NEUE SONDERKONDITION
