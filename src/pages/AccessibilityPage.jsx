@@ -27,7 +27,7 @@ const AccessibilityPage = () => {
           
           <div className="legal-content">
             <p>
-              Die <strong>Eigentümergemeinschaft GbR Bagari und Pasqualini</strong> ist bestrebt, ihr Unterkunftsangebot im <strong>Hostel Neustadt</strong> sowie ihren digitalen Webauftritt im Einklang mit den Bestimmungen des <strong>Barrierefreiheitsstärkungsgesetzes (BFSG)</strong>, der europäischen Richtlinie (EU) 2016/2102 sowie den Richtlinien für barrierefreie Webinhalte (WCAG 2.1 auf Konformitätsstufe AA) barrierefrei und uneingeschränkt zugänglich zu gestalten.
+              Die <strong>Eigentümergemeinschaft GbR Ahmed Bagari und Corinna Pasqualini</strong> ist bestrebt, ihr Unterkunftsangebot im <strong>Hostel Neustadt</strong> sowie ihren digitalen Webauftritt im Einklang mit den Bestimmungen des <strong>Barrierefreiheitsstärkungsgesetzes (BFSG)</strong>, der europäischen Richtlinie (EU) 2016/2102 sowie den Richtlinien für barrierefreie Webinhalte (WCAG 2.1 auf Konformitätsstufe AA) barrierefrei und uneingeschränkt zugänglich zu gestalten.
             </p>
 
             <h2>1. Physische Barrierefreiheit vor Ort im Hostel</h2>
@@ -81,7 +81,7 @@ const AccessibilityPage = () => {
               Sind Ihnen auf unserer Website Barrieren aufgefallen? Haben Sie Anregungen oder benötigen Sie Informationen zu unseren barrierefreien Zimmern in einem alternativen Format? Wir freuen uns über Ihren Hinweis und helfen Ihnen gerne umgehend weiter:
             </p>
             <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1.25rem', marginTop: '1rem', lineHeight: '1.8' }}>
-              <strong>Eigentümergemeinschaft GbR Bagari und Pasqualini</strong><br/>
+              <strong>Eigentümergemeinschaft GbR Ahmed Bagari und Corinna Pasqualini</strong><br/>
               Bertha-Sicius-Str. 6<br/>
               31535 Neustadt am Rübenberge<br/>
               Telefon / WhatsApp: <a href="https://wa.me/491728572368" target="_blank" rel="noopener noreferrer">+49 172 8572368</a><br/>

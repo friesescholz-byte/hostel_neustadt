@@ -27,13 +27,13 @@ const PrivacyPage = () => {
             <h2>2. Verantwortliche Stelle</h2>
             <p>Verantwortlich für die Datenverarbeitung auf dieser Website im Sinne der Datenschutz-Grundverordnung (DSGVO) ist:</p>
             <p>
-              <strong>Eigentümergemeinschaft GbR Bagari und Pasqualini</strong><br/>
+              <strong>Eigentümergemeinschaft GbR Ahmed Bagari und Corinna Pasqualini</strong><br/>
               Bertha-Sicius-Str. 6<br/>
               31535 Neustadt am Rübenberge<br/>
               Deutschland
             </p>
             <p>
-              <strong>Vertretungsberechtigte Gesellschafter:</strong> Bagari und Pasqualini<br/>
+              <strong>Vertretungsberechtigte Gesellschafter:</strong> Ahmed Bagari und Corinna Pasqualini<br/>
               <strong>Telefon / WhatsApp:</strong> +49 172 8572368<br/>
               <strong>E-Mail:</strong> <a href="mailto:vermietung@bh-am-ruebenberge.de">vermietung@bh-am-ruebenberge.de</a><br/>
               <strong>Website:</strong> <a href="https://hostel-neustadt.de">www.hostel-neustadt.de</a>

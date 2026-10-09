@@ -135,7 +135,7 @@ export async function generateInvoicePDF(booking) {
   drawMetaRow('Buchungs-Nr.:', booking.bookingNumber || 'HN-2026-0001');
   drawMetaRow('Leistungszeitraum:', `${checkinFmt} – ${checkoutFmt}`);
   drawMetaRow('Rechtsform:', 'GbR (HRB entfällt)');
-  drawMetaRow('USt-IdNr.:', 'In Zuteilung');
+  drawMetaRow('USt-IdNr.:', 'DE463070397');
 
   // --- 4. Subject / Title ---
   yPos = 98;
@@ -352,8 +352,8 @@ export async function generateInvoicePDF(booking) {
   doc.text('Unternehmensdaten', 145, footY);
   doc.setFont('helvetica', 'normal');
   doc.text('Eigentümergemeinschaft GbR', 145, footY + 3.5);
-  doc.text('Bagari und Pasqualini', 145, footY + 7);
-  doc.text('USt-IdNr.: In Zuteilung (GbR)', 145, footY + 10.5);
+  doc.text('Ahmed Bagari & Corinna Pasqualini', 145, footY + 7);
+  doc.text('USt-IdNr.: DE463070397', 145, footY + 10.5);
 
   return doc;
 }

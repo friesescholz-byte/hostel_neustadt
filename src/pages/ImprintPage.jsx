@@ -18,7 +18,7 @@ const ImprintPage = () => {
           <div className="legal-content">
             <h2>Angaben gemäß § 5 DDG</h2>
             <p>
-              <strong>Eigentümergemeinschaft GbR Bagari und Pasqualini</strong><br/>
+              <strong>Eigentümergemeinschaft GbR Ahmed Bagari und Corinna Pasqualini</strong><br/>
               Bertha-Sicius-Str. 6<br/>
               31535 Neustadt am Rübenberge<br/>
               Deutschland
@@ -27,7 +27,7 @@ const ImprintPage = () => {
             <h2>Rechtsform & Vertretung</h2>
             <p>
               <strong>Rechtsform:</strong> Gesellschaft bürgerlichen Rechts (GbR)<br/>
-              <strong>Vertretungsberechtigte Gesellschafter:</strong> Bagari und Pasqualini
+              <strong>Vertretungsberechtigte Gesellschafter:</strong> Ahmed Bagari und Corinna Pasqualini
             </p>
 
             <h2>Kontakt</h2>
@@ -53,7 +53,7 @@ const ImprintPage = () => {
             <h2>Umsatzsteuer-Identifikationsnummer</h2>
             <p>
               Umsatzsteuer-Identifikationsnummer gemäß § 27 a Umsatzsteuergesetz:<br/>
-              Wird auf Anfrage mitgeteilt bzw. befindet sich in Zuteilung durch das zuständige Finanzamt.
+              <strong>DE463070397</strong>
             </p>
 
             <h2>Verbraucherstreitbeilegung / Universalschlichtungsstelle</h2>

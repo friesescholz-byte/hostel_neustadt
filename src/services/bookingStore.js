@@ -79,11 +79,13 @@ const DEFAULT_CUSTOM_PERIODS = [
 const DEFAULT_SETTINGS = {
   hostEmail: 'scholz.friese@gmail.com',
   hotelName: 'Hostel Neustadt',
-  companyName: 'Eigentümergemeinschaft GbR Bagari und Pasqualini',
+  companyName: 'Eigentümergemeinschaft GbR Ahmed Bagari und Corinna Pasqualini',
   hotelAddress: 'Bertha-Sicius-Str. 6, 31535 Neustadt am Rübenberge',
   hotelPhone: '+49 172 8572368',
   hotelEmail: 'vermietung@bh-am-ruebenberge.de',
   iban: 'DE98 2506 9262 0011 3700 00',
+  ustId: 'DE463070397',
+  taxId: 'DE463070397',
   taxRate: 7,
   mollieApiKey: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MOLLIE_API_KEY) || 'test_Bf8wMeDwtf9jmmqSBEdqPDMADEd5eh',
   currency: 'EUR'

@@ -191,9 +191,9 @@ export async function sendBookingConfirmationEmails(booking) {
         </div>
 
         <div class="footer">
-          <p style="margin: 0 0 6px 0;"><strong>Hostel Neustadt</strong> · Eigentümergemeinschaft GbR Bagari und Pasqualini</p>
+          <p style="margin: 0 0 6px 0;"><strong>Hostel Neustadt</strong> · Eigentümergemeinschaft GbR Ahmed Bagari und Corinna Pasqualini</p>
           <p style="margin: 0 0 4px 0;">Bertha-Sicius-Str. 6 · 31535 Neustadt am Rübenberge · Telefon / WhatsApp: +49 172 8572368</p>
-          <p style="margin: 0; color: #94a3b8; font-size: 11px;">IBAN: DE98 2506 9262 0011 3700 00 · USt-IdNr.: in Zuteilung</p>
+          <p style="margin: 0; color: #94a3b8; font-size: 11px;">IBAN: DE98 2506 9262 0011 3700 00 · USt-IdNr.: DE463070397</p>
         </div>
       </div>
     </body>
@@ -386,9 +386,9 @@ export async function sendLongTermInquiryEmails(inquiry) {
         </div>
 
         <div class="footer">
-          <p style="margin: 0 0 6px 0;"><strong>Hostel Neustadt</strong> · Eigentümergemeinschaft GbR Bagari und Pasqualini</p>
+          <p style="margin: 0 0 6px 0;"><strong>Hostel Neustadt</strong> · Eigentümergemeinschaft GbR Ahmed Bagari und Corinna Pasqualini</p>
           <p style="margin: 0 0 4px 0;">Bertha-Sicius-Str. 6 · 31535 Neustadt am Rübenberge · Telefon / WhatsApp: +49 172 8572368</p>
-          <p style="margin: 0; color: #94a3b8; font-size: 11px;">IBAN: DE98 2506 9262 0011 3700 00 · USt-IdNr.: in Zuteilung</p>
+          <p style="margin: 0; color: #94a3b8; font-size: 11px;">IBAN: DE98 2506 9262 0011 3700 00 · USt-IdNr.: DE463070397</p>
         </div>
       </div>
     </body>
@@ -633,9 +633,9 @@ export async function resendInvoiceEmail(booking, targetEmail = null) {
         </div>
 
         <div class="footer">
-          <p style="margin: 0 0 6px 0;"><strong>Hostel Neustadt</strong> · Eigentümergemeinschaft GbR Bagari und Pasqualini</p>
+          <p style="margin: 0 0 6px 0;"><strong>Hostel Neustadt</strong> · Eigentümergemeinschaft GbR Ahmed Bagari und Corinna Pasqualini</p>
           <p style="margin: 0 0 4px 0;">Bertha-Sicius-Str. 6 · 31535 Neustadt am Rübenberge · Telefon / WhatsApp: +49 172 8572368</p>
-          <p style="margin: 0; color: #94a3b8; font-size: 11px;">IBAN: DE98 2506 9262 0011 3700 00 · USt-IdNr.: in Zuteilung</p>
+          <p style="margin: 0; color: #94a3b8; font-size: 11px;">IBAN: DE98 2506 9262 0011 3700 00 · USt-IdNr.: DE463070397</p>
         </div>
       </div>
     </body>
@@ -747,9 +747,9 @@ export async function sendCancellationEmail(booking, refundDetails = null) {
         </div>
 
         <div class="footer">
-          <p style="margin: 0 0 6px 0;"><strong>Hostel Neustadt</strong> · Eigentümergemeinschaft GbR Bagari und Pasqualini</p>
+          <p style="margin: 0 0 6px 0;"><strong>Hostel Neustadt</strong> · Eigentümergemeinschaft GbR Ahmed Bagari und Corinna Pasqualini</p>
           <p style="margin: 0 0 4px 0;">Bertha-Sicius-Str. 6 · 31535 Neustadt am Rübenberge · Telefon / WhatsApp: +49 172 8572368</p>
-          <p style="margin: 0; color: #94a3b8; font-size: 11px;">IBAN: DE98 2506 9262 0011 3700 00 · USt-IdNr.: in Zuteilung</p>
+          <p style="margin: 0; color: #94a3b8; font-size: 11px;">IBAN: DE98 2506 9262 0011 3700 00 · USt-IdNr.: DE463070397</p>
         </div>
       </div>
     </body>
