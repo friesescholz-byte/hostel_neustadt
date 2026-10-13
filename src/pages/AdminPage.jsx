@@ -350,9 +350,13 @@ export default function AdminPage() {
     triggerSaveNotification('Sonderkondition erfolgreich angelegt!');
   };
 
-  const handleDeletePeriod = (id) => {
+  const handleDeletePeriod = async (id) => {
     if (window.confirm('Möchten Sie diese Sonderkondition wirklich löschen?')) {
-      bookingStore.deleteCustomPeriod(id);
+      // 1. Sofortiges optimistisches UI-Update
+      setCustomPeriods(prev => prev.filter(p => p.id !== id));
+      // 2. Im Store & KV löschen und neu synchronisieren
+      await bookingStore.deleteCustomPeriod(id);
+      loadData();
       triggerSaveNotification('Sonderkondition gelöscht.');
     }
   };
@@ -475,7 +479,9 @@ export default function AdminPage() {
       if (selectedBooking && (selectedBooking.id === bookingId || selectedBooking.bookingNumber === bookingId)) {
         setSelectedBooking(null);
       }
+      setExpandedBookingId(null);
       await bookingStore.deleteBooking(bookingId);
+      loadData();
       triggerSaveNotification(isHold ? 'Reservierung abgebrochen und Zimmer freigegeben.' : 'Buchung dauerhaft aus dem System gelöscht.');
     }
   };

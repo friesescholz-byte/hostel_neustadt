@@ -443,9 +443,14 @@ export const bookingStore = {
     return newPeriod;
   },
 
-  deleteCustomPeriod(id) {
+  async deleteCustomPeriod(id) {
     const periods = this.getCustomPeriods().filter(p => p.id !== id);
-    this.setCustomPeriods(periods);
+    writeStorage(STORAGE_KEYS.CUSTOM_PERIODS, periods);
+    await this.pushToServerImmediate();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('hostel_store_change', { detail: { key: STORAGE_KEYS.CUSTOM_PERIODS, value: periods } }));
+    }
+    return periods;
   },
 
   // ---- Settings ----

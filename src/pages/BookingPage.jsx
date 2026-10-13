@@ -1202,7 +1202,8 @@ const BookingPage = () => {
                           setCheckout(outD.toISOString().split('T')[0]);
                         }}
                       >
-                        Auf 14 Tage erweitern & Sonderkonditionen anfragen →
+                        <span>Auf 14 Tage erweitern & Sonderkonditionen anfragen</span>
+                        <ArrowRight size={15} className="longterm-arrow-icon" />
                       </button>
                     </div>
                   )}

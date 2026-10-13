@@ -11,6 +11,16 @@
   padding-bottom: 5rem;
 }
 
+.admin-page button,
+.admin-page a,
+.admin-page input,
+.admin-page select,
+.admin-page textarea,
+.admin-login-page button,
+.admin-login-page input {
+  touch-action: manipulation;
+}
+
 /* ==========================================================================
    LOGIN SCREEN (Password Protected Gate)
    ========================================================================== */
@@ -882,24 +892,34 @@
   color: #475569;
   border: 1px solid #e2e8f0;
   transition: all 0.15s ease;
+@media (hover: hover) and (pointer: fine) {
+  .btn-icon:hover {
+    background: #0f2b5c;
+    color: #ffffff;
+    border-color: #0f2b5c;
+  }
+
+  .btn-icon.danger:hover {
+    background: #dc2626;
+    color: #ffffff;
+    border-color: #dc2626;
+  }
+
+  .btn-icon.warning:hover {
+    background: #d97706;
+    color: #ffffff;
+    border-color: #d97706;
+  }
 }
 
-.btn-icon:hover {
-  background: #0f2b5c;
-  color: #ffffff;
-  border-color: #0f2b5c;
+.btn-icon:active {
+  transform: scale(0.95);
 }
 
-.btn-icon.danger:hover {
-  background: #dc2626;
+.btn-icon.danger:active {
+  background: #b91c1c;
   color: #ffffff;
-  border-color: #dc2626;
-}
-
-.btn-icon.warning:hover {
-  background: #d97706;
-  color: #ffffff;
-  border-color: #d97706;
+  border-color: #b91c1c;
 }
 
 /* Empty State */
@@ -1078,8 +1098,15 @@
   cursor: pointer;
 }
 
-.btn-admin-danger:hover {
-  background: #fee2e2;
+@media (hover: hover) and (pointer: fine) {
+  .btn-admin-danger:hover {
+    background: #fee2e2;
+  }
+}
+
+.btn-admin-danger:active {
+  background: #fecaca;
+  transform: scale(0.98);
 }
 
 /* Inventory summary box */
