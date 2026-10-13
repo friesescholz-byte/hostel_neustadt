@@ -17,7 +17,16 @@ export async function onRequestGet(context) {
       });
     }
 
-    const apiKey = env.MOLLIE_API_KEY || env.VITE_MOLLIE_API_KEY || 'test_Bf8wMeDwtf9jmmqSBEdqPDMADEd5eh';
+    const apiKey = env.MOLLIE_API_KEY;
+    if (!apiKey) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Mollie API-Schlüssel ist nicht in den Cloudflare Umgebungsvariablen hinterlegt (MOLLIE_API_KEY).'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      });
+    }
 
     const mollieRes = await fetch(`https://api.mollie.com/v2/payments/${paymentId}`, {
       method: 'GET',

@@ -148,16 +148,16 @@ export function localStorePlugin() {
 
       // Local Mollie API proxy endpoints
       const getMollieKey = () => {
-        let key = process.env.MOLLIE_API_KEY || process.env.VITE_MOLLIE_API_KEY;
+        let key = process.env.MOLLIE_API_KEY;
         if (!key) {
           const envPath = path.join(rootDir, '.env');
           if (fs.existsSync(envPath)) {
             const content = fs.readFileSync(envPath, 'utf-8');
-            const match = content.match(/MOLLIE_API_KEY\s*=\s*(.*)/);
+            const match = content.match(/^MOLLIE_API_KEY\s*=\s*(.+)$/m);
             if (match) key = match[1].trim();
           }
         }
-        return key || 'test_Bf8wMeDwtf9jmmqSBEdqPDMADEd5eh';
+        return key || '';
       };
 
       // 1. /api/mollie/create-payment
@@ -179,6 +179,12 @@ export function localStorePlugin() {
             try {
               const { amount, description, redirectUrl, metadata, method } = JSON.parse(body);
               const apiKey = getMollieKey();
+              if (!apiKey) {
+                res.statusCode = 500;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: false, error: 'Mollie API-Schlüssel fehlt in der lokalen .env Datei (MOLLIE_API_KEY).' }));
+                return;
+              }
 
               const molliePayload = {
                 amount: { currency: 'EUR', value: Number(amount || 0).toFixed(2) },
@@ -253,6 +259,13 @@ export function localStorePlugin() {
             }
 
             const apiKey = getMollieKey();
+            if (!apiKey) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ success: false, error: 'Mollie API-Schlüssel fehlt in der lokalen .env Datei (MOLLIE_API_KEY).' }));
+              return;
+            }
+
             const mollieRes = await fetch(`https://api.mollie.com/v2/payments/${paymentId}`, {
               method: 'GET',
               headers: {
@@ -329,6 +342,13 @@ export function localStorePlugin() {
               }
 
               const apiKey = getMollieKey();
+              if (!apiKey) {
+                res.statusCode = 500;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: false, error: 'Mollie API-Schlüssel fehlt in der lokalen .env Datei (MOLLIE_API_KEY).' }));
+                return;
+              }
+
               const refundPayload = {
                 description: description || 'Hostel Neustadt Buchungsstornierung'
               };

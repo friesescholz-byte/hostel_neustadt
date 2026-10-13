@@ -87,7 +87,6 @@ const DEFAULT_SETTINGS = {
   ustId: 'DE463070397',
   taxId: 'DE463070397',
   taxRate: 7,
-  mollieApiKey: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MOLLIE_API_KEY) || 'test_Bf8wMeDwtf9jmmqSBEdqPDMADEd5eh',
   currency: 'EUR'
 };
 

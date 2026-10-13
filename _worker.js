@@ -107,7 +107,7 @@ export default {
 
     // Helper for Mollie API Key
     const getMollieApiKey = () => {
-      return env?.MOLLIE_API_KEY || env?.VITE_MOLLIE_API_KEY || 'test_Bf8wMeDwtf9jmmqSBEdqPDMADEd5eh';
+      return env?.MOLLIE_API_KEY || '';
     };
 
     // 3. Route: /api/mollie/create-payment
@@ -116,6 +116,16 @@ export default {
         const body = await request.json();
         const { amount, description, redirectUrl, metadata, method } = body;
         const apiKey = getMollieApiKey();
+
+        if (!apiKey) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Mollie API-Schlüssel ist nicht in den Cloudflare Umgebungsvariablen hinterlegt (MOLLIE_API_KEY).'
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+          });
+        }
 
         const numAmount = Number(amount || 0).toFixed(2);
         const molliePayload = {
@@ -191,6 +201,16 @@ export default {
         }
 
         const apiKey = getMollieApiKey();
+        if (!apiKey) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Mollie API-Schlüssel ist nicht in den Cloudflare Umgebungsvariablen hinterlegt (MOLLIE_API_KEY).'
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+          });
+        }
+
         const mollieRes = await fetch(`https://api.mollie.com/v2/payments/${paymentId}`, {
           method: 'GET',
           headers: {
@@ -265,6 +285,16 @@ export default {
         }
 
         const apiKey = getMollieApiKey();
+        if (!apiKey) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Mollie API-Schlüssel ist nicht in den Cloudflare Umgebungsvariablen hinterlegt (MOLLIE_API_KEY).'
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+          });
+        }
+
         const refundPayload = {
           description: description || 'Hostel Neustadt Buchungsstornierung'
         };
