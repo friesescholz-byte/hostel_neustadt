@@ -77,7 +77,7 @@ const DEFAULT_CUSTOM_PERIODS = [
 ];
 
 const DEFAULT_SETTINGS = {
-  hostEmail: 'scholz.friese@gmail.com',
+  hostEmail: 'vermietung@bh-am-ruebenberge.de',
   hotelName: 'Hostel Neustadt',
   companyName: 'Eigentümergemeinschaft GbR Ahmed Bagari und Corinna Pasqualini',
   hotelAddress: 'Bertha-Sicius-Str. 6, 31535 Neustadt am Rübenberge',

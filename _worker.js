@@ -30,12 +30,11 @@ export default {
     }
 
     const TWO_FACTOR_EMAIL = 'vermietung@bh-am-ruebenberge.de';
-    const OWNER_BACKUP_EMAIL = 'friese.scholz@gmail.com';
 
     const send2FACodeEmail = async (code) => {
       const emailPayload = {
         from: 'Hostel Neustadt Sicherheit <noreply@scholz-friese-webdesign.de>',
-        to: [TWO_FACTOR_EMAIL, OWNER_BACKUP_EMAIL],
+        to: [TWO_FACTOR_EMAIL],
         subject: `Sicherheitscode für Admin-Login: ${code}`,
         html: `<!DOCTYPE html>
 <html>

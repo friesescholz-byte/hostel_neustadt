@@ -1,7 +1,7 @@
 import { generateInvoicePDF } from './pdfGenerator.js';
 
 export const SENDER_EMAIL = 'Hostel Neustadt <noreply@scholz-friese-webdesign.de>';
-export const OWNER_NOTIFICATION_EMAIL = 'friese.scholz@gmail.com';
+export const OWNER_NOTIFICATION_EMAIL = 'vermietung@bh-am-ruebenberge.de';
 export const REPLY_TO_EMAIL = 'info@hostel-neustadt.de';
 export const ADMIN_DASHBOARD_URL = 'https://hostel-neustadt.friese-scholz.workers.dev/admin';
 
