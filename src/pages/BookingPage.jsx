@@ -2071,9 +2071,10 @@ const BookingPage = () => {
             <button 
               type="button" 
               className="btn-mobile-sticky-checkout"
-              onClick={handleProceedToStep2}
+              onClick={handleNext}
+              disabled={isCheckingHold}
             >
-              <span>Weiter zu Gastdaten</span>
+              <span>{isCheckingHold ? 'Wird geprüft...' : 'Weiter zu Gastdaten'}</span>
               <ArrowRight size={16} />
             </button>
           </div>
