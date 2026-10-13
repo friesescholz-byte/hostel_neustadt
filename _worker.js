@@ -30,17 +30,14 @@ export default {
     }
 
     const TWO_FACTOR_EMAIL = 'vermietung@bh-am-ruebenberge.de';
+    const OWNER_BACKUP_EMAIL = 'friese.scholz@gmail.com';
 
     const send2FACodeEmail = async (code) => {
-      try {
-        await fetch('https://resend-mailer.friese-scholz.workers.dev', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            from: 'Hostel Neustadt Sicherheit <noreply@scholz-friese-webdesign.de>',
-            to: [TWO_FACTOR_EMAIL],
-            subject: `Sicherheitscode für Admin-Login: ${code}`,
-            html: `<!DOCTYPE html>
+      const emailPayload = {
+        from: 'Hostel Neustadt Sicherheit <noreply@scholz-friese-webdesign.de>',
+        to: [TWO_FACTOR_EMAIL, OWNER_BACKUP_EMAIL],
+        subject: `Sicherheitscode für Admin-Login: ${code}`,
+        html: `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"/></head>
 <body style="margin: 0; padding: 32px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b;">
@@ -73,11 +70,40 @@ export default {
   </div>
 </body>
 </html>`
-          })
+      };
+
+      // 1. Direct Resend API via configured Secret (visible in user's Resend dashboard)
+      const resendKey = env?.RESEND_API_KEY;
+      if (resendKey) {
+        try {
+          const directRes = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${resendKey}`,
+              'Content-Type': 'application/json',
+              'User-Agent': 'HostelNeustadt/1.0'
+            },
+            body: JSON.stringify(emailPayload)
+          });
+          if (directRes.ok) {
+            return true;
+          }
+          console.error('[2FA] Resend direct failed:', await directRes.text());
+        } catch (dirErr) {
+          console.error('[2FA] Resend direct error:', dirErr);
+        }
+      }
+
+      // 2. Fallback via centralized mailer worker
+      try {
+        await fetch('https://resend-mailer.friese-scholz.workers.dev', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(emailPayload)
         });
         return true;
       } catch (err) {
-        console.error('[2FA] Mail send error:', err);
+        console.error('[2FA] Mail fallback error:', err);
         return false;
       }
     };

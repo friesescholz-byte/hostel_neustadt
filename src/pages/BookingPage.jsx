@@ -1066,12 +1066,13 @@ const BookingPage = () => {
 
             {/* Automated Email Notice */}
             <div className="success-mail-notice">
-              <Mail size={22} className="mail-icon" />
-              <div>
-                <strong>E-Mail-Bestätigung & PDF-Rechnung per Resend versendet</strong>
+              <div className="success-mail-icon-wrap">
+                <CheckCircle2 size={18} className="mail-icon-clean" />
+              </div>
+              <div className="success-mail-content">
+                <strong>Bestätigung & Rechnung versendet</strong>
                 <p>
-                  Ihre Buchungsbestätigung und Ihre offizielle PDF-Rechnung wurden automatisch per E-Mail an <strong>{confirmedBooking.guest?.email}</strong> versandt.
-                  Gleichzeitig wurde eine Benachrichtigungskopie an die Betriebsleitung (<code>scholz.friese@gmail.com</code>) übermittelt.
+                  Ihre Buchungsbestätigung und die offizielle PDF-Rechnung wurden an <strong>{confirmedBooking.guest?.email}</strong> gesendet.
                 </p>
               </div>
             </div>

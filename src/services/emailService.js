@@ -34,25 +34,30 @@ async function sendResendMail({ to, subject, html, attachments, replyTo = REPLY_
   let resData = null;
 
   try {
-    // 1. Primary: Official Scholz & Friese Shops Resend Worker
+    // 1. Primary: Local backend /api/resend/emails (logs directly in user's Resend dashboard)
+    response = await fetch('/api/resend/emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (response.ok) {
+      resData = await response.json();
+      return { ok: true, data: resData };
+    }
+  } catch (backendErr) {
+    console.warn('[EmailService] Local backend proxy failed, trying fallback:', backendErr);
+  }
+
+  try {
+    // 2. Fallback: Centralized agency mailer
     response = await fetch('https://resend-mailer.friese-scholz.workers.dev', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
     resData = await response.json();
-  } catch (err) {
-    // 2. Fallback: Cloudflare Pages / Vite Proxy
-    try {
-      response = await fetch('/api/resend/emails', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      resData = await response.json();
-    } catch (fallbackErr) {
-      console.warn('[EmailService] Email dispatch failed on both endpoints:', fallbackErr);
-    }
+  } catch (fallbackErr) {
+    console.warn('[EmailService] Email dispatch failed on both endpoints:', fallbackErr);
   }
 
   const ok = response ? response.ok : false;
