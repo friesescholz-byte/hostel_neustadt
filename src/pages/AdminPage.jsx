@@ -167,7 +167,6 @@ export default function AdminPage() {
     setAuthError('');
     setResendSuccess('');
 
-    const masterSecret = 'Hostel#Neustadt!2026';
     const deviceToken = localStorage.getItem('hostel_admin_device_token') || '';
 
     try {
@@ -208,30 +207,9 @@ export default function AdminPage() {
         return;
       }
 
-      if (data && data.success === false && res.status === 401) {
-        setAuthError(data.error || 'Falsches Passwort. Bitte überprüfen Sie Ihre Eingabe.');
-        return;
-      }
-
-      // 2. Fallback if static host does not support POST /api/auth
-      if (inputPassword === masterSecret) {
-        sessionStorage.setItem('hostel_admin_auth', 'true');
-        setIsAuthenticated(true);
-        setAuthError('');
-        loadData();
-      } else {
-        setAuthError('Falsches Passwort. Bitte überprüfen Sie Ihre Eingabe.');
-      }
+      setAuthError(data?.error || 'Falsches Passwort. Bitte überprüfen Sie Ihre Eingabe.');
     } catch (err) {
-      // Network or offline fallback
-      if (inputPassword === masterSecret) {
-        sessionStorage.setItem('hostel_admin_auth', 'true');
-        setIsAuthenticated(true);
-        setAuthError('');
-        loadData();
-      } else {
-        setAuthError('Falsches Passwort. Bitte überprüfen Sie Ihre Eingabe.');
-      }
+      setAuthError('Verbindungsfehler beim Anmelden. Bitte versuchen Sie es erneut.');
     } finally {
       setIsAuthenticating(false);
     }
