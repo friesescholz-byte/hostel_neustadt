@@ -89,6 +89,25 @@ const BookingPage = () => {
     return tomorrow.toISOString().split('T')[0];
   });
 
+  const handleCheckinChange = (val) => {
+    setCheckin(val);
+    if (!checkout || checkout <= val) {
+      const d = new Date(val);
+      d.setDate(d.getDate() + 1);
+      setCheckout(d.toISOString().split('T')[0]);
+    }
+  };
+
+  const handleCheckoutChange = (val) => {
+    if (val <= checkin) {
+      const d = new Date(checkin);
+      d.setDate(d.getDate() + 1);
+      setCheckout(d.toISOString().split('T')[0]);
+      return;
+    }
+    setCheckout(val);
+  };
+
   // Ausgewählte Zimmer im Warenkorb (jedes Element hat seinen eigenen Zeitraum!)
   const [cart, setCart] = useState([]);
   const [nextInstanceId, setNextInstanceId] = useState(1);
@@ -1064,17 +1083,11 @@ const BookingPage = () => {
         <div className="booking-header-inner">
           <Link to="/" className="booking-back-link" title="Zur Startseite">
             <ArrowLeft size={18} />
-            <span className="booking-back-text-desktop">Zur Startseite</span>
-            <span className="booking-back-text-mobile">Startseite</span>
+            <span>Startseite</span>
           </Link>
           <Link to="/" className="booking-logo" title="Hostel Neustadt Startseite">
             <img src="https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Logo_Hostel_Neustadt_transparent.png" alt="Hostel Neustadt" />
           </Link>
-          <div className="booking-header-trust">
-            <ShieldCheck size={18} />
-            <span className="booking-trust-desktop">Sichere Buchung & Überbuchungsschutz</span>
-            <span className="booking-trust-mobile">Sichere Buchung</span>
-          </div>
         </div>
       </header>
 
@@ -1147,43 +1160,43 @@ const BookingPage = () => {
               <motion.div key="step0" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
                 
                 {/* Reisedaten Konfigurator */}
-                <div className="booking-section">
+                <div className="booking-section date-selection-card">
                   <div className="section-title-lockup">
                     <h2 className="booking-section-title">
-                      <Calendar size={24} />
-                      1. Zeitraum wählen
+                      <Calendar size={20} />
+                      <span>1. Zeitraum wählen</span>
                     </h2>
                     <span className="section-hint-badge">Mehrere Zeiträume möglich</span>
                   </div>
                   
                   <div className="date-grid-2">
-                    <div className="booking-field">
+                    <div className="booking-field date-field">
                       <label>Anreise</label>
                       <input 
                         type="date" 
                         value={checkin} 
                         min={todayStr()} 
-                        onChange={e => setCheckin(e.target.value)} 
+                        onChange={e => handleCheckinChange(e.target.value)} 
                       />
                     </div>
-                    <div className="booking-field">
+                    <div className="booking-field date-field">
                       <label>Abreise</label>
                       <input 
                         type="date" 
                         value={checkout} 
                         min={checkin || todayStr()} 
-                        onChange={e => setCheckout(e.target.value)} 
+                        onChange={e => handleCheckoutChange(e.target.value)} 
                       />
                     </div>
                   </div>
 
                   {activeNights > 0 && (
                     <div className={`stay-duration-pill ${isLongTermStay ? 'is-longterm' : ''}`}>
-                      <Clock size={16} />
-                      <span>Ausgewählter Zeitraum: {formatDate(checkin)} – {formatDate(checkout)} ({activeNights} {activeNights === 1 ? 'Nacht' : 'Nächte'})</span>
+                      <Clock size={15} />
+                      <span>{formatDate(checkin)} – {formatDate(checkout)} · <strong>{activeNights} {activeNights === 1 ? 'Nacht' : 'Nächte'}</strong></span>
                       {isLongTermStay && (
                         <span className="longterm-badge-inline">
-                          <Sparkles size={13} /> Langzeit-Sonderkonditionen aktiv
+                          <Sparkles size={13} /> Langzeit-Konditionen aktiv
                         </span>
                       )}
                     </div>
@@ -1191,7 +1204,7 @@ const BookingPage = () => {
 
                   {!isLongTermStay && activeNights > 0 && (
                     <div className="longterm-prompt-callout">
-                      <span>Planen Sie einen längeren Aufenthalt ab 14 Tagen?</span>
+                      <span>Längerer Aufenthalt ab 14 Tagen?</span>
                       <button 
                         type="button" 
                         className="btn-link-longterm"
@@ -1202,8 +1215,8 @@ const BookingPage = () => {
                           setCheckout(outD.toISOString().split('T')[0]);
                         }}
                       >
-                        <span>Auf 14 Tage erweitern & Sonderkonditionen anfragen</span>
-                        <ArrowRight size={15} className="longterm-arrow-icon" />
+                        <span>Sonderkonditionen anfragen</span>
+                        <ArrowRight size={14} className="longterm-arrow-icon" />
                       </button>
                     </div>
                   )}
@@ -1477,14 +1490,13 @@ const BookingPage = () => {
                 ) : (
                   <>
                     {/* Zimmerauswahl für diesen Zeitraum */}
-                    <div className="booking-section">
-                      <h2 className="booking-section-title">
-                        <Bed size={24} />
-                        2. Zimmer für diesen Zeitraum hinzufügen
-                      </h2>
-                  <p className="text-muted mb-4">
-                    Wählen Sie die gewünschten Zimmer für den oben eingestellten Zeitraum aus. Sie können anschließend oben das Datum ändern und weitere Zeiträume hinzufügen.
-                  </p>
+                    <div className="booking-section rooms-selection-section">
+                      <div className="section-title-lockup">
+                        <h2 className="booking-section-title">
+                          <Bed size={20} />
+                          <span>2. Zimmer wählen</span>
+                        </h2>
+                      </div>
                   
                   <div className="room-selection-list">
                     {ROOM_DEFINITIONS.map(r => {

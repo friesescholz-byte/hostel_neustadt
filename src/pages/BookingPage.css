@@ -610,16 +610,12 @@
     align-items: center;
   }
 
-  .booking-back-text-desktop { display: none; }
-  .booking-back-text-mobile { display: inline; }
-  .booking-trust-desktop { display: none; }
-  .booking-trust-mobile { display: inline; }
-
   .booking-back-link {
-    font-size: 0.825rem;
-    gap: 0.3rem;
+    font-size: 0.85rem;
+    gap: 0.35rem;
     flex-shrink: 0;
     color: #475569;
+    font-weight: 500;
   }
 
   .booking-logo {
@@ -630,31 +626,22 @@
   }
 
   .booking-logo img {
-    height: 34px;
+    height: 36px;
     width: auto;
-    max-width: 120px;
+    max-width: 140px;
     object-fit: contain;
   }
 
-  .booking-header-trust {
-    font-size: 0.75rem;
-    gap: 0.3rem;
-    white-space: nowrap;
-    flex-shrink: 0;
-    background: #f0fdf4;
-    color: #166534;
-    padding: 0.3rem 0.55rem;
-    border-radius: 9999px;
-    border: 1px solid #bbf7d0;
-  }
-
   .booking-stepper-wrap {
-    padding: 0.75rem 0 1rem;
-    margin-bottom: 1rem;
+    padding: 0.6rem 0 0.75rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid #f1f5f9;
   }
 
   .booking-stepper {
     padding: 0 1rem;
+    max-width: 280px;
+    margin: 0 auto;
   }
   
   .stepper-label {
@@ -662,61 +649,114 @@
   }
 
   .stepper-circle {
-    width: 28px;
-    height: 28px;
-    font-size: 0.85rem;
+    width: 24px;
+    height: 24px;
+    font-size: 0.75rem;
+    font-weight: 700;
   }
 
   .booking-section {
-    padding: 1.25rem 1rem;
+    padding: 0.95rem 0.85rem;
     border-radius: 12px;
     overflow: hidden;
     box-sizing: border-box;
     width: 100%;
+    margin-bottom: 0.85rem;
   }
 
   .section-title-lockup {
-    margin-bottom: 1rem;
-    padding-bottom: 0.75rem;
+    margin-bottom: 0.65rem;
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid #f1f5f9;
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
     gap: 0.4rem;
   }
 
   .booking-section-title {
-    font-size: 1.15rem;
-    gap: 0.5rem;
-    line-height: 1.35;
+    font-size: 1.05rem;
+    gap: 0.45rem;
+    font-weight: 700;
+    line-height: 1.3;
   }
 
   .section-hint-badge {
-    font-size: 0.75rem;
-    padding: 0.2rem 0.55rem;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
   }
 
   .date-grid-2 {
-    grid-template-columns: 1fr !important;
-    gap: 0.85rem !important;
-    margin-bottom: 1rem;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.5rem !important;
+    margin-bottom: 0.5rem;
     width: 100%;
   }
 
   .date-grid-2 .booking-field {
     width: 100%;
     box-sizing: border-box;
+    margin-bottom: 0;
+  }
+
+  .date-grid-2 .booking-field label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+    margin-bottom: 0.2rem;
+    display: block;
   }
 
   .booking-field input[type="date"] {
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
-    min-height: 48px;
+    min-height: 42px;
+    height: 42px;
+    padding: 0.45rem 0.5rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #0f2b5c;
+  }
+
+  .stay-duration-pill {
+    margin-top: 0.4rem;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.78rem;
+    border-radius: 6px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .longterm-prompt-callout {
+    margin-top: 0.5rem;
+    padding: 0.45rem 0.65rem;
+    font-size: 0.75rem;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+
+  .btn-link-longterm {
+    font-size: 0.75rem;
+    font-weight: 700;
   }
 
   .form-grid-2 {
     grid-template-columns: 1fr !important;
-    gap: 1rem !important;
+    gap: 0.85rem !important;
   }
 
   .room-select-main {
@@ -725,23 +765,36 @@
   
   .room-select-img {
     width: 100%;
-    height: 180px;
+    height: 140px;
+    border-radius: 10px 10px 0 0;
   }
 
   .room-select-info {
     width: 100%;
     flex: 1;
-    padding: 1.25rem 1rem;
+    padding: 0.85rem;
   }
 
   .room-select-header-flex {
-    flex-direction: column;
-    gap: 0.5rem;
+    flex-direction: row;
+    justify-content: space-between;
     align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .room-select-header-flex h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.15rem;
   }
 
   .room-select-price {
     align-self: flex-start;
+    text-align: right;
+  }
+
+  .room-select-price strong {
+    font-size: 1.2rem;
   }
   
   .room-instance-row {
