@@ -109,6 +109,7 @@ export default {
 
     // 1. Route: /api/auth
     if (url.pathname === '/api/auth' && request.method === 'POST') {
+      try {
         const { password, deviceToken } = await request.json();
         const serverSecret = env?.Passwort || env?.ADMIN_PASSWORD || env?.VITE_ADMIN_PASSWORD;
 
