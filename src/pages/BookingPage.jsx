@@ -55,22 +55,65 @@ const PAYMENT_METHODS = [
 ];
 
 /* ============ Helpers ============ */
+function parseDateParts(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(isNaN)) return null;
+  return { year: parts[0], month: parts[1], day: parts[2] };
+}
+
+function todayStr() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function addDaysToDateStr(dateStr, days = 1) {
+  const p = parseDateParts(dateStr);
+  if (!p) return todayStr();
+  const dt = new Date(p.year, p.month - 1, p.day, 12, 0, 0);
+  dt.setDate(dt.getDate() + days);
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const d = String(dt.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 function formatDate(d) {
   if (!d) return '';
-  const date = new Date(d);
+  const p = parseDateParts(d);
+  if (!p) return '';
+  const date = new Date(p.year, p.month - 1, p.day, 12, 0, 0);
   return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function getDateDisplayInfo(dateStr) {
+  const p = parseDateParts(dateStr);
+  if (!p) return { dateMain: 'Datum wählen', weekday: 'Tippen zum Auswählen', full: '' };
+  const dt = new Date(p.year, p.month - 1, p.day, 12, 0, 0);
+  const day = String(dt.getDate()).padStart(2, '0');
+  const monthName = dt.toLocaleDateString('de-DE', { month: 'short' });
+  const year = dt.getFullYear();
+  const weekday = dt.toLocaleDateString('de-DE', { weekday: 'long' });
+  return {
+    dateMain: `${day}. ${monthName} ${year}`,
+    weekday: weekday,
+    full: `${weekday}, ${day}. ${monthName} ${year}`
+  };
 }
 
 function nightsBetween(a, b) {
   if (!a || !b) return 0;
-  const d1 = new Date(a);
-  const d2 = new Date(b);
-  const diff = d2 - d1;
-  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-}
-
-function todayStr() {
-  return new Date().toISOString().split('T')[0];
+  const pA = parseDateParts(a);
+  const pB = parseDateParts(b);
+  if (!pA || !pB) return 0;
+  const d1 = new Date(pA.year, pA.month - 1, pA.day, 12, 0, 0);
+  const d2 = new Date(pB.year, pB.month - 1, pB.day, 12, 0, 0);
+  const diffMs = d2.getTime() - d1.getTime();
+  const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  return Math.max(0, days);
 }
 
 /* ============ BookingPage ============ */
@@ -81,32 +124,38 @@ const BookingPage = () => {
   const [step, setStep] = useState(0);
 
   // Active date selection in form (can be changed to add multiple different periods!)
-  const [checkin, setCheckin] = useState(() => searchParams.get('checkin') || todayStr());
+  const [checkin, setCheckin] = useState(() => {
+    const fromUrl = searchParams.get('checkin');
+    return fromUrl || todayStr();
+  });
   const [checkout, setCheckout] = useState(() => {
-    if (searchParams.get('checkout')) return searchParams.get('checkout');
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
+    const checkinVal = searchParams.get('checkin') || todayStr();
+    const checkoutVal = searchParams.get('checkout');
+    if (checkoutVal && checkoutVal > checkinVal) {
+      return checkoutVal;
+    }
+    return addDaysToDateStr(checkinVal, 1);
   });
 
   const handleCheckinChange = (val) => {
+    if (!val) return;
     setCheckin(val);
     if (!checkout || checkout <= val) {
-      const d = new Date(val);
-      d.setDate(d.getDate() + 1);
-      setCheckout(d.toISOString().split('T')[0]);
+      setCheckout(addDaysToDateStr(val, 1));
     }
   };
 
   const handleCheckoutChange = (val) => {
+    if (!val) return;
     if (val <= checkin) {
-      const d = new Date(checkin);
-      d.setDate(d.getDate() + 1);
-      setCheckout(d.toISOString().split('T')[0]);
+      setCheckout(addDaysToDateStr(checkin, 1));
       return;
     }
     setCheckout(val);
   };
+
+  const checkinInfo = useMemo(() => getDateDisplayInfo(checkin), [checkin]);
+  const checkoutInfo = useMemo(() => getDateDisplayInfo(checkout), [checkout]);
 
   // Ausgewählte Zimmer im Warenkorb (jedes Element hat seinen eigenen Zeitraum!)
   const [cart, setCart] = useState([]);
@@ -1161,63 +1210,78 @@ const BookingPage = () => {
                 
                 {/* Reisedaten Konfigurator */}
                 <div className="booking-section date-selection-card">
-                  <div className="section-title-lockup">
+                  <div className="booking-section-header">
                     <h2 className="booking-section-title">
                       <Calendar size={20} />
-                      <span>1. Zeitraum wählen</span>
+                      <span>1. Reisezeitraum wählen</span>
                     </h2>
-                    <span className="section-hint-badge">Mehrere Zeiträume möglich</span>
                   </div>
                   
-                  <div className="date-grid-2">
-                    <div className="booking-field date-field">
-                      <label>Anreise</label>
+                  <div className="unified-date-picker">
+                    <div className="date-segment">
+                      <div className="date-segment-content">
+                        <span className="date-segment-label">
+                          <Calendar size={12} className="date-label-icon" /> Anreise
+                        </span>
+                        <span className="date-segment-main">{checkinInfo.dateMain}</span>
+                        <span className="date-segment-sub">{checkinInfo.weekday}</span>
+                      </div>
                       <input 
                         type="date" 
+                        className="date-native-overlay"
                         value={checkin} 
                         min={todayStr()} 
                         onChange={e => handleCheckinChange(e.target.value)} 
+                        aria-label="Anreisedatum auswählen"
                       />
                     </div>
-                    <div className="booking-field date-field">
-                      <label>Abreise</label>
+
+                    <div className="date-segment-divider" />
+
+                    <div className="date-segment">
+                      <div className="date-segment-content">
+                        <span className="date-segment-label">
+                          <Calendar size={12} className="date-label-icon" /> Abreise
+                        </span>
+                        <span className="date-segment-main">{checkoutInfo.dateMain}</span>
+                        <span className="date-segment-sub">{checkoutInfo.weekday}</span>
+                      </div>
                       <input 
                         type="date" 
+                        className="date-native-overlay"
                         value={checkout} 
-                        min={checkin || todayStr()} 
+                        min={checkin ? addDaysToDateStr(checkin, 1) : todayStr()} 
                         onChange={e => handleCheckoutChange(e.target.value)} 
+                        aria-label="Abreisedatum auswählen"
                       />
                     </div>
                   </div>
 
                   {activeNights > 0 && (
-                    <div className={`stay-duration-pill ${isLongTermStay ? 'is-longterm' : ''}`}>
-                      <Clock size={15} />
-                      <span>{formatDate(checkin)} – {formatDate(checkout)} · <strong>{activeNights} {activeNights === 1 ? 'Nacht' : 'Nächte'}</strong></span>
-                      {isLongTermStay && (
+                    <div className={`unified-date-summary ${isLongTermStay ? 'is-longterm' : ''}`}>
+                      <div className="summary-left">
+                        <Clock size={15} />
+                        <span>
+                          Aufenthalt: <strong>{activeNights} {activeNights === 1 ? 'Nacht' : 'Nächte'}</strong> ({formatDate(checkin)} – {formatDate(checkout)})
+                        </span>
+                      </div>
+
+                      {isLongTermStay ? (
                         <span className="longterm-badge-inline">
                           <Sparkles size={13} /> Langzeit-Konditionen aktiv
                         </span>
+                      ) : (
+                        <button 
+                          type="button" 
+                          className="btn-quick-14days"
+                          onClick={() => {
+                            setCheckout(addDaysToDateStr(checkin || todayStr(), 14));
+                          }}
+                        >
+                          <span>Ab 14 Nächte: Sonderpreis</span>
+                          <ArrowRight size={13} />
+                        </button>
                       )}
-                    </div>
-                  )}
-
-                  {!isLongTermStay && activeNights > 0 && (
-                    <div className="longterm-prompt-callout">
-                      <span>Längerer Aufenthalt ab 14 Tagen?</span>
-                      <button 
-                        type="button" 
-                        className="btn-link-longterm"
-                        onClick={() => {
-                          const inD = checkin ? new Date(checkin) : new Date();
-                          const outD = new Date(inD);
-                          outD.setDate(outD.getDate() + 14);
-                          setCheckout(outD.toISOString().split('T')[0]);
-                        }}
-                      >
-                        <span>Sonderkonditionen anfragen</span>
-                        <ArrowRight size={14} className="longterm-arrow-icon" />
-                      </button>
                     </div>
                   )}
                 </div>

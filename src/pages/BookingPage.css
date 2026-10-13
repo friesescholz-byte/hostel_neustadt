@@ -171,6 +171,22 @@
   border: 1px solid var(--border-color);
 }
 
+.booking-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.booking-section-header .booking-section-title {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
 .booking-section-title {
   display: flex;
   align-items: center;
@@ -321,6 +337,177 @@
   grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
   margin-bottom: 1.5rem;
+}
+
+/* ============ Unified Date Bar (Segmented Travel Date Picker) ============ */
+.unified-date-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.unified-date-picker {
+  display: flex;
+  align-items: stretch;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 1px 3px rgba(15, 43, 92, 0.04);
+}
+
+.unified-date-picker:focus-within,
+.unified-date-picker:hover {
+  border-color: #0f2b5c;
+  box-shadow: 0 4px 14px rgba(15, 43, 92, 0.08);
+}
+
+.date-segment {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  padding: 0.85rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  user-select: none;
+}
+
+.date-segment:hover {
+  background: #f8fafc;
+}
+
+.date-segment:active {
+  background: #f1f5f9;
+}
+
+.date-segment-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  pointer-events: none;
+}
+
+.date-segment-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.date-label-icon {
+  color: #0f2b5c;
+  opacity: 0.75;
+}
+
+.date-segment-main {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f2b5c;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+.date-segment-sub {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.2;
+}
+
+.date-segment-divider {
+  width: 1px;
+  background: #e2e8f0;
+  align-self: stretch;
+  flex-shrink: 0;
+}
+
+.date-native-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+  font-size: 16px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* Date Summary Bar (Bottom of date selection) */
+.unified-date-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #334155;
+  box-sizing: border-box;
+}
+
+.unified-date-summary.is-longterm {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+  color: #6b21a8;
+}
+
+.unified-date-summary .summary-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.unified-date-summary .summary-left strong {
+  color: #0f2b5c;
+  font-weight: 700;
+}
+
+.unified-date-summary.is-longterm .summary-left strong {
+  color: #6b21a8;
+}
+
+.btn-quick-14days {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0f2b5c;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
+}
+
+.btn-quick-14days:hover {
+  color: #1e40af;
 }
 
 .booking-field {
@@ -664,15 +851,24 @@
     margin-bottom: 0.85rem;
   }
 
-  .section-title-lockup {
-    margin-bottom: 0.65rem;
-    padding-bottom: 0.45rem;
+  .booking-section-header {
+    margin-bottom: 0.85rem;
+    padding-bottom: 0.5rem;
     border-bottom: 1px solid #f1f5f9;
     display: flex;
-    flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    gap: 0.4rem;
+    width: 100%;
+  }
+
+  .booking-section-header .booking-section-title {
+    font-size: 1.05rem;
+    gap: 0.45rem;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
   }
 
   .booking-section-title {
@@ -680,60 +876,37 @@
     gap: 0.45rem;
     font-weight: 700;
     line-height: 1.3;
+    margin-bottom: 0.85rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #f1f5f9;
   }
 
-  .section-hint-badge {
-    font-size: 0.7rem;
-    padding: 0.15rem 0.45rem;
-    border-radius: 4px;
+  .date-segment {
+    padding: 0.7rem 0.85rem;
   }
 
-  .date-grid-2 {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 0.5rem !important;
-    margin-bottom: 0.5rem;
-    width: 100%;
+  .date-segment-label {
+    font-size: 0.68rem;
   }
 
-  .date-grid-2 .booking-field {
-    width: 100%;
-    box-sizing: border-box;
-    margin-bottom: 0;
+  .date-segment-main {
+    font-size: 0.98rem;
   }
 
-  .date-grid-2 .booking-field label {
+  .date-segment-sub {
     font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: #64748b;
-    margin-bottom: 0.2rem;
-    display: block;
   }
 
-  .booking-field input[type="date"] {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-    min-height: 42px;
-    height: 42px;
-    padding: 0.45rem 0.5rem;
-    font-size: 0.92rem;
-    font-weight: 600;
-    border-radius: 8px;
-    border: 1px solid #cbd5e1;
-    background: #f8fafc;
-    color: #0f2b5c;
+  .unified-date-summary {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.45rem;
+    padding: 0.55rem 0.85rem;
+    font-size: 0.8rem;
   }
 
-  .stay-duration-pill {
-    margin-top: 0.4rem;
-    padding: 0.35rem 0.6rem;
-    font-size: 0.78rem;
-    border-radius: 6px;
-    width: 100%;
-    box-sizing: border-box;
+  .btn-quick-14days {
+    font-size: 0.76rem;
   }
 
   .longterm-prompt-callout {

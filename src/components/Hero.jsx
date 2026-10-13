@@ -5,6 +5,24 @@ import { ShieldCheck, Calendar, User, Bed, ChevronDown } from 'lucide-react';
 import RotatingText from './RotatingText';
 import './Hero.css';
 
+const parseDateParts = (dateStr) => {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(isNaN)) return null;
+  return { year: parts[0], month: parts[1], day: parts[2] };
+};
+
+const addDaysToDateStr = (dateStr, days = 1) => {
+  const p = parseDateParts(dateStr);
+  if (!p) return dateStr;
+  const dt = new Date(p.year, p.month - 1, p.day, 12, 0, 0);
+  dt.setDate(dt.getDate() + days);
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const d = String(dt.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 const formatISODate = (d) => {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -21,9 +39,7 @@ const Hero = () => {
   });
 
   const [checkout, setCheckout] = useState(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return formatISODate(tomorrow);
+    return addDaysToDateStr(formatISODate(new Date()), 1);
   });
 
   const [guests, setGuests] = useState('1');
@@ -36,11 +52,18 @@ const Hero = () => {
   const handleCheckinChange = (val) => {
     setCheckin(val);
     if (!val) return;
-    if (checkout && checkout <= val) {
-      const nextDay = new Date(val);
-      nextDay.setDate(nextDay.getDate() + 1);
-      setCheckout(formatISODate(nextDay));
+    if (!checkout || checkout <= val) {
+      setCheckout(addDaysToDateStr(val, 1));
     }
+  };
+
+  const handleCheckoutChange = (val) => {
+    if (!val) return;
+    if (val <= checkin) {
+      setCheckout(addDaysToDateStr(checkin, 1));
+      return;
+    }
+    setCheckout(val);
   };
 
   return (
@@ -120,8 +143,8 @@ const Hero = () => {
                   <input 
                     type="date" 
                     value={checkout} 
-                    min={checkin || todayStr}
-                    onChange={e => setCheckout(e.target.value)} 
+                    min={checkin ? addDaysToDateStr(checkin, 1) : todayStr}
+                    onChange={e => handleCheckoutChange(e.target.value)} 
                     required 
                   />
                 </div>
