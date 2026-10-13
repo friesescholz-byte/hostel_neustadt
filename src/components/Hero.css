@@ -73,6 +73,14 @@
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
+.hero-eyebrow .star-icon {
+  color: #f59e0b;
+  margin-right: 0.4rem;
+  letter-spacing: 0.15em;
+  font-size: 0.95em;
+  display: inline-block;
+}
+
 .hero-text h1 {
   font-size: 3.5rem;
   margin-bottom: 1.5rem;

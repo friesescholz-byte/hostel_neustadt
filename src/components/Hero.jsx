@@ -80,7 +80,7 @@ const Hero = () => {
             transition={{ duration: 0.6 }}
           >
             <span className="hero-eyebrow">
-              <span className="star-icon">★</span> NEU GEBAUT. MODERN GEDACHT.
+              <span className="star-icon">★ ★ ★</span> NEU GEBAUT. MODERN GEDACHT.
             </span>
             <h1>
               Das Perfekte<br/>

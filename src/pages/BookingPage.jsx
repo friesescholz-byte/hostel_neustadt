@@ -496,6 +496,14 @@ const BookingPage = () => {
     setCart(prev => [...prev, newItem]);
     setNextInstanceId(id => id + 1);
     if (errors.cart) setErrors(e => ({ ...e, cart: undefined }));
+
+    // Smooth scroll down to the cart section on mobile/desktop
+    setTimeout(() => {
+      const cartEl = document.querySelector('.cart-section');
+      if (cartEl) {
+        cartEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 120);
   };
 
   const removeRoomFromCart = (instanceId) => {
@@ -1721,6 +1729,24 @@ const BookingPage = () => {
                     </div>
                   )}
 
+                  {cart.length > 0 && (
+                    <div className="cart-checkout-action-row">
+                      <div className="cart-checkout-subtotal">
+                        <span>Gesamtpreis ({cart.length} {cart.length === 1 ? 'Zimmer' : 'Zimmer'} · {totalCartNights} {totalCartNights === 1 ? 'Nacht' : 'Nächte'}):</span>
+                        <strong className="cart-checkout-subtotal-val">{totalPrice.toFixed(2)} €</strong>
+                      </div>
+                      <button 
+                        type="button" 
+                        className="btn-cart-proceed-inline"
+                        onClick={handleNext}
+                        disabled={isCheckingHold}
+                      >
+                        <span>{isCheckingHold ? 'Verfügbarkeit wird geprüft...' : 'Weiter zu Gastdaten'}</span>
+                        <ArrowRight size={18} />
+                      </button>
+                    </div>
+                  )}
+
                   {errors.cart && <p className="field-error mt-3">{errors.cart}</p>}
                 </div>
               </>
@@ -1839,16 +1865,30 @@ const BookingPage = () => {
                   <div className="summary-card">
                     <h4 className="summary-subtitle">Gebuchte Zimmer & Zeiträume ({cart.length})</h4>
                     
-                    {cart.map((item, idx) => (
-                      <div key={idx} className="summary-row">
-                        <span className="summary-label">
-                          <Bed size={18} /> {item.name} ({item.guests} {item.guests === 1 ? 'Person' : 'Personen'})
-                          <span className="summary-date-sub">{formatDate(item.checkin)} – {formatDate(item.checkout)} ({item.nights} {item.nights === 1 ? 'Nacht' : 'Nächte'})</span>
-                          {item.hasCustomPeriod && <small className="summary-badge-inline">Sonderkondition: {item.periodName}</small>}
-                        </span>
-                        <span className="summary-value">{item.totalPrice.toFixed(2)} €</span>
-                      </div>
-                    ))}
+                    <div className="summary-rooms-list">
+                      {cart.map((item, idx) => (
+                        <div key={idx} className="summary-room-card">
+                          <div className="summary-room-header">
+                            <div className="summary-room-info">
+                              <Bed size={18} className="summary-room-icon" />
+                              <span className="summary-room-name">
+                                <strong>{item.name}</strong>
+                                <span className="summary-room-guests">({item.guests} {item.guests === 1 ? 'Person' : 'Personen'})</span>
+                              </span>
+                            </div>
+                            <span className="summary-room-price">{item.totalPrice.toFixed(2)} €</span>
+                          </div>
+                          <div className="summary-room-meta">
+                            <span className="summary-room-dates">
+                              {formatDate(item.checkin)} – {formatDate(item.checkout)} ({item.nights} {item.nights === 1 ? 'Nacht' : 'Nächte'})
+                            </span>
+                            {item.hasCustomPeriod && (
+                              <span className="summary-badge-inline">Sonderkondition: {item.periodName}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
 
                     <div className="summary-divider" />
                     <h4 className="summary-subtitle">Rechnungsempfänger</h4>
@@ -1867,7 +1907,7 @@ const BookingPage = () => {
                       <span className="summary-label"><Mail size={18} /> E-Mail</span>
                       <span className="summary-value">{guestData[0].email}</span>
                     </div>
-                    <div className="summary-row">
+                    <div className="summary-row summary-row-address">
                       <span className="summary-label"><MapPin size={18} /> Rechnungsadresse</span>
                       <span className="summary-value">{guestData[0].street}, {guestData[0].zip} {guestData[0].city}</span>
                     </div>
@@ -1904,13 +1944,13 @@ const BookingPage = () => {
 
           {/* Navigation Buttons (nur bei regulärer Buchung) */}
           {!isLongTermStay && (
-            <div className="booking-nav-buttons">
+            <div className={`booking-nav-buttons ${step === 2 ? 'is-checkout-step' : ''}`}>
               {step > 0 && (
                 <button className="btn-booking-back" onClick={handleBack}>
-                  <ChevronLeft size={18} /> Zurück
+                  <ChevronLeft size={18} className="btn-icon" /> Zurück
                 </button>
               )}
-              <div style={{ flex: 1 }} />
+              <div className="booking-nav-spacer" />
               {step < 2 ? (
                 <button 
                   className="btn-booking-next" 
@@ -1918,11 +1958,11 @@ const BookingPage = () => {
                   disabled={isCheckingHold}
                 >
                   {isCheckingHold ? 'Verfügbarkeit wird geprüft...' : (
-                    <>Weiter ({totalPrice.toFixed(2)} €) <ChevronRight size={18} /></>
+                    <>Weiter ({totalPrice.toFixed(2)} €) <ChevronRight size={18} className="btn-icon" /></>
                   )}
                 </button>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+                <div className="checkout-pay-container">
                   <button 
                     className="btn-booking-pay" 
                     onClick={handleStartMolliePayment}
@@ -1930,27 +1970,16 @@ const BookingPage = () => {
                   >
                     {isProcessingPayment ? (
                       <>
-                        <RefreshCw size={18} className="spin-icon" /> Zu Mollie weiterleiten...
+                        <RefreshCw size={18} className="spin-icon btn-icon" /> Zu Mollie weiterleiten...
                       </>
                     ) : (
                       <>
-                        <CreditCard size={18} /> Zahlungspflichtig buchen über Mollie ({totalPrice.toFixed(2)} €)
+                        <CreditCard size={18} className="btn-icon" /> Zahlungspflichtig buchen über Mollie ({totalPrice.toFixed(2)} €)
                       </>
                     )}
                   </button>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#64748b', fontSize: '0.78rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    <span>💳 Kreditkarte</span>
-                    <span>•</span>
-                    <span>🅿️ PayPal</span>
-                    <span>•</span>
-                    <span>⚡ Klarna</span>
-                    <span>•</span>
-                    <span>🏦 Giropay</span>
-                    <span>•</span>
-                    <span>📱 Apple Pay</span>
-                  </div>
                   {paymentError && (
-                    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', padding: '0.65rem 0.85rem', borderRadius: '6px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.35rem' }}>
+                    <div className="checkout-payment-error">
                       <AlertCircle size={16} style={{ flexShrink: 0 }} />
                       <span>{paymentError}</span>
                     </div>
@@ -1962,7 +1991,7 @@ const BookingPage = () => {
         </div>
 
         {/* Sidebar */}
-        <aside className={`booking-sidebar ${cart.length === 0 && !isLongTermStay && step === 0 ? 'is-empty-cart-step0' : ''}`}>
+        <aside className={`booking-sidebar ${cart.length === 0 && !isLongTermStay && step === 0 ? 'is-empty-cart-step0' : ''} ${step === 2 ? 'is-step-2' : ''}`}>
           <div className="sidebar-card">
             <h3>{isLongTermStay ? 'Ihre Langzeit-Anfrage' : 'Ihre Buchung'}</h3>
 
@@ -2057,29 +2086,6 @@ const BookingPage = () => {
           </div>
         </aside>
       </div>
-
-      {/* Mobile Sticky Checkout Bar for Step 0 */}
-      {step === 0 && cart.length > 0 && !isLongTermStay && (
-        <div className="mobile-sticky-bottom-bar">
-          <div className="mobile-sticky-bar-inner">
-            <div className="mobile-sticky-summary">
-              <span className="mobile-sticky-rooms">
-                {cart.length} {cart.length === 1 ? 'Zimmer' : 'Zimmer'} · {totalCartNights} {totalCartNights === 1 ? 'Nacht' : 'Nächte'}
-              </span>
-              <strong className="mobile-sticky-total">{totalPrice.toFixed(2)} €</strong>
-            </div>
-            <button 
-              type="button" 
-              className="btn-mobile-sticky-checkout"
-              onClick={handleNext}
-              disabled={isCheckingHold}
-            >
-              <span>{isCheckingHold ? 'Wird geprüft...' : 'Weiter zu Gastdaten'}</span>
-              <ArrowRight size={16} />
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Footer across the booking page */}
       <Footer />
