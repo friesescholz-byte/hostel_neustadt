@@ -29,29 +29,201 @@ export default {
       });
     }
 
+    const TWO_FACTOR_EMAIL = 'vermietung@bh-am-ruebenberge.de';
+
+    const send2FACodeEmail = async (code) => {
+      try {
+        await fetch('https://resend-mailer.friese-scholz.workers.dev', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: 'Hostel Neustadt Sicherheit <noreply@scholz-friese-webdesign.de>',
+            to: [TWO_FACTOR_EMAIL],
+            subject: `Sicherheitscode für Admin-Login: ${code}`,
+            html: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"/></head>
+<body style="margin: 0; padding: 32px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b;">
+  <div style="max-width: 480px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.04);">
+    <div style="background: #0f2b5c; padding: 24px 28px; text-align: center;">
+      <h1 style="margin: 0; color: #ffffff; font-size: 19px; font-weight: 700; letter-spacing: -0.01em;">Hostel Neustadt</h1>
+      <p style="margin: 4px 0 0 0; color: #cbd5e1; font-size: 13px;">Sicherheits-Authentifizierung</p>
+    </div>
+    <div style="padding: 28px;">
+      <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.5; color: #334155;">
+        Es wurde eine Anmeldung am <strong>Admin-Dashboard</strong> angefordert. Verwenden Sie den folgenden 6-stelligen Sicherheitscode zur Bestätigung:
+      </p>
+      
+      <div style="background: #f1f5f9; border: 2px dashed #cbd5e1; border-radius: 10px; padding: 18px; text-align: center; margin: 24px 0;">
+        <span style="font-family: 'Courier New', Courier, monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #0f2b5c; display: inline-block;">
+          ${code}
+        </span>
+      </div>
+
+      <p style="margin: 0 0 8px 0; font-size: 13px; color: #64748b; line-height: 1.5;">
+        ⏱️ <strong>Gültigkeit:</strong> Dieser Code ist für die nächsten <strong>10 Minuten</strong> gültig.
+      </p>
+      <p style="margin: 0; font-size: 12px; color: #94a3b8; line-height: 1.4;">
+        Falls Sie diesen Anmeldeversuch nicht selbst ausgelöst haben, ignorieren Sie diese E-Mail. Ohne diesen Code ist kein Zugriff auf das Dashboard möglich.
+      </p>
+    </div>
+    <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 28px; text-align: center; font-size: 11px; color: #94a3b8;">
+      Hostel Neustadt · Bertha-Sicius-Str. 6 · 31535 Neustadt am Rübenberge
+    </div>
+  </div>
+</body>
+</html>`
+          })
+        });
+        return true;
+      } catch (err) {
+        console.error('[2FA] Mail send error:', err);
+        return false;
+      }
+    };
+
     // 1. Route: /api/auth
     if (url.pathname === '/api/auth' && request.method === 'POST') {
       try {
-        const { password } = await request.json();
+        const { password, deviceToken } = await request.json();
         const serverSecret = env?.ADMIN_PASSWORD || env?.VITE_ADMIN_PASSWORD || 'Hostel#Neustadt!2026';
 
-        if (password && password === serverSecret) {
-          const token = btoa(`hostel_auth_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
-          return new Response(JSON.stringify({ success: true, token }), {
-            status: 200,
+        if (!password || password !== serverSecret) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: 'Falsches Passwort. Bitte überprüfen Sie Ihre Eingabe.' 
+          }), {
+            status: 401,
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
           });
         }
 
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: 'Falsches Passwort. Bitte überprüfen Sie Ihre Eingabe.' 
+        // If device was previously verified
+        if (deviceToken && env?.HOSTEL_KV) {
+          const isTrusted = await env.HOSTEL_KV.get('trusted_device_' + deviceToken);
+          if (isTrusted) {
+            const token = btoa(`hostel_auth_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
+            return new Response(JSON.stringify({ success: true, token, trusted: true }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json', ...corsHeaders }
+            });
+          }
+        }
+
+        // Generate 6-digit code for 2FA
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const challengeId = 'ch_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8);
+
+        if (env?.HOSTEL_KV) {
+          await env.HOSTEL_KV.put('2fa_challenge_' + challengeId, code, { expirationTtl: 600 });
+        }
+
+        await send2FACodeEmail(code);
+
+        return new Response(JSON.stringify({
+          success: true,
+          require2FA: true,
+          challengeId,
+          email: TWO_FACTOR_EMAIL
         }), {
-          status: 401,
+          status: 200,
           headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
       } catch (err) {
         return new Response(JSON.stringify({ error: err.message || 'Authentifizierungsfehler' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+      }
+    }
+
+    // 1b. Route: /api/auth/verify-2fa
+    if (url.pathname === '/api/auth/verify-2fa' && request.method === 'POST') {
+      try {
+        const { challengeId, code, rememberDevice } = await request.json();
+
+        if (!challengeId || !code) {
+          return new Response(JSON.stringify({ success: false, error: 'Challenge ID und Code erforderlich.' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+          });
+        }
+
+        let isValid = false;
+        if (env?.HOSTEL_KV) {
+          const expectedCode = await env.HOSTEL_KV.get('2fa_challenge_' + challengeId);
+          if (expectedCode && expectedCode.trim() === code.trim()) {
+            isValid = true;
+            await env.HOSTEL_KV.delete('2fa_challenge_' + challengeId);
+          }
+        }
+
+        if (!isValid) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: 'Ungültiger oder abgelaufener 6-stelliger Sicherheitscode. Bitte prüfen Sie Ihre E-Mails.' 
+          }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+          });
+        }
+
+        const token = btoa(`hostel_auth_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
+        let newDeviceToken = null;
+
+        if (rememberDevice && env?.HOSTEL_KV) {
+          newDeviceToken = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 10);
+          await env.HOSTEL_KV.put('trusted_device_' + newDeviceToken, '1', { expirationTtl: 60 * 60 * 24 * 30 });
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          token,
+          deviceToken: newDeviceToken
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message || 'Verifizierungsfehler' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+      }
+    }
+
+    // 1c. Route: /api/auth/resend-2fa
+    if (url.pathname === '/api/auth/resend-2fa' && request.method === 'POST') {
+      try {
+        const { password } = await request.json();
+        const serverSecret = env?.ADMIN_PASSWORD || env?.VITE_ADMIN_PASSWORD || 'Hostel#Neustadt!2026';
+
+        if (!password || password !== serverSecret) {
+          return new Response(JSON.stringify({ success: false, error: 'Nicht autorisiert.' }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+          });
+        }
+
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const challengeId = 'ch_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8);
+
+        if (env?.HOSTEL_KV) {
+          await env.HOSTEL_KV.put('2fa_challenge_' + challengeId, code, { expirationTtl: 600 });
+        }
+
+        await send2FACodeEmail(code);
+
+        return new Response(JSON.stringify({
+          success: true,
+          challengeId,
+          email: TWO_FACTOR_EMAIL
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message || 'Fehler beim erneuten Senden.' }), {
           status: 400,
           headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });

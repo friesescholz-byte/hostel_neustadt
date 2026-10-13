@@ -18,11 +18,30 @@ import './AdminPage.css';
 export default function AdminPage() {
   // Password Protection Gate
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return sessionStorage.getItem('hostel_admin_auth') === 'true';
+    return sessionStorage.getItem('hostel_admin_auth') === 'true' || Boolean(sessionStorage.getItem('hostel_admin_auth'));
   });
   const [inputPassword, setInputPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+  // 2-Factor Authentication (2FA) States
+  const [step2FA, setStep2FA] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [challengeId, setChallengeId] = useState('');
+  const [destinationEmail, setDestinationEmail] = useState('vermietung@bh-am-ruebenberge.de');
+  const [rememberDevice, setRememberDevice] = useState(true);
+  const [isVerifying2FA, setIsVerifying2FA] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendSuccess, setResendSuccess] = useState('');
+
+  // Countdown timer for 2FA resend button
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => {
+      setResendCooldown(prev => prev - 1);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   // Dashboard Tabs: 'bookings' | 'inventory' | 'pricing'
   const [activeTab, setActiveTab] = useState('bookings');
@@ -141,31 +160,48 @@ export default function AdminPage() {
     setTimeout(() => setSaveSuccessMessage(''), 3500);
   };
 
-  // --- Handlers: Authentication ---
+  // --- Handlers: Authentication & 2FA ---
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsAuthenticating(true);
     setAuthError('');
+    setResendSuccess('');
 
     const masterSecret = 'Hostel#Neustadt!2026';
+    const deviceToken = localStorage.getItem('hostel_admin_device_token') || '';
 
     try {
-      // 1. Try server-side authentication via /api/auth
+      // 1. Server-side authentication via /api/auth with deviceToken
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: inputPassword })
+        body: JSON.stringify({ password: inputPassword, deviceToken })
       });
 
       let data = null;
       try {
         data = await res.json();
       } catch (jsonErr) {
-        // Not JSON (e.g. 405 Method Not Allowed or 404 from static host)
+        // Not JSON
       }
 
       if (res.ok && data?.success) {
+        // Case A: 2FA required (new or unverified device)
+        if (data.require2FA) {
+          setChallengeId(data.challengeId || '');
+          if (data.email) setDestinationEmail(data.email);
+          setStep2FA(true);
+          setTwoFactorCode('');
+          setResendCooldown(45);
+          setIsAuthenticating(false);
+          return;
+        }
+
+        // Case B: Direct login (already trusted device)
         sessionStorage.setItem('hostel_admin_auth', data.token || 'true');
+        if (data.deviceToken) {
+          localStorage.setItem('hostel_admin_device_token', data.deviceToken);
+        }
         setIsAuthenticated(true);
         setAuthError('');
         loadData();
@@ -177,7 +213,7 @@ export default function AdminPage() {
         return;
       }
 
-      // 2. Fallback if static host does not support POST /api/auth (e.g. 405 Method Not Allowed)
+      // 2. Fallback if static host does not support POST /api/auth
       if (inputPassword === masterSecret) {
         sessionStorage.setItem('hostel_admin_auth', 'true');
         setIsAuthenticated(true);
@@ -201,9 +237,84 @@ export default function AdminPage() {
     }
   };
 
+  const handleVerify2FA = async (e) => {
+    e.preventDefault();
+    if (!twoFactorCode || twoFactorCode.trim().length < 6) {
+      setAuthError('Bitte geben Sie den vollständigen 6-stelligen Code ein.');
+      return;
+    }
+
+    setIsVerifying2FA(true);
+    setAuthError('');
+    setResendSuccess('');
+
+    try {
+      const res = await fetch('/api/auth/verify-2fa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          challengeId,
+          code: twoFactorCode.trim(),
+          rememberDevice
+        })
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && data?.success) {
+        sessionStorage.setItem('hostel_admin_auth', data.token || 'true');
+        if (data.deviceToken) {
+          localStorage.setItem('hostel_admin_device_token', data.deviceToken);
+        }
+        setIsAuthenticated(true);
+        setStep2FA(false);
+        setAuthError('');
+        loadData();
+      } else {
+        setAuthError(data?.error || 'Der eingegebene Sicherheitscode ist ungültig oder abgelaufen. Bitte fordern Sie einen neuen an.');
+      }
+    } catch (err) {
+      setAuthError('Verbindungsfehler bei der Code-Prüfung. Bitte versuchen Sie es erneut.');
+    } finally {
+      setIsVerifying2FA(false);
+    }
+  };
+
+  const handleResend2FA = async () => {
+    if (resendCooldown > 0) return;
+    setAuthError('');
+    setResendSuccess('');
+    try {
+      const res = await fetch('/api/auth/resend-2fa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: inputPassword })
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
+        if (data.challengeId) setChallengeId(data.challengeId);
+        setResendCooldown(60);
+        setResendSuccess('Ein neuer 6-stelliger Sicherheitscode wurde versendet.');
+      } else {
+        setAuthError(data?.error || 'Konnte keinen neuen Code senden. Bitte versuchen Sie es gleich erneut.');
+      }
+    } catch (err) {
+      setAuthError('Fehler beim Senden des Codes.');
+    }
+  };
+
+  const handleBackToPassword = () => {
+    setStep2FA(false);
+    setTwoFactorCode('');
+    setAuthError('');
+    setResendSuccess('');
+  };
+
   const handleLogout = () => {
     sessionStorage.removeItem('hostel_admin_auth');
     setIsAuthenticated(false);
+    setStep2FA(false);
+    setTwoFactorCode('');
     setInputPassword('');
   };
 
@@ -1412,6 +1523,86 @@ export default function AdminPage() {
   // VIEW: LOGIN SCREEN (PASSWORD PROTECTED)
   // =========================================================================
   if (!isAuthenticated) {
+    if (step2FA) {
+      return (
+        <div className="admin-login-page">
+          <div className="admin-login-box">
+            <div className="login-header">
+              <div className="login-badge-lock shield">
+                <ShieldCheck size={26} />
+              </div>
+              <h2>2-Faktor-Authentifizierung</h2>
+              <span className="login-subtext">
+                Sicherheitscode wurde an <strong>{destinationEmail}</strong> gesendet.
+              </span>
+            </div>
+
+            <form onSubmit={handleVerify2FA} className="admin-login-form">
+              <div className="form-group-admin text-center">
+                <label htmlFor="twoFactorCode" className="twofa-label">6-stelliger Sicherheitscode</label>
+                <input 
+                  id="twoFactorCode"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={twoFactorCode}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setTwoFactorCode(val);
+                    if (val.length === 6 && authError) setAuthError('');
+                  }}
+                  placeholder="000000"
+                  className="twofa-code-input"
+                  autoFocus
+                  autoComplete="one-time-code"
+                  required
+                />
+                <span className="twofa-hint">Code ist 10 Minuten gültig</span>
+                {authError && <p className="auth-error-msg">{authError}</p>}
+                {resendSuccess && <p className="auth-success-msg">{resendSuccess}</p>}
+              </div>
+
+              <div className="twofa-remember-row">
+                <label className="twofa-checkbox-label">
+                  <input 
+                    type="checkbox" 
+                    checked={rememberDevice} 
+                    onChange={(e) => setRememberDevice(e.target.checked)} 
+                  />
+                  <span>Dieses Gerät für 30 Tage merken</span>
+                </label>
+              </div>
+
+              <button 
+                type="submit" 
+                className="btn-admin-primary w-100" 
+                disabled={isVerifying2FA || twoFactorCode.length < 6}
+              >
+                {isVerifying2FA ? 'Prüfe Sicherheitscode...' : 'Code bestätigen & Anmelden'}
+              </button>
+
+              <div className="twofa-resend-row">
+                {resendCooldown > 0 ? (
+                  <span className="text-muted text-xs">Neuen Code anfordern in {resendCooldown}s</span>
+                ) : (
+                  <button type="button" className="btn-link-action" onClick={handleResend2FA}>
+                    <RefreshCw size={13} /> Neuen Code anfordern
+                  </button>
+                )}
+              </div>
+
+              <div className="login-footer">
+                <button type="button" className="login-back-link btn-back-plain" onClick={handleBackToPassword}>
+                  <ArrowLeft size={16} /> Zurück zur Passworteingabe
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="admin-login-page">
         <div className="admin-login-box">

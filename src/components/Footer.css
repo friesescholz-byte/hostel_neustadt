@@ -83,16 +83,19 @@
   color: var(--text-muted);
   font-size: 0.9rem;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 .footer-links {
   display: flex;
-  gap: 1.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.75rem;
 }
 
 .footer-links a {
   transition: color 0.12s ease;
+  white-space: nowrap;
 }
 
 .footer-links a:hover {
@@ -102,10 +105,32 @@
 @media (max-width: 768px) {
   .footer-grid {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
+    text-align: center;
+    gap: 1.5rem;
+  }
+  .footer-address {
+    text-align: center;
+  }
+  .footer-contact {
+    align-items: center;
+    text-align: center;
+  }
+  .footer-social {
+    justify-content: center;
   }
   .footer-bottom {
     flex-direction: column;
+    align-items: center;
     text-align: center;
+    gap: 1rem;
+    padding-top: 1.5rem;
+  }
+  .footer-links {
+    justify-content: center;
+    gap: 0.75rem 1.25rem;
+    font-size: 0.85rem;
+    width: 100%;
   }
 }
+

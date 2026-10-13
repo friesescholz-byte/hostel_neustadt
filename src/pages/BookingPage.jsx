@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar, User, Users, Wifi, ShowerHead, Tv, Lock,
   ChevronRight, ChevronLeft, Check, ShieldCheck,
-  Building2, MapPin, Phone, Mail, ArrowLeft, Bed, CreditCard, Star,
+  Building2, MapPin, Phone, Mail, ArrowLeft, ArrowRight, Bed, CreditCard, Star,
   Plus, Minus, Trash2, CheckCircle2, Download, AlertCircle, RefreshCw,
   Clock, ExternalLink, Sparkles, ShoppingBag, Send, Accessibility
 } from 'lucide-react';
@@ -1062,16 +1062,18 @@ const BookingPage = () => {
       {/* Header */}
       <header className="booking-header">
         <div className="booking-header-inner">
-          <Link to="/" className="booking-back-link">
-            <ArrowLeft size={20} />
-            <span>Zur Startseite</span>
+          <Link to="/" className="booking-back-link" title="Zur Startseite">
+            <ArrowLeft size={18} />
+            <span className="booking-back-text-desktop">Zur Startseite</span>
+            <span className="booking-back-text-mobile">Startseite</span>
           </Link>
-          <Link to="/" className="booking-logo">
+          <Link to="/" className="booking-logo" title="Hostel Neustadt Startseite">
             <img src="https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Logo_Hostel_Neustadt_transparent.png" alt="Hostel Neustadt" />
           </Link>
           <div className="booking-header-trust">
             <ShieldCheck size={18} />
-            <span>Sichere Buchung & Überbuchungsschutz</span>
+            <span className="booking-trust-desktop">Sichere Buchung & Überbuchungsschutz</span>
+            <span className="booking-trust-mobile">Sichere Buchung</span>
           </div>
         </div>
       </header>
@@ -1883,7 +1885,7 @@ const BookingPage = () => {
         </div>
 
         {/* Sidebar */}
-        <aside className="booking-sidebar">
+        <aside className={`booking-sidebar ${cart.length === 0 && !isLongTermStay && step === 0 ? 'is-empty-cart-step0' : ''}`}>
           <div className="sidebar-card">
             <h3>{isLongTermStay ? 'Ihre Langzeit-Anfrage' : 'Ihre Buchung'}</h3>
 
@@ -1978,6 +1980,28 @@ const BookingPage = () => {
           </div>
         </aside>
       </div>
+
+      {/* Mobile Sticky Checkout Bar for Step 0 */}
+      {step === 0 && cart.length > 0 && !isLongTermStay && (
+        <div className="mobile-sticky-bottom-bar">
+          <div className="mobile-sticky-bar-inner">
+            <div className="mobile-sticky-summary">
+              <span className="mobile-sticky-rooms">
+                {cart.length} {cart.length === 1 ? 'Zimmer' : 'Zimmer'} · {totalCartNights} {totalCartNights === 1 ? 'Nacht' : 'Nächte'}
+              </span>
+              <strong className="mobile-sticky-total">{totalPrice.toFixed(2)} €</strong>
+            </div>
+            <button 
+              type="button" 
+              className="btn-mobile-sticky-checkout"
+              onClick={handleProceedToStep2}
+            >
+              <span>Weiter zu Gastdaten</span>
+              <ArrowRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Footer across the booking page */}
       <Footer />

@@ -8,5 +8,11 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"]
-  }
+  },
+  "kv_namespaces": [
+    {
+      "binding": "HOSTEL_KV",
+      "id": "ab1ad5e69a564fa5a609b8d5eb224b0c"
+    }
+  ]
 }
