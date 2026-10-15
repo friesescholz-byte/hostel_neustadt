@@ -19,7 +19,7 @@ const ImprintPage = () => {
             <h2>Angaben gemäß § 5 DDG</h2>
             <p>
               <strong>Eigentümergemeinschaft GbR Ahmed Bagari und Corinna Pasqualini</strong><br/>
-              Bertha-Sicius-Str. 6<br/>
+              Bertha-Sicius-Str. 6 a und b<br/>
               31535 Neustadt am Rübenberge<br/>
               Deutschland
             </p>

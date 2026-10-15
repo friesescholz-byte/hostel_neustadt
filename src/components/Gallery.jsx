@@ -115,7 +115,7 @@ const Gallery = () => {
           <span className="gallery-eyebrow">Einblicke</span>
           <h2 className="section-title text-left">Unser Hostel in Bildern</h2>
           <p className="gallery-desc">
-            Mach dir selbst ein Bild von unseren modernen Zimmern, der voll ausgestatteten Küche und dem gemütlichen Ambiente.
+            Mach dir selbst ein Bild von unseren modernen, gepflegten Zimmern und dem einladenden Ambiente.
           </p>
         </div>
 

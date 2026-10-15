@@ -64,7 +64,7 @@ export default {
       </p>
     </div>
     <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 28px; text-align: center; font-size: 11px; color: #94a3b8;">
-      Hostel Neustadt · Bertha-Sicius-Str. 6 · 31535 Neustadt am Rübenberge
+      Hostel Neustadt · Bertha-Sicius-Str. 6 a und b · 31535 Neustadt am Rübenberge
     </div>
   </div>
 </body>

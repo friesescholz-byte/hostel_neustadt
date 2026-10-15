@@ -36,7 +36,6 @@ const ROOM_DEFINITIONS = [
 
 const FEATURE_ICONS = {
   'WLAN': <Wifi size={16} />,
-  'Schließfach': <Lock size={16} />,
   'TV': <Tv size={16} />,
   'Eigenes Bad': <ShowerHead size={16} />,
   'Gemeinschaftsbad': <ShowerHead size={16} />,

@@ -1,18 +1,18 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Utensils, Coffee, WashingMachine, Lock, Briefcase, Bike, Wifi, Accessibility } from 'lucide-react';
+import { Accessibility, Car, Wifi, ShowerHead, Tv, Bed, KeyRound, CigaretteOff } from 'lucide-react';
 import './Amenities.css';
 
 const Amenities = () => {
   const amenities = [
-    { icon: <Accessibility size={32} />, name: "Barrierefreies Zimmer (Zimmer 2)" },
-    { icon: <Utensils size={32} />, name: "Gemeinschaftsküche" },
-    { icon: <Coffee size={32} />, name: "Aufenthaltsraum" },
-    { icon: <WashingMachine size={32} />, name: "Waschmaschine" },
-    { icon: <Lock size={32} />, name: "Schließfächer" },
-    { icon: <Briefcase size={32} />, name: "Gepäckaufbewahrung" },
-    { icon: <Bike size={32} />, name: <>Fahrrad-<br />stellplätze</> },
-    { icon: <Wifi size={32} />, name: "Kostenloses WLAN" }
+    { icon: <Accessibility size={32} strokeWidth={1.5} />, name: "Barrierefreies Zimmer (Zimmer 2)" },
+    { icon: <Car size={32} strokeWidth={1.5} />, name: "Kostenlose Parkplätze" },
+    { icon: <Wifi size={32} strokeWidth={1.5} />, name: "Kostenloses WLAN" },
+    { icon: <ShowerHead size={32} strokeWidth={1.5} />, name: "Eigenes Bad mit Dusche & WC" },
+    { icon: <Tv size={32} strokeWidth={1.5} />, name: "Flachbild-TV im Zimmer" },
+    { icon: <Bed size={32} strokeWidth={1.5} />, name: "Bettwäsche & Handtücher inkl." },
+    { icon: <KeyRound size={32} strokeWidth={1.5} />, name: "24/7 Self-Check-in" },
+    { icon: <CigaretteOff size={32} strokeWidth={1.5} />, name: "Nichtraucherzimmer" }
   ];
 
   return (

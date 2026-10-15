@@ -39,7 +39,7 @@ const FAQ = () => {
     },
     {
       question: "Gibt es Parkplätze?",
-      answer: "Ja, wir haben eigene Parkplätze für unsere Gäste direkt am Hostel. Diese kosten 5€ pro Nacht."
+      answer: "Ja, wir stellen unseren Gästen kostenlose Parkplätze direkt am Hostel zur Verfügung."
     },
     {
       question: "Sind Handtücher inklusive?",
@@ -47,7 +47,7 @@ const FAQ = () => {
     },
     {
       question: "Gibt es Frühstück?",
-      answer: "Wir bieten kein eigenes Frühstück an, aber in unserer voll ausgestatteten Gemeinschaftsküche kannst du dir jederzeit selbst etwas zubereiten. Ein Supermarkt ist direkt um die Ecke."
+      answer: "Wir bieten kein eigenes Frühstück an. In unmittelbarer Nähe (Supermärkte, Bäckereien und Cafés nur wenige Gehminuten entfernt) finden Sie eine vielfältige Auswahl an Frühstücksmöglichkeiten."
     },
     {
       question: "Kann ich spät anreisen?",
@@ -63,7 +63,7 @@ const FAQ = () => {
     },
     {
       question: "Gibt es eine Küche?",
-      answer: "Ja, wir haben eine große, gut ausgestattete Gemeinschaftsküche, die von allen Gästen genutzt werden kann."
+      answer: "Nein, um für alle Gäste ein Höchstmaß an Ruhe, Sauberkeit und Privatsphäre zu gewährleisten, bieten wir keine Gemeinschaftsküche an. In direkter Fußnähe gibt es zahlreiche Restaurants, Imbisse, Bäckereien und Einkaufsmöglichkeiten."
     },
     {
       question: "Ist das WLAN kostenlos?",

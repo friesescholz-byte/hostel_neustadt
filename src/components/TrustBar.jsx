@@ -1,21 +1,14 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Star, MapPin, Wifi, ShieldCheck, CalendarCheck } from 'lucide-react';
+import { Sparkles, MapPin, Wifi, ShieldCheck, CalendarCheck } from 'lucide-react';
 import './TrustBar.css';
 
 const TrustBar = () => {
   const items = [
     {
-      icon: null,
-      title: (
-        <>
-          <div className="stars" style={{ justifyContent: 'flex-start', marginBottom: '0.2rem' }}>
-            <Star fill="currentColor" /><Star fill="currentColor" /><Star fill="currentColor" /><Star fill="currentColor" /><Star fill="currentColor" />
-          </div>
-          4,7/5 bei Google
-        </>
-      ),
-      subtitle: "Über 350 Bewertungen"
+      icon: <Sparkles size={28} strokeWidth={1.5} />,
+      title: "Frisch neu eröffnet",
+      subtitle: "Moderne Zimmer & Neuausstattung"
     },
     {
       icon: <MapPin size={28} strokeWidth={1.5} />,
@@ -30,7 +23,7 @@ const TrustBar = () => {
     {
       icon: <ShieldCheck size={28} strokeWidth={1.5} />,
       title: "Sicher & Sauber",
-      subtitle: "Schließfächer & gründliche Reinigung"
+      subtitle: "Gepflegte Zimmer & gründliche Reinigung"
     },
     {
       icon: <CalendarCheck size={28} strokeWidth={1.5} />,

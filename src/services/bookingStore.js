@@ -80,7 +80,7 @@ const DEFAULT_SETTINGS = {
   hostEmail: 'vermietung@bh-am-ruebenberge.de',
   hotelName: 'Hostel Neustadt',
   companyName: 'Eigentümergemeinschaft GbR Ahmed Bagari und Corinna Pasqualini',
-  hotelAddress: 'Bertha-Sicius-Str. 6, 31535 Neustadt am Rübenberge',
+  hotelAddress: 'Bertha-Sicius-Str. 6 a und b, 31535 Neustadt am Rübenberge',
   hotelPhone: '+49 172 8572368',
   hotelEmail: 'vermietung@bh-am-ruebenberge.de',
   iban: 'DE98 2506 9262 0011 3700 00',

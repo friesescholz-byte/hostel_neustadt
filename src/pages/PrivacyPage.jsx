@@ -28,7 +28,7 @@ const PrivacyPage = () => {
             <p>Verantwortlich für die Datenverarbeitung auf dieser Website im Sinne der Datenschutz-Grundverordnung (DSGVO) ist:</p>
             <p>
               <strong>Eigentümergemeinschaft GbR Ahmed Bagari und Corinna Pasqualini</strong><br/>
-              Bertha-Sicius-Str. 6<br/>
+              Bertha-Sicius-Str. 6 a und b<br/>
               31535 Neustadt am Rübenberge<br/>
               Deutschland
             </p>

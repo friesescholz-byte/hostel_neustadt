@@ -42,7 +42,7 @@ const AccessibilityPage = () => {
                 <strong>Badezimmerausstattung:</strong> Bodengleiche, befahrbare Dusche ohne Einstiegskante, ergonomisch positionierte Haltegriffe an Dusche und WC sowie unterfahrbare Sanitäreinrichtungen.
               </li>
               <li>
-                <strong>Zugang & Parken:</strong> Ebenerdiger Haupteingang und bequeme Parkmöglichkeiten in unmittelbarer Nähe zum Eingangsbereich (Bertha-Sicius-Str. 6, 31535 Neustadt am Rübenberge).
+                <strong>Zugang & Parken:</strong> Ebenerdiger Haupteingang und bequeme Parkmöglichkeiten in unmittelbarer Nähe zum Eingangsbereich (Bertha-Sicius-Str. 6 a und b, 31535 Neustadt am Rübenberge).
               </li>
               <li>
                 <strong>Persönliche Unterstützung:</strong> Bei individuellen Assistenzwünschen oder Fragen vor der Anreise steht unser Team jederzeit telefonisch oder per WhatsApp zur Verfügung.
@@ -82,7 +82,7 @@ const AccessibilityPage = () => {
             </p>
             <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1.25rem', marginTop: '1rem', lineHeight: '1.8' }}>
               <strong>Eigentümergemeinschaft GbR Ahmed Bagari und Corinna Pasqualini</strong><br/>
-              Bertha-Sicius-Str. 6<br/>
+              Bertha-Sicius-Str. 6 a und b<br/>
               31535 Neustadt am Rübenberge<br/>
               Telefon / WhatsApp: <a href="https://wa.me/491728572368" target="_blank" rel="noopener noreferrer">+49 172 8572368</a><br/>
               E-Mail: <a href="mailto:vermietung@bh-am-ruebenberge.de">vermietung@bh-am-ruebenberge.de</a>

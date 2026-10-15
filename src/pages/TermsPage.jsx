@@ -16,7 +16,7 @@ const TermsPage = () => {
         <div className="legal-container">
           <h1 className="legal-title">Allgemeine Geschäftsbedingungen (AGB) & Stornierungsbedingungen</h1>
           <p className="legal-intro-note">
-            Stand: Oktober 2026 · Hostel Neustadt, Bertha-Sicius-Str. 6, 31535 Neustadt am Rübenberge
+            Stand: Oktober 2026 · Hostel Neustadt, Bertha-Sicius-Str. 6 a und b, 31535 Neustadt am Rübenberge
           </p>
 
           {/* Quick Summary Highlights for Guests */}
@@ -89,7 +89,7 @@ const TermsPage = () => {
             <h3>§ 1 Geltungsbereich & Vertragspartner</h3>
             <p>
               (1) Diese Geschäftsbedingungen gelten für Verträge über die mietweise Überlassung von Hostel- und Hotelzimmern zur Beherbergung sowie alle für den Gast erbrachten weiteren Leistungen des Hostels Neustadt (nachfolgend „Hostel“).<br />
-              (2) Vertragspartner ist die Eigentümergemeinschaft GbR Ahmed Bagari und Corinna Pasqualini (Hostel Neustadt), Bertha-Sicius-Str. 6, 31535 Neustadt am Rübenberge.
+              (2) Vertragspartner ist die Eigentümergemeinschaft GbR Ahmed Bagari und Corinna Pasqualini (Hostel Neustadt), Bertha-Sicius-Str. 6 a und b, 31535 Neustadt am Rübenberge.
             </p>
 
             <h3>§ 2 Vertragsschluss & Zahlung</h3>

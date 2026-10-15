@@ -39,7 +39,7 @@ const Footer = () => {
 
           <div className="footer-address">
             <p><strong>Hostel Neustadt</strong></p>
-            <p>Bertha-Sicius-Str. 6</p>
+            <p>Bertha-Sicius-Str. 6 a und b</p>
             <p>31535 Neustadt am Rübenberge</p>
           </div>
 

@@ -65,7 +65,7 @@ export async function generateInvoicePDF(booking) {
   doc.setFontSize(8.5);
   doc.setTextColor(...COLOR_MUTED);
   doc.text('Hostel Neustadt', 190, 17, { align: 'right' });
-  doc.text('Bertha-Sicius-Str. 6', 190, 21.5, { align: 'right' });
+  doc.text('Bertha-Sicius-Str. 6 a und b', 190, 21.5, { align: 'right' });
   doc.text('31535 Neustadt am Rübenberge', 190, 26, { align: 'right' });
   doc.text('Telefon: +49 172 8572368', 190, 30.5, { align: 'right' });
   doc.text('E-Mail: vermietung@bh-am-ruebenberge.de', 190, 35, { align: 'right' });
@@ -80,7 +80,7 @@ export async function generateInvoicePDF(booking) {
   // Small single-line sender address
   doc.setFontSize(7);
   doc.setTextColor(...COLOR_MUTED);
-  doc.text('Hostel Neustadt · Bertha-Sicius-Str. 6 · 31535 Neustadt am Rübenberge', 20, 50);
+  doc.text('Hostel Neustadt · Bertha-Sicius-Str. 6 a und b · 31535 Neustadt am Rübenberge', 20, 50);
 
   // Recipient Address
   let yPos = 57;
@@ -335,7 +335,7 @@ export async function generateInvoicePDF(booking) {
   doc.setFont('helvetica', 'bold');
   doc.text('Hostel Neustadt', 20, footY);
   doc.setFont('helvetica', 'normal');
-  doc.text('Bertha-Sicius-Str. 6', 20, footY + 3.5);
+  doc.text('Bertha-Sicius-Str. 6 a und b', 20, footY + 3.5);
   doc.text('31535 Neustadt am Rübenberge', 20, footY + 7);
   doc.text('vermietung@bh-am-ruebenberge.de', 20, footY + 10.5);
 

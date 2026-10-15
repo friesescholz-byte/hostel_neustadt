@@ -35,7 +35,6 @@ const Reviews = () => {
               <Star fill="currentColor" size={24} />
               <Star fill="currentColor" size={24} />
             </div>
-            <span className="score-text">bei Google</span>
           </div>
         </div>
 
@@ -51,18 +50,10 @@ const Reviews = () => {
             >
               <p className="review-text">"{review.text}"</p>
               <div className="review-author">
-                <span className="author-name">- {review.author}</span>
-                <div className="google-icon">G</div>
+                <span className="author-name">{review.author}</span>
               </div>
             </motion.div>
           ))}
-        </div>
-
-        <div className="text-center mt-4">
-          <a href="https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4" target="_blank" rel="noopener noreferrer" className="btn-primary" style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
-            <div className="google-icon" style={{ width: '20px', height: '20px', fontSize: '0.7rem' }}>G</div>
-            Auf Google bewerten
-          </a>
         </div>
       </div>
     </section>
