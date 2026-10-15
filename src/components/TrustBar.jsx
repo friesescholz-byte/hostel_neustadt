@@ -30,7 +30,7 @@ const TrustBar = () => {
     {
       icon: <ShieldCheck size={28} strokeWidth={1.5} />,
       title: "Sicher & Sauber",
-      subtitle: "Schließfächer & tägliche Reinigung"
+      subtitle: "Schließfächer & gründliche Reinigung"
     },
     {
       icon: <CalendarCheck size={28} strokeWidth={1.5} />,
