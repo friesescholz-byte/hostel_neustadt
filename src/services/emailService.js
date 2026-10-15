@@ -169,7 +169,7 @@ export async function sendBookingConfirmationEmails(booking) {
             </tr>
             <tr>
               <td style="padding: 4px 0;"><strong>Adresse:</strong></td>
-              <td style="padding: 4px 0;">Bahnhofstraße 10, 31535 Neustadt am Rübenberge</td>
+              <td style="padding: 4px 0;">Bertha-Sicius-Str. 6 a und b, 31535 Neustadt am Rübenberge</td>
             </tr>
           </table>
 
