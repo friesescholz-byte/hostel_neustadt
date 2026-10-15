@@ -28,6 +28,7 @@ const Navbar = () => {
     { name: 'Zimmer', href: '#zimmer' },
     { name: 'Ausstattung', href: '#ausstattung' },
     { name: 'Lage', href: '#lage' },
+    { name: 'Bewertungen', href: '#bewertungen' },
     { name: 'FAQ', href: '#faq' },
     { name: 'Kontakt', href: '#kontakt' },
   ];

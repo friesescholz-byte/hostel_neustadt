@@ -7,6 +7,7 @@ import Rooms from '../components/Rooms';
 import Features from '../components/Features';
 import Gallery from '../components/Gallery';
 import Location from '../components/Location';
+import Reviews from '../components/Reviews';
 import Amenities from '../components/Amenities';
 import FAQ from '../components/FAQ';
 import CTA from '../components/CTA';
@@ -24,6 +25,7 @@ function HomePage() {
         <Features />
         <Gallery />
         <Location />
+        <Reviews />
         <Amenities />
         <FAQ />
         <CTA />

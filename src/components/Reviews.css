@@ -1,97 +1,139 @@
-.reviews-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 3rem;
-  flex-wrap: wrap;
-  gap: 2rem;
+.reviews-section-compact {
+  position: relative;
+  background-color: var(--bg-light, #fbf9f5);
+  padding: 6.5rem 0;
+  overflow: hidden;
+  border-top: 1px solid rgba(226, 232, 240, 0.8);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
 }
 
-.reviews-title h2 {
-  font-size: 2.5rem;
-  color: var(--primary);
+/* Feststehendes Hero-Hintergrundbild mit dezentem Durchscheinen */
+.reviews-bg-fixed {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Gallerie/hf_20260609_133100_27b50ece-1bb3-4038-bcd6-e04b22539324_ergebnis.webp');
+  background-attachment: fixed;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: 0.22;
+  filter: saturate(0.95);
+  pointer-events: none;
+  z-index: 1;
 }
 
-.reviews-score {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+.reviews-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, rgba(251, 249, 245, 0.82) 0%, rgba(255, 255, 255, 0.72) 50%, rgba(251, 249, 245, 0.82) 100%);
+  pointer-events: none;
+  z-index: 1;
 }
 
-.score-number {
-  font-size: 3rem;
-  font-weight: 800;
-  color: var(--text-dark);
-  font-family: var(--font-heading);
-}
-
-.score-stars {
-  display: flex;
-  color: var(--gold);
-}
-
-.score-text {
-  font-size: 1rem;
-  color: var(--text-muted);
-  align-self: flex-end;
-  margin-bottom: 0.5rem;
-}
-
-.reviews-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-}
-
-.review-card {
-  background: white;
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-color);
+.reviews-compact-card {
+  max-width: 480px;
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(203, 213, 225, 0.85);
+  border-radius: 20px;
+  padding: 2.75rem 2.25rem;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  transform: perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1);
-}
-
-.review-card:hover {
-  transform: perspective(1000px) rotateX(4deg) rotateY(4deg) scale3d(1.02, 1.02, 1.02);
-  box-shadow: var(--shadow-md);
-}
-
-.review-text {
-  font-size: 1.1rem;
-  font-style: italic;
-  margin-bottom: 1.5rem;
-  color: var(--text-dark);
-  line-height: 1.6;
-}
-
-.review-author {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  color: var(--text-muted);
+  text-align: center;
+  box-shadow: 0 12px 35px rgba(15, 43, 92, 0.08), 0 2px 6px rgba(15, 43, 92, 0.04);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
-.google-icon {
-  width: 24px;
-  height: 24px;
-  background-color: #4285F4;
-  color: white;
-  border-radius: 50%;
+.reviews-compact-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px rgba(15, 43, 92, 0.12);
+}
+
+.compact-card-header {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.compact-stars {
+  display: flex;
+  gap: 4px;
+}
+
+.compact-card-body {
+  margin-bottom: 1.75rem;
+}
+
+.compact-card-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #0f2b5c;
+  margin-bottom: 0.5rem;
+  line-height: 1.25;
+}
+
+.compact-card-text {
+  font-size: 0.95rem;
+  color: #64748b;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.btn-google-compact {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
-  font-size: 0.8rem;
+  gap: 0.65rem;
+  background: #0f2b5c;
+  color: #ffffff;
+  padding: 0.9rem 1.6rem;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: background-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  width: 100%;
 }
 
-@media (max-width: 768px) {
-  .reviews-header {
-    flex-direction: column;
-    align-items: flex-start;
+.btn-google-compact:hover {
+  background: #1e3a8a;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(15, 43, 92, 0.22);
+  color: #ffffff;
+}
+
+@media (max-width: 600px) {
+  .reviews-section-compact {
+    padding: 4rem 0;
+  }
+
+  /* Bei mobilen Touchscreens ist background-attachment: fixed oft ruckelig; hier sauber auf scroll umstellen */
+  .reviews-bg-fixed {
+    background-attachment: scroll;
+  }
+
+  .reviews-compact-card {
+    padding: 2rem 1.25rem;
+    margin: 0 1rem;
+    border-radius: 16px;
+  }
+
+  .compact-card-title {
+    font-size: 1.25rem;
+  }
+
+  .compact-card-text {
+    font-size: 0.9rem;
   }
 }

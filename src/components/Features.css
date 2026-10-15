@@ -8,12 +8,44 @@
 @media (max-width: 992px) {
   .features-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 2.5rem 1.5rem;
   }
 }
 
 @media (max-width: 768px) {
+  .features.section-padding {
+    padding: 3.5rem 0;
+  }
+
+  /* Mobil immer 2 Icons nebeneinander, damit der Abschnitt kompakt und übersichtlich bleibt */
   .features-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.75rem 0.85rem;
+  }
+
+  .feature-item {
+    padding: 0.25rem;
+  }
+
+  .feature-icon {
+    height: 56px;
+    width: 56px;
+    margin-bottom: 0.75rem;
+  }
+
+  .feature-icon svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .feature-item h4 {
+    font-size: 1rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .feature-item p {
+    font-size: 0.825rem;
+    line-height: 1.35;
   }
 }
 
