@@ -693,10 +693,20 @@ const BookingPage = () => {
   // Verify Mollie payment on return redirect from Mollie checkout
   useEffect(() => {
     const paymentStatusParam = searchParams.get('payment_status');
-    const paymentId = searchParams.get('payment_id') || localStorage.getItem('hostel_pending_payment_id');
+    const urlPaymentId = searchParams.get('payment_id');
+    const storedPaymentId = localStorage.getItem('hostel_pending_payment_id');
 
-    if (paymentStatusParam === 'check' || (paymentId && !confirmedBooking && !confirmedInquiry)) {
-      handleVerifyMollieReturn(paymentId);
+    // Only verify if explicitly returning from Mollie checkout with ?payment_status=check or ?payment_id=...
+    if (paymentStatusParam === 'check' || urlPaymentId) {
+      const activeId = urlPaymentId || storedPaymentId;
+      if (activeId && !confirmedBooking && !confirmedInquiry) {
+        handleVerifyMollieReturn(activeId);
+      }
+    } else {
+      // Normal visit to /buchen without checkout return: clear any stale pending payment ID
+      if (storedPaymentId) {
+        localStorage.removeItem('hostel_pending_payment_id');
+      }
     }
   }, [searchParams]);
 
@@ -717,6 +727,8 @@ const BookingPage = () => {
       }
 
       if (!res.ok) {
+        // Clear stored payment ID on API failure (e.g. wrong mode / not found) to prevent infinite error loops
+        localStorage.removeItem('hostel_pending_payment_id');
         throw new Error(data.error || 'Zahlungsstatus konnte von Mollie nicht abgerufen werden.');
       }
 
@@ -761,10 +773,12 @@ const BookingPage = () => {
 
           window.history.replaceState({}, '', '/buchen?step=confirmation');
         } else {
+          localStorage.removeItem('hostel_pending_payment_id');
           throw new Error('Buchungsdaten konnten nach Rückkehr von Mollie nicht wiederhergestellt werden.');
         }
       } else {
         // Canceled or not paid
+        localStorage.removeItem('hostel_pending_payment_id');
         const draftStr = localStorage.getItem('hostel_pending_checkout');
         if (draftStr) {
           try {
@@ -785,6 +799,7 @@ const BookingPage = () => {
       }
     } catch (err) {
       console.error('[Booking] Mollie verification error:', err);
+      localStorage.removeItem('hostel_pending_payment_id');
       setStep(2);
       setPaymentError(err.message || 'Fehler bei der Zahlungsüberprüfung.');
       window.history.replaceState({}, '', '/buchen');
