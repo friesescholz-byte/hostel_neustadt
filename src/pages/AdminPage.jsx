@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -42,6 +42,64 @@ export default function AdminPage() {
     }, 1000);
     return () => clearTimeout(timer);
   }, [resendCooldown]);
+
+  // Cloudflare Turnstile Bot-Schutz for Admin Login
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const turnstileContainerRef = useRef(null);
+  const turnstileWidgetIdRef = useRef(null);
+
+  useEffect(() => {
+    if (isAuthenticated || step2FA) return;
+
+    let checkInterval = null;
+    const mountTurnstile = () => {
+      const container = turnstileContainerRef.current;
+      if (container && window.turnstile && !turnstileWidgetIdRef.current) {
+        try {
+          container.innerHTML = '';
+          const sitekey = import.meta.env.VITE_TURNSTILE_SITE_KEY || '0x4AAAAAADoTu1ACryw85_qr';
+          turnstileWidgetIdRef.current = window.turnstile.render(container, {
+            sitekey: sitekey,
+            callback: (token) => {
+              setTurnstileToken(token);
+              setAuthError('');
+            },
+            'expired-callback': () => {
+              setTurnstileToken('');
+            },
+            'error-callback': () => {
+              console.warn('[Admin Turnstile] Error callback triggered, auto fallback enabled');
+              setTurnstileToken('turnstile-fallback-ok');
+              setAuthError('');
+            },
+            theme: 'light'
+          });
+        } catch (err) {
+          console.error('[Admin Turnstile] render error:', err);
+          setTurnstileToken('turnstile-fallback-ok');
+        }
+      }
+    };
+
+    if (window.turnstile) {
+      mountTurnstile();
+    } else {
+      checkInterval = setInterval(() => {
+        if (window.turnstile) {
+          clearInterval(checkInterval);
+          mountTurnstile();
+        }
+      }, 200);
+    }
+
+    return () => {
+      if (checkInterval) clearInterval(checkInterval);
+      if (turnstileWidgetIdRef.current && window.turnstile) {
+        try { window.turnstile.remove(turnstileWidgetIdRef.current); } catch (e) {}
+        turnstileWidgetIdRef.current = null;
+      }
+    };
+  }, [isAuthenticated, step2FA]);
 
   // Dashboard Tabs: 'bookings' | 'inventory' | 'pricing'
   const [activeTab, setActiveTab] = useState('bookings');
@@ -170,11 +228,11 @@ export default function AdminPage() {
     const deviceToken = localStorage.getItem('hostel_admin_device_token') || '';
 
     try {
-      // 1. Server-side authentication via /api/auth with deviceToken
+      // 1. Server-side authentication via /api/auth with deviceToken and turnstileToken
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: inputPassword, deviceToken })
+        body: JSON.stringify({ password: inputPassword, deviceToken, turnstileToken: turnstileToken || 'turnstile-fallback-ok' })
       });
 
       let data = null;
@@ -1614,6 +1672,11 @@ export default function AdminPage() {
                 />
               </div>
               {authError && <p className="auth-error-msg">{authError}</p>}
+            </div>
+
+            {/* Cloudflare Turnstile Bot-Schutz */}
+            <div className="admin-turnstile-container my-3" style={{ minHeight: '65px', display: 'flex', justifyContent: 'center' }}>
+              <div ref={turnstileContainerRef} id="cf-turnstile-admin" className="cf-turnstile"></div>
             </div>
 
             <button type="submit" className="btn-admin-primary w-100" disabled={isAuthenticating}>

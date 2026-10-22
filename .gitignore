@@ -27,3 +27,5 @@ data/
 *.njsproj
 *.sln
 *.sw?
+
+.dev.vars

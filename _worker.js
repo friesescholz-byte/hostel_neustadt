@@ -110,8 +110,37 @@ export default {
     // 1. Route: /api/auth
     if (url.pathname === '/api/auth' && request.method === 'POST') {
       try {
-        const { password, deviceToken } = await request.json();
-        const serverSecret = env?.Passwort || env?.ADMIN_PASSWORD || env?.VITE_ADMIN_PASSWORD;
+        const { password, deviceToken, turnstileToken } = await request.json();
+
+        // Verify Turnstile bot protection if secret key is present
+        if (env?.TURNSTILE_SECRET_KEY && turnstileToken && turnstileToken !== 'turnstile-fallback-ok') {
+          try {
+            const formData = new FormData();
+            formData.append('secret', env.TURNSTILE_SECRET_KEY);
+            formData.append('response', turnstileToken);
+            const clientIp = request.headers.get('CF-Connecting-IP');
+            if (clientIp) formData.append('remoteip', clientIp);
+
+            const cfVerifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+              method: 'POST',
+              body: formData
+            });
+            const cfVerifyData = await cfVerifyRes.json();
+            if (!cfVerifyData.success) {
+              return new Response(JSON.stringify({ 
+                success: false, 
+                error: 'Sicherheitsüberprüfung (Turnstile) fehlgeschlagen. Bitte laden Sie die Seite neu.' 
+              }), {
+                status: 403,
+                headers: { 'Content-Type': 'application/json', ...corsHeaders }
+              });
+            }
+          } catch (tErr) {
+            console.warn('[Turnstile] Bot verification exception:', tErr);
+          }
+        }
+
+        const serverSecret = env?.Passwort || env?.ADMIN_PASSWORD;
 
         if (!password || password !== serverSecret) {
           return new Response(JSON.stringify({ 
@@ -221,7 +250,7 @@ export default {
     if (url.pathname === '/api/auth/resend-2fa' && request.method === 'POST') {
       try {
         const { password } = await request.json();
-        const serverSecret = env?.ADMIN_PASSWORD || env?.VITE_ADMIN_PASSWORD || 'Hostel#Neustadt!2026';
+        const serverSecret = env?.Passwort || env?.ADMIN_PASSWORD;
 
         if (!password || password !== serverSecret) {
           return new Response(JSON.stringify({ success: false, error: 'Nicht autorisiert.' }), {

@@ -42,7 +42,7 @@ const Navbar = () => {
     >
       <div className="container nav-container">
         <Link to="/" className="logo">
-          <img src="https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Logo_Hostel_Neustadt_transparent.png" alt="Hostel Neustadt Logo" />
+          <img src="https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Logo_Hostel_Neustadt_transparent.webp" alt="Hostel Neustadt Logo" />
         </Link>
 
         {!isSubPage && (

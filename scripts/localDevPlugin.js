@@ -109,16 +109,21 @@ export function localStorePlugin() {
         }
 
         const getValidPassword = () => {
-          let envPass = process.env.ADMIN_PASSWORD || process.env.VITE_ADMIN_PASSWORD;
+          let envPass = process.env.ADMIN_PASSWORD || process.env.Passwort;
           if (!envPass) {
-            const envPath = path.join(rootDir, '.env');
-            if (fs.existsSync(envPath)) {
-              const content = fs.readFileSync(envPath, 'utf-8');
-              const match = content.match(/ADMIN_PASSWORD\s*=\s*(.*)/);
-              if (match) envPass = match[1].trim();
+            for (const f of ['.dev.vars', '.env']) {
+              const envPath = path.join(rootDir, f);
+              if (fs.existsSync(envPath)) {
+                const content = fs.readFileSync(envPath, 'utf-8');
+                const match = content.match(/(?:ADMIN_PASSWORD|Passwort)\s*=\s*(.*)/);
+                if (match && match[1].trim()) {
+                  envPass = match[1].trim();
+                  break;
+                }
+              }
             }
           }
-          return envPass || 'Hostel#Neustadt!2026';
+          return envPass || '';
         };
 
         const TWO_FACTOR_EMAIL = 'vermietung@bh-am-ruebenberge.de';

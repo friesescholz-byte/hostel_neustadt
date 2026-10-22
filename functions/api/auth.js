@@ -7,7 +7,7 @@
 export async function onRequestPost(context) {
   try {
     const { password } = await context.request.json();
-    const serverSecret = context.env.ADMIN_PASSWORD || context.env.VITE_ADMIN_PASSWORD || 'Hostel#Neustadt!2026';
+    const serverSecret = context.env.Passwort || context.env.ADMIN_PASSWORD;
 
     if (password && password === serverSecret) {
       // Secure verification token
