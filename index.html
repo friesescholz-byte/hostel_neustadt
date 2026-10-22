@@ -80,10 +80,26 @@
       "currenciesAccepted": "EUR"
     }
     </script>
+
+    <!-- Anti-Flash: Verhindert Aufblitzen des Startseiten-Fallbacks auf /admin -->
+    <script>
+      if (window.location.pathname.startsWith('/admin')) {
+        document.documentElement.classList.add('is-admin-route');
+      }
+    </script>
+    <style>
+      html.is-admin-route #seo-prerender {
+        display: none !important;
+      }
+      html.is-admin-route body {
+        background-color: #f8fafc;
+      }
+    </style>
   </head>
   <body>
     <div id="root">
-      <header style="padding: 24px 20px; border-bottom: 1px solid #e2e8f0; max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; font-family: system-ui, -apple-system, sans-serif;">
+      <div id="seo-prerender">
+        <header style="padding: 24px 20px; border-bottom: 1px solid #e2e8f0; max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; font-family: system-ui, -apple-system, sans-serif;">
         <div>
           <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: #0f2b5c;">Hostel Neustadt</h1>
           <p style="margin: 4px 0 0 0; font-size: 14px; color: #64748b;">Moderne Übernachtung in Neustadt am Rübenberge</p>
@@ -178,6 +194,7 @@
       <footer style="border-top: 1px solid #e2e8f0; padding: 24px 20px; text-align: center; font-size: 13px; color: #94a3b8; font-family: system-ui, -apple-system, sans-serif;">
         © 2026 Hostel Neustadt · Eigentümergemeinschaft GbR Ahmed Bagari & Corinna Pasqualini · Alle Rechte vorbehalten.
       </footer>
+      </div>
     </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

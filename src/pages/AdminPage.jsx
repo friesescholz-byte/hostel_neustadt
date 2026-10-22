@@ -179,6 +179,8 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     loadData();
     bookingStore.syncFromServer();
 
@@ -202,7 +204,7 @@ export default function AdminPage() {
       window.removeEventListener('hostel_store_change', handleUpdate);
       clearInterval(ticker);
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const formatHoldTimer = (expiresAt) => {
     if (!expiresAt) return '';
