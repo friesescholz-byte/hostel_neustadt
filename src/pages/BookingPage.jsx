@@ -874,7 +874,7 @@ const BookingPage = () => {
         <header className="booking-header">
           <div className="booking-header-inner">
             <Link to="/" className="booking-logo">
-              <img src="https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Logo_Hostel_Neustadt_transparent.webp" alt="Hostel Neustadt" />
+              <img src="https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Logo_Hostel_Neustadt_transparent.webp" alt="Boardinghouse am Rübenberge" />
             </Link>
             <div className="booking-header-trust">
               <ShieldCheck size={18} />
@@ -907,7 +907,7 @@ const BookingPage = () => {
               <span>Zur Startseite</span>
             </Link>
             <Link to="/" className="booking-logo">
-              <img src="https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Logo_Hostel_Neustadt_transparent.webp" alt="Hostel Neustadt" />
+              <img src="https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Logo_Hostel_Neustadt_transparent.webp" alt="Boardinghouse am Rübenberge" />
             </Link>
             <div className="booking-header-trust">
               <ShieldCheck size={18} />
@@ -1035,7 +1035,7 @@ const BookingPage = () => {
               <span>Zur Startseite</span>
             </Link>
             <Link to="/" className="booking-logo">
-              <img src="https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Logo_Hostel_Neustadt_transparent.webp" alt="Hostel Neustadt" />
+              <img src="https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Logo_Hostel_Neustadt_transparent.webp" alt="Boardinghouse am Rübenberge" />
             </Link>
             <div className="booking-header-trust">
               <ShieldCheck size={18} />
@@ -1157,8 +1157,8 @@ const BookingPage = () => {
             <ArrowLeft size={18} />
             <span>Startseite</span>
           </Link>
-          <Link to="/" className="booking-logo" title="Hostel Neustadt Startseite">
-            <img src="https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Logo_Hostel_Neustadt_transparent.webp" alt="Hostel Neustadt" />
+          <Link to="/" className="booking-logo" title="Boardinghouse am Rübenberge Startseite">
+            <img src="https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Logo_Hostel_Neustadt_transparent.webp" alt="Boardinghouse am Rübenberge" />
           </Link>
         </div>
       </header>
