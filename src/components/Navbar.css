@@ -23,7 +23,7 @@
 }
 
 .logo img {
-  height: 65px;
+  height: 78px;
   transition: height 0.3s ease, filter 0.3s ease;
 }
 
@@ -32,7 +32,7 @@
 }
 
 .navbar.scrolled .logo img {
-  height: 55px;
+  height: 64px;
   filter: none;
 }
 
@@ -212,7 +212,7 @@
     display: block;
   }
   .logo img {
-    height: 45px;
+    height: 56px;
   }
   .navbar {
     padding: 0.75rem 0;

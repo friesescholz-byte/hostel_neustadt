@@ -47,7 +47,7 @@
 }
 
 .booking-logo img {
-  height: 40px;
+  height: 62px;
   filter: brightness(0) saturate(100%) invert(13%) sepia(47%) saturate(5883%) hue-rotate(209deg) brightness(91%) contrast(98%);
 }
 
@@ -964,7 +964,7 @@
   }
 
   .booking-logo img {
-    height: 36px;
+    height: 48px;
     width: auto;
     max-width: 140px;
     object-fit: contain;

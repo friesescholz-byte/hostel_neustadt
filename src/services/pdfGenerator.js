@@ -45,8 +45,8 @@ export async function generateInvoicePDF(booking) {
   let logoDrawn = false;
   if (HOSTEL_LOGO_BASE64) {
     try {
-      // 22mm width, 24mm height (proportional to 368x400)
-      doc.addImage(HOSTEL_LOGO_BASE64, 'PNG', 20, 13, 22, 24);
+      // 28mm width, 24.5mm height (proportional to 420x366)
+      doc.addImage(HOSTEL_LOGO_BASE64, 'PNG', 20, 12, 28, 24.5);
       logoDrawn = true;
     } catch (e) {
       console.error('Embedded logo error:', e);
