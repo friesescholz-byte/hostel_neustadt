@@ -34,7 +34,7 @@ const ImprintPage = () => {
             <p>
               Telefon / WhatsApp: +49 172 8572368<br/>
               E-Mail: <a href="mailto:vermietung@bh-am-ruebenberge.de">vermietung@bh-am-ruebenberge.de</a><br/>
-              Website: <a href="https://www.bh-am-ruebenberge.de">www.bh-am-ruebenberge.de</a> · <a href="https://hostel-neustadt.de">www.hostel-neustadt.de</a>
+              Website: <a href="https://www.bh-am-ruebenberge.de">www.bh-am-ruebenberge.de</a>
             </p>
 
             <h2>Registereintrag</h2>
