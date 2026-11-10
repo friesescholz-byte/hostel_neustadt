@@ -170,6 +170,10 @@ export default function AdminPage() {
     note: ''
   });
 
+  // Edit Special Condition State
+  const [editingPeriod, setEditingPeriod] = useState(null);
+  const [showEditPeriodModal, setShowEditPeriodModal] = useState(false);
+
   // Load from store
   const loadData = () => {
     setBookings(bookingStore.getBookings());
@@ -403,6 +407,41 @@ export default function AdminPage() {
     const updated = customPeriods.map(p => p.id === period.id ? { ...p, active: !p.active } : p);
     bookingStore.setCustomPeriods(updated);
     setCustomPeriods(updated);
+  };
+
+  const handleStartEditPeriod = (cp) => {
+    setEditingPeriod({
+      id: cp.id,
+      name: cp.name || '',
+      startDate: cp.startDate || '',
+      endDate: cp.endDate || '',
+      priceEZ: cp.priceEZ || '',
+      priceDZ: cp.priceDZ || '',
+      note: cp.note || '',
+      active: cp.active !== false
+    });
+    setShowEditPeriodModal(true);
+  };
+
+  const handleSaveEditPeriod = async (e) => {
+    e.preventDefault();
+    if (!editingPeriod || !editingPeriod.name || !editingPeriod.startDate || !editingPeriod.endDate) {
+      alert('Bitte füllen Sie mindestens Bezeichnung, Startdatum und Enddatum aus.');
+      return;
+    }
+
+    const updated = {
+      ...editingPeriod,
+      priceEZ: Number(editingPeriod.priceEZ) || 70,
+      priceDZ: Number(editingPeriod.priceDZ) || 100
+    };
+
+    setCustomPeriods(prev => prev.map(p => p.id === updated.id ? updated : p));
+    await bookingStore.updateCustomPeriod(updated);
+    loadData();
+    setShowEditPeriodModal(false);
+    setEditingPeriod(null);
+    triggerSaveNotification('Sonderkondition erfolgreich aktualisiert!');
   };
 
   // --- Handlers: Bookings ---
@@ -2780,13 +2819,22 @@ export default function AdminPage() {
                             </button>
                           </td>
                           <td style={{ textAlign: 'right' }}>
-                            <button 
-                              className="btn-icon danger" 
-                              onClick={() => handleDeletePeriod(cp.id)}
-                              title="Zeitraum entfernen"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                            <div style={{ display: 'inline-flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                              <button 
+                                className="btn-icon" 
+                                onClick={() => handleStartEditPeriod(cp)}
+                                title="Zeitraum bearbeiten"
+                              >
+                                <Edit3 size={15} />
+                              </button>
+                              <button 
+                                className="btn-icon danger" 
+                                onClick={() => handleDeletePeriod(cp.id)}
+                                title="Zeitraum entfernen"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -2962,6 +3010,123 @@ export default function AdminPage() {
                   </button>
                   <button type="submit" className="btn-admin-primary">
                     <Plus size={16} /> Zeitraum speichern
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+        {showEditPeriodModal && editingPeriod && (
+          <div className="admin-modal-backdrop" onClick={() => setShowEditPeriodModal(false)}>
+            <motion.div 
+              className="admin-modal-card"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-header">
+                <div>
+                  <h3 className="text-lg font-bold">Sonderkondition bearbeiten</h3>
+                  <p className="text-xs text-muted">Messe- oder Saisonzeitraum und Zimmerpreise anpassen</p>
+                </div>
+                <button className="modal-close" onClick={() => setShowEditPeriodModal(false)}>×</button>
+              </div>
+
+              <form onSubmit={handleSaveEditPeriod} className="admin-form">
+                <div className="modal-body">
+                  <div className="form-group-admin">
+                    <label>Bezeichnung des Anlasses (z. B. Messe, Event, Saison) *</label>
+                    <input 
+                      type="text" 
+                      placeholder="z. B. Hannover Messe, EuroTier..."
+                      value={editingPeriod.name}
+                      onChange={(e) => setEditingPeriod({ ...editingPeriod, name: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-grid-2-admin">
+                    <div className="form-group-admin">
+                      <label>Von (Erster Tag) *</label>
+                      <input 
+                        type="date" 
+                        value={editingPeriod.startDate}
+                        onChange={(e) => setEditingPeriod({ ...editingPeriod, startDate: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="form-group-admin">
+                      <label>Bis (Letzter Tag) *</label>
+                      <input 
+                        type="date" 
+                        value={editingPeriod.endDate}
+                        min={editingPeriod.startDate}
+                        onChange={(e) => setEditingPeriod({ ...editingPeriod, endDate: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-grid-2-admin">
+                    <div className="form-group-admin">
+                      <label>Preis Einzelzimmer pro Nacht *</label>
+                      <div className="input-euro">
+                        <input 
+                          type="number" 
+                          placeholder="z. B. 140"
+                          value={editingPeriod.priceEZ}
+                          onChange={(e) => setEditingPeriod({ ...editingPeriod, priceEZ: e.target.value })}
+                          required
+                        />
+                        <span>€</span>
+                      </div>
+                    </div>
+                    <div className="form-group-admin">
+                      <label>Preis Doppelzimmer pro Nacht *</label>
+                      <div className="input-euro">
+                        <input 
+                          type="number" 
+                          placeholder="z. B. 200"
+                          value={editingPeriod.priceDZ}
+                          onChange={(e) => setEditingPeriod({ ...editingPeriod, priceDZ: e.target.value })}
+                          required
+                        />
+                        <span>€</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="form-group-admin">
+                    <label>Notiz / Beschreibung (optional)</label>
+                    <textarea 
+                      rows="2"
+                      placeholder="Zusätzliche interne Notizen..."
+                      value={editingPeriod.note}
+                      onChange={(e) => setEditingPeriod({ ...editingPeriod, note: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group-admin mt-2">
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
+                      <input 
+                        type="checkbox"
+                        checked={editingPeriod.active}
+                        onChange={(e) => setEditingPeriod({ ...editingPeriod, active: e.target.checked })}
+                        style={{ width: '18px', height: '18px', accentColor: '#0f2b5c' }}
+                      />
+                      <span>Dieser Zeitraum ist aktiv und wird bei Buchungen automatisch angewendet</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="modal-footer">
+                  <button type="button" className="btn-admin-secondary" onClick={() => setShowEditPeriodModal(false)}>
+                    Abbrechen
+                  </button>
+                  <button type="submit" className="btn-admin-primary">
+                    <Check size={16} /> Änderungen speichern
                   </button>
                 </div>
               </form>

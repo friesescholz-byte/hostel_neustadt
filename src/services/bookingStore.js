@@ -55,14 +55,114 @@ const DEFAULT_PRICING = {
 
 const DEFAULT_CUSTOM_PERIODS = [
   {
+    id: 'period-eurotier-2026',
+    name: 'EuroTier & EnergyDecentral 2026',
+    startDate: '2026-11-10',
+    endDate: '2026-11-14',
+    priceEZ: 140,
+    priceDZ: 200,
+    active: true,
+    note: 'Weltleitmesse für Tierhaltung & dezentrale Energie (10.–13.11., Abreise 14.11.)'
+  },
+  {
+    id: 'period-passion-pferd-2026',
+    name: 'Passion Pferd 2026 (inkl. Legal Tech Summit)',
+    startDate: '2026-12-03',
+    endDate: '2026-12-07',
+    priceEZ: 140,
+    priceDZ: 200,
+    active: true,
+    note: 'Europas größte Messe für Reiten, Jagen, Angeln (03.–06.12., Abreise 07.12.)'
+  },
+  {
+    id: 'period-abf-procare-2027',
+    name: 'ABF & Pro Care 2027',
+    startDate: '2027-02-10',
+    endDate: '2027-02-15',
+    priceEZ: 140,
+    priceDZ: 200,
+    active: true,
+    note: 'Norddeutschlands größte Freizeit- & Pflegemesse (10.–14.02., Abreise 15.02.)'
+  },
+  {
+    id: 'period-didacta-2027',
+    name: 'didacta Hannover 2027',
+    startDate: '2027-02-23',
+    endDate: '2027-02-28',
+    priceEZ: 140,
+    priceDZ: 200,
+    active: true,
+    note: 'Europäische Leitmesse für Bildung & Erziehung (23.–27.02., Abreise 28.02.)'
+  },
+  {
+    id: 'period-tire-technology-2027',
+    name: 'Tire Technology Expo 2027',
+    startDate: '2027-03-02',
+    endDate: '2027-03-05',
+    priceEZ: 140,
+    priceDZ: 200,
+    active: true,
+    note: 'Internationale Fachmesse für Reifentechnologie (02.–04.03., Abreise 05.03.)'
+  },
+  {
+    id: 'period-dsei-germany-2027',
+    name: 'DSEI Germany 2027',
+    startDate: '2027-03-09',
+    endDate: '2027-03-13',
+    priceEZ: 140,
+    priceDZ: 200,
+    active: true,
+    note: 'Sicherheits- & Verteidigungsmesse (09.–12.03., Abreise 13.03.)'
+  },
+  {
+    id: 'period-hannover-messe-2027',
+    name: 'HANNOVER MESSE 2027',
+    startDate: '2027-04-05',
+    endDate: '2027-04-09',
+    priceEZ: 140,
+    priceDZ: 200,
+    active: true,
+    note: 'Weltleitmesse der Industrie (05.–08.04., Abreise 09.04.)'
+  },
+  {
+    id: 'period-ligna-2027',
+    name: 'LIGNA Hannover 2027',
+    startDate: '2027-05-10',
+    endDate: '2027-05-15',
+    priceEZ: 140,
+    priceDZ: 200,
+    active: true,
+    note: 'Weltleitmesse für Forst- & Holzindustrie (10.–14.05., Abreise 15.05.)'
+  },
+  {
+    id: 'period-itma-2027',
+    name: 'ITMA 2027',
+    startDate: '2027-09-16',
+    endDate: '2027-09-23',
+    priceEZ: 140,
+    priceDZ: 200,
+    active: true,
+    note: 'Weltleitmesse für Textiltechnologie (16.–22.09., Abreise 23.09.)'
+  },
+  {
+    id: 'period-agritechnica-2027',
+    name: 'AGRITECHNICA Hannover 2027',
+    startDate: '2027-11-14',
+    endDate: '2027-11-21',
+    priceEZ: 140,
+    priceDZ: 200,
+    active: true,
+    note: 'Weltleitmesse für Landtechnik (14.–20.11., Abreise 21.11.)'
+  },
+  {
     id: 'period-hannover-messe-2026',
     name: 'Hannover Messe 2026',
     startDate: '2026-04-20',
     endDate: '2026-04-24',
     priceEZ: 125,
     priceDZ: 165,
-    active: true,
-    note: 'Messe-Sonderkonditionen für Industrie- & Fachbesucher'
+    active: false,
+    note: 'Vergangener Messezeitraum 2026'
   },
   {
     id: 'period-iaa-2026',
@@ -71,8 +171,8 @@ const DEFAULT_CUSTOM_PERIODS = [
     endDate: '2026-09-20',
     priceEZ: 110,
     priceDZ: 145,
-    active: true,
-    note: 'Sonderzeitraum Messe Hannover'
+    active: false,
+    note: 'Vergangener Messezeitraum 2026'
   }
 ];
 
@@ -190,6 +290,7 @@ const DEFAULT_BOOKINGS = [
 
 function readStorage(key, defaultValue) {
   try {
+    if (typeof localStorage === 'undefined') return defaultValue;
     const raw = localStorage.getItem(key);
     if (!raw) return defaultValue;
     return JSON.parse(raw);
@@ -200,7 +301,9 @@ function readStorage(key, defaultValue) {
 
 function writeStorage(key, value) {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('hostel_store_change', { detail: { key, value } }));
     }
@@ -441,6 +544,16 @@ export const bookingStore = {
     };
     this.setCustomPeriods([...periods, newPeriod]);
     return newPeriod;
+  },
+
+  async updateCustomPeriod(updatedPeriod) {
+    const periods = this.getCustomPeriods().map(p => p.id === updatedPeriod.id ? { ...p, ...updatedPeriod } : p);
+    writeStorage(STORAGE_KEYS.CUSTOM_PERIODS, periods);
+    await this.pushToServerImmediate();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('hostel_store_change', { detail: { key: STORAGE_KEYS.CUSTOM_PERIODS, value: periods } }));
+    }
+    return periods;
   },
 
   async deleteCustomPeriod(id) {
