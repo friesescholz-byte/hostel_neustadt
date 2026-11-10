@@ -1615,7 +1615,7 @@ const BookingPage = () => {
                                     <div className="room-tier-badge">
                                       {calc.hasCustomPeriod ? (
                                         <span className="badge-messe">
-                                          Sonderkondition: {calc.breakdown?.find(b => b.isCustomPeriod)?.periodName || 'Angebot'}
+                                          Messezeitraum
                                         </span>
                                       ) : (
                                         <span className="badge-tier">Staffel: {calc.tierName}</span>
@@ -1708,7 +1708,7 @@ const BookingPage = () => {
                                 </span>
                               </div>
                               {item.hasCustomPeriod && (
-                                <span className="cart-item-custom-tag">Sonderkondition: {item.periodName}</span>
+                                <span className="cart-item-custom-tag">Messezeitraum</span>
                               )}
                             </div>
 
@@ -1898,7 +1898,7 @@ const BookingPage = () => {
                               {formatDate(item.checkin)} – {formatDate(item.checkout)} ({item.nights} {item.nights === 1 ? 'Nacht' : 'Nächte'})
                             </span>
                             {item.hasCustomPeriod && (
-                              <span className="summary-badge-inline">Sonderkondition: {item.periodName}</span>
+                              <span className="summary-badge-inline">Messezeitraum</span>
                             )}
                           </div>
                         </div>
@@ -2071,7 +2071,7 @@ const BookingPage = () => {
                     <small>{formatDate(item.checkin)} – {formatDate(item.checkout)} ({item.nights} Nächte)</small>
                     <small className="text-muted">{item.guests} {item.guests === 1 ? 'Person' : 'Personen'}</small>
                     {item.hasCustomPeriod && (
-                      <small className="text-amber">Sonderkondition: {item.periodName}</small>
+                      <small className="text-amber">Messezeitraum</small>
                     )}
                   </div>
                 ))}
