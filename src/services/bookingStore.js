@@ -147,12 +147,12 @@ const DEFAULT_CUSTOM_PERIODS = [
   {
     id: 'period-agritechnica-2027',
     name: 'AGRITECHNICA Hannover 2027',
-    startDate: '2027-11-14',
+    startDate: '2027-11-10',
     endDate: '2027-11-21',
     priceEZ: 140,
     priceDZ: 200,
     active: true,
-    note: 'Weltleitmesse für Landtechnik (14.–20.11., Abreise 21.11.)'
+    note: 'Weltleitmesse für Landtechnik (inkl. Aufbau ab 10.11., Messe 14.–20.11., Abreise 21.11.)'
   },
   {
     id: 'period-hannover-messe-2026',
@@ -324,7 +324,15 @@ export const bookingStore = {
       if (data && typeof data === 'object') {
         if (data.inventory) writeStorage(STORAGE_KEYS.INVENTORY, data.inventory);
         if (data.pricing) writeStorage(STORAGE_KEYS.PRICING, data.pricing);
-        if (data.customPeriods) writeStorage(STORAGE_KEYS.CUSTOM_PERIODS, data.customPeriods);
+        if (data.customPeriods && Array.isArray(data.customPeriods)) {
+          const merged = [...data.customPeriods];
+          for (const def of DEFAULT_CUSTOM_PERIODS) {
+            if (!merged.some(p => p.id === def.id)) {
+              merged.push(def);
+            }
+          }
+          writeStorage(STORAGE_KEYS.CUSTOM_PERIODS, merged);
+        }
         if (data.bookings) writeStorage(STORAGE_KEYS.BOOKINGS, data.bookings);
         if (data.holds) writeStorage(STORAGE_KEYS.HOLDS, data.holds);
         if (data.settings) writeStorage(STORAGE_KEYS.SETTINGS, { ...DEFAULT_SETTINGS, ...data.settings });
@@ -526,9 +534,23 @@ export const bookingStore = {
     this.pushToServer();
   },
 
-  // ---- Custom Periods (Sonderkonditionen / Messezeiten) ----
   getCustomPeriods() {
-    return readStorage(STORAGE_KEYS.CUSTOM_PERIODS, DEFAULT_CUSTOM_PERIODS);
+    const periods = readStorage(STORAGE_KEYS.CUSTOM_PERIODS, DEFAULT_CUSTOM_PERIODS);
+    if (Array.isArray(periods)) {
+      let modified = false;
+      const merged = [...periods];
+      for (const def of DEFAULT_CUSTOM_PERIODS) {
+        if (!merged.some(p => p.id === def.id)) {
+          merged.push(def);
+          modified = true;
+        }
+      }
+      if (modified) {
+        writeStorage(STORAGE_KEYS.CUSTOM_PERIODS, merged);
+      }
+      return merged;
+    }
+    return DEFAULT_CUSTOM_PERIODS;
   },
 
   setCustomPeriods(periods) {
