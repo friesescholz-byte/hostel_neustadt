@@ -63,7 +63,7 @@ const FAQ = () => {
     },
     {
       question: "Gibt es eine Küche?",
-      answer: "Ja, jedes unserer Zimmer verfügt über eine eigene, voll ausgestattete Küche bzw. Kitchenette. So kannst du dich während deines Aufenthalts jederzeit unabhängig selbst verpflegen und genießt maximale Privatsphäre."
+      answer: "Ja, jedes unserer Zimmer verfügt über eine eigene, voll ausgestattete Küche. So kannst du dich während deines Aufenthalts jederzeit unabhängig selbst verpflegen und genießt maximale Privatsphäre."
     },
     {
       question: "Ist das WLAN kostenlos?",
