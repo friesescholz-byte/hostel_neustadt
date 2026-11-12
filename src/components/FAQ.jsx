@@ -63,7 +63,7 @@ const FAQ = () => {
     },
     {
       question: "Gibt es eine Küche?",
-      answer: "Nein, um für alle Gäste ein Höchstmaß an Ruhe, Sauberkeit und Privatsphäre zu gewährleisten, bieten wir keine Gemeinschaftsküche an. In direkter Fußnähe gibt es zahlreiche Restaurants, Imbisse, Bäckereien und Einkaufsmöglichkeiten."
+      answer: "Ja, jedes unserer Zimmer verfügt über eine eigene, voll ausgestattete Küche bzw. Kitchenette. So kannst du dich während deines Aufenthalts jederzeit unabhängig selbst verpflegen und genießt maximale Privatsphäre."
     },
     {
       question: "Ist das WLAN kostenlos?",

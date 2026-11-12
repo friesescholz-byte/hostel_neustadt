@@ -6,7 +6,7 @@ import {
   ChevronRight, ChevronLeft, Check, ShieldCheck,
   Building2, MapPin, Phone, Mail, ArrowLeft, ArrowRight, Bed, CreditCard, Star,
   Plus, Minus, Trash2, CheckCircle2, Download, AlertCircle, RefreshCw,
-  Clock, ExternalLink, Sparkles, ShoppingBag, Send, Accessibility
+  Clock, ExternalLink, Sparkles, ShoppingBag, Send, Accessibility, Utensils
 } from 'lucide-react';
 import { bookingStore } from '../services/bookingStore';
 import { downloadInvoicePDF } from '../services/pdfGenerator';
@@ -22,7 +22,7 @@ const ROOM_DEFINITIONS = [
     accessibleNote: 'Barrierefreies Einzelzimmer (Zimmer 2 · ♿) verfügbar',
     img: 'https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Gallerie/hf_20260609_133148_67288b61-b237-4d39-a77a-77344a73cdcc_ergebnis.webp',
     maxCapacity: 1,
-    features: ['WLAN', 'Eigenes Bad', 'TV', 'Bettwäsche']
+    features: ['WLAN', 'Eigenes Bad', 'Eigene Küche', 'TV', 'Bettwäsche']
   },
   {
     id: 'doppelzimmer',
@@ -30,7 +30,7 @@ const ROOM_DEFINITIONS = [
     desc: 'Privates Zimmer mit Doppelbett – perfekt für Paare, Kollegen und Teams mit mehr Komfort.',
     img: 'https://pub-b33108412309406a9a941ddc51e9a5b9.r2.dev/hostel_neustadt/Gallerie/hf_20260609_134014_fb04fac6-65c1-4b1e-b4b7-00038e0f899c_ergebnis.webp',
     maxCapacity: 2,
-    features: ['WLAN', 'Eigenes Bad', 'TV', 'Bettwäsche']
+    features: ['WLAN', 'Eigenes Bad', 'Eigene Küche', 'TV', 'Bettwäsche']
   }
 ];
 
@@ -38,6 +38,7 @@ const FEATURE_ICONS = {
   'WLAN': <Wifi size={16} />,
   'TV': <Tv size={16} />,
   'Eigenes Bad': <ShowerHead size={16} />,
+  'Eigene Küche': <Utensils size={16} />,
   'Gemeinschaftsbad': <ShowerHead size={16} />,
   'Bettwäsche': <Bed size={16} />,
   'Kinderbett möglich': <Bed size={16} />,
