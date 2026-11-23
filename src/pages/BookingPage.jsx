@@ -8,7 +8,7 @@ import {
   Plus, Minus, Trash2, CheckCircle2, Download, AlertCircle, RefreshCw,
   Clock, ExternalLink, Sparkles, ShoppingBag, Send, Accessibility, Utensils
 } from 'lucide-react';
-import { bookingStore } from '../services/bookingStore';
+import { bookingStore, calculateBookingTotals } from '../services/bookingStore';
 import { downloadInvoicePDF } from '../services/pdfGenerator';
 import { sendBookingConfirmationEmails, sendLongTermInquiryEmails } from '../services/emailService';
 import Footer from '../components/Footer';
@@ -339,10 +339,17 @@ const BookingPage = () => {
     };
   }, [checkin, checkout, activeNights]);
 
-  // Total cart price & total nights
-  const totalPrice = useMemo(() => {
+  // Total cart price (rooms + Beherbergungssteuer) & total nights
+  const roomsSubtotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
   }, [cart]);
+
+  const bookingTotals = useMemo(() => {
+    const settings = bookingStore.getSettings();
+    return calculateBookingTotals(roomsSubtotal, settings.cityTaxRate ?? 4, settings.taxRate ?? 7);
+  }, [roomsSubtotal]);
+
+  const totalPrice = bookingTotals.totalPrice;
 
   const totalCartNights = useMemo(() => {
     return cart.reduce((sum, item) => sum + (item.nights || 0), 0);
@@ -1120,6 +1127,12 @@ const BookingPage = () => {
                   ))}
                 </div>
               </div>
+              {Number(confirmedBooking.cityTaxGross || 0) > 0 && (
+                <div className="success-detail-row">
+                  <span>Beherbergungssteuer ({confirmedBooking.cityTaxRate || 4} % auf Netto):</span>
+                  <strong>{Number(confirmedBooking.cityTaxGross).toFixed(2)} €</strong>
+                </div>
+              )}
             </div>
 
             {/* Primary Action: Download PDF Invoice */}
@@ -1742,13 +1755,23 @@ const BookingPage = () => {
                           </div>
                         </div>
                       ))}
+
+                      {bookingTotals.cityTaxGross > 0 && (
+                        <div className="cart-citytax-row">
+                          <div className="cart-citytax-info">
+                            <strong>Beherbergungssteuer Stadt Neustadt a. Rbge.</strong>
+                            <small>{bookingTotals.cityTaxRate} % auf Netto-Übernachtungsentgelt (inkl. 7 % USt.)</small>
+                          </div>
+                          <span className="cart-citytax-val">+{bookingTotals.cityTaxGross.toFixed(2)} €</span>
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {cart.length > 0 && (
                     <div className="cart-checkout-action-row">
                       <div className="cart-checkout-subtotal">
-                        <span>Gesamtpreis ({cart.length} {cart.length === 1 ? 'Zimmer' : 'Zimmer'} · {totalCartNights} {totalCartNights === 1 ? 'Nacht' : 'Nächte'}):</span>
+                        <span>Gesamtbetrag ({cart.length} {cart.length === 1 ? 'Zimmer' : 'Zimmer'} · {totalCartNights} {totalCartNights === 1 ? 'Nacht' : 'Nächte'} inkl. Beherbergungssteuer):</span>
                         <strong className="cart-checkout-subtotal-val">{totalPrice.toFixed(2)} €</strong>
                       </div>
                       <button 
@@ -1930,16 +1953,28 @@ const BookingPage = () => {
 
                     <div className="summary-divider" />
                     <div className="summary-row">
-                      <span className="summary-label">Nettobetrag (93%)</span>
-                      <span className="summary-value">{(totalPrice / 1.07).toFixed(2)} €</span>
+                      <span className="summary-label">Zimmerpreis (inkl. 7 % USt.)</span>
+                      <span className="summary-value">{bookingTotals.lodgingGross.toFixed(2)} €</span>
+                    </div>
+                    {bookingTotals.cityTaxGross > 0 && (
+                      <div className="summary-row">
+                        <span className="summary-label">Beherbergungssteuer ({bookingTotals.cityTaxRate} % auf Netto, inkl. 7 % USt.)</span>
+                        <span className="summary-value">+{bookingTotals.cityTaxGross.toFixed(2)} €</span>
+                      </div>
+                    )}
+
+                    <div className="summary-divider" />
+                    <div className="summary-row">
+                      <span className="summary-label">Nettobetrag gesamt (ohne USt.)</span>
+                      <span className="summary-value">{bookingTotals.netTotal.toFixed(2)} €</span>
                     </div>
                     <div className="summary-row">
-                      <span className="summary-label">7% Beherbergungs-USt.</span>
-                      <span className="summary-value">{(totalPrice - (totalPrice / 1.07)).toFixed(2)} €</span>
+                      <span className="summary-label">7 % Beherbergungs-USt.</span>
+                      <span className="summary-value">{bookingTotals.taxAmount.toFixed(2)} €</span>
                     </div>
                     <div className="summary-row summary-total">
                       <span className="summary-label">Gesamtbetrag (brutto)</span>
-                      <span className="summary-value">{totalPrice.toFixed(2)} €</span>
+                      <span className="summary-value">{bookingTotals.totalPrice.toFixed(2)} €</span>
                     </div>
                   </div>
 
@@ -2076,6 +2111,16 @@ const BookingPage = () => {
                     )}
                   </div>
                 ))}
+
+                {bookingTotals.cityTaxGross > 0 && (
+                  <>
+                    <div className="sidebar-divider" />
+                    <div className="sidebar-row sidebar-citytax-row">
+                      <span>Beherbergungssteuer ({bookingTotals.cityTaxRate} %)</span>
+                      <span>+{bookingTotals.cityTaxGross.toFixed(2)} €</span>
+                    </div>
+                  </>
+                )}
                 
                 <div className="sidebar-divider" />
                 <div className="sidebar-row sidebar-total">

@@ -12,6 +12,51 @@ const formatEuro = (val) => {
   }) + ' €';
 };
 
+function buildBookingItemsRowsHtml(booking, checkinDE, checkoutDE) {
+  const rooms = booking.rooms || [];
+  const roomsHtml = rooms.map(r => {
+    const title = r.name || (r.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer');
+    const rIn = r.checkin ? new Date(r.checkin).toLocaleDateString('de-DE') : checkinDE;
+    const rOut = r.checkout ? new Date(r.checkout).toLocaleDateString('de-DE') : checkoutDE;
+    const rNights = r.nights || booking.nights || 1;
+    const rTotal = Number(r.totalPrice || 0);
+
+    const roomNumBadge = r.roomNumber
+      ? `<span style="background: #e0f2fe; color: #0369a1; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 6px;">Zimmer ${r.roomNumber}${r.roomNumber === 2 ? ' (Barrierefrei ♿)' : ''}</span>`
+      : '';
+
+    return `
+      <tr>
+        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; color: #1e293b;">
+          <strong>${r.count || 1}x ${title}</strong>${roomNumBadge}<br>
+          <span style="font-size: 12px; color: #64748b;">${rIn} – ${rOut} (${rNights} ${rNights === 1 ? 'Nacht' : 'Nächte'}) · ${r.guests || 1} Gast/Gäste</span>
+        </td>
+        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #0f172a; white-space: nowrap;">
+          ${formatEuro(rTotal)}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  const cityTaxGross = Number(booking.cityTaxGross || 0);
+  if (cityTaxGross > 0) {
+    const taxRate = Number(booking.cityTaxRate || 4);
+    return roomsHtml + `
+      <tr>
+        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; color: #1e293b;">
+          <strong>Beherbergungssteuer Stadt Neustadt a. Rbge.</strong><br>
+          <span style="font-size: 12px; color: #64748b;">Kommunale Abgabe (${taxRate} % auf Netto-Übernachtungsentgelt · inkl. 7 % USt.)</span>
+        </td>
+        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #0f172a; white-space: nowrap;">
+          ${formatEuro(cityTaxGross)}
+        </td>
+      </tr>
+    `;
+  }
+
+  return roomsHtml;
+}
+
 /**
  * Generic email sender using Scholz & Friese Resend Worker or Cloudflare Function fallback
  */
@@ -89,30 +134,8 @@ export async function sendBookingConfirmationEmails(booking) {
     console.error('[EmailService] Failed to generate PDF invoice attachment:', pdfErr);
   }
 
-  // 2. Build Room items HTML rows
-  const roomsHtml = rooms.map(r => {
-    const title = r.name || (r.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer');
-    const rIn = r.checkin ? new Date(r.checkin).toLocaleDateString('de-DE') : checkinDE;
-    const rOut = r.checkout ? new Date(r.checkout).toLocaleDateString('de-DE') : checkoutDE;
-    const rNights = r.nights || booking.nights || 1;
-    const rTotal = Number(r.totalPrice || 0);
-
-    const roomNumBadge = r.roomNumber 
-      ? `<span style="background: #e0f2fe; color: #0369a1; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 6px;">Zimmer ${r.roomNumber}${r.roomNumber === 2 ? ' (Barrierefrei ♿)' : ''}</span>`
-      : '';
-
-    return `
-      <tr>
-        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; color: #1e293b;">
-          <strong>${r.count || 1}x ${title}</strong>${roomNumBadge}<br>
-          <span style="font-size: 12px; color: #64748b;">${rIn} – ${rOut} (${rNights} ${rNights === 1 ? 'Nacht' : 'Nächte'}) · ${r.guests || 1} Gast/Gäste</span>
-        </td>
-        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #0f172a; white-space: nowrap;">
-          ${formatEuro(rTotal)}
-        </td>
-      </tr>
-    `;
-  }).join('');
+  // 2. Build Room items & Beherbergungssteuer HTML rows
+  const roomsHtml = buildBookingItemsRowsHtml(booking, checkinDE, checkoutDE);
 
   // 3. Customer Email HTML
   const customerSalutation = guest.lastName ? `Sehr geehrte(r) Frau/Herr ${guest.lastName},` : 'Sehr geehrte Damen und Herren,';
@@ -186,7 +209,7 @@ export async function sendBookingConfirmationEmails(booking) {
 
           <div class="pdf-notice">
             <strong>📄 Ihre offizielle PDF-Rechnung:</strong><br>
-            Die offizielle Rechnung (Rechnungs-Nr. <strong>${booking.invoiceNumber}</strong>) mit ausgewiesener 7% Beherbergungsteuer ist dieser Bestätigungs-E-Mail als PDF-Dokument beigefügt.
+            Die offizielle Rechnung (Rechnungs-Nr. <strong>${booking.invoiceNumber}</strong>) mit ausgewiesener 7 % USt.${Number(booking.cityTaxGross || 0) > 0 ? ' und separater Beherbergungssteuer' : ''} ist dieser Bestätigungs-E-Mail als PDF-Dokument beigefügt.
           </div>
 
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; font-size: 13px; color: #475569; margin-top: 24px;">
@@ -554,29 +577,7 @@ export async function resendInvoiceEmail(booking, targetEmail = null) {
     console.error('[EmailService] Failed to generate PDF for resending:', pdfErr);
   }
 
-  const roomsHtml = rooms.map(r => {
-    const title = r.name || (r.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer');
-    const rIn = r.checkin ? new Date(r.checkin).toLocaleDateString('de-DE') : checkinDE;
-    const rOut = r.checkout ? new Date(r.checkout).toLocaleDateString('de-DE') : checkoutDE;
-    const rNights = r.nights || booking.nights || 1;
-    const rTotal = Number(r.totalPrice || 0);
-
-    const roomNumBadge = r.roomNumber 
-      ? `<span style="background: #e0f2fe; color: #0369a1; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 6px;">Zimmer ${r.roomNumber}${r.roomNumber === 2 ? ' (Barrierefrei ♿)' : ''}</span>`
-      : '';
-
-    return `
-      <tr>
-        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; color: #1e293b;">
-          <strong>${r.count || 1}x ${title}</strong>${roomNumBadge}<br>
-          <span style="font-size: 12px; color: #64748b;">${rIn} – ${rOut} (${rNights} ${rNights === 1 ? 'Nacht' : 'Nächte'}) · ${r.guests || 1} Gast/Gäste</span>
-        </td>
-        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #0f172a; white-space: nowrap;">
-          ${formatEuro(rTotal)}
-        </td>
-      </tr>
-    `;
-  }).join('');
+  const roomsHtml = buildBookingItemsRowsHtml(booking, checkinDE, checkoutDE);
 
   const customerSalutation = guest.lastName ? `Sehr geehrte(r) Frau/Herr ${guest.lastName},` : 'Sehr geehrte Damen und Herren,';
 

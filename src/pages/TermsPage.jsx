@@ -96,7 +96,7 @@ const TermsPage = () => {
             <p>
               (1) Mit der Online-Buchung über unsere Website gibt der Gast ein verbindliches Angebot zum Abschluss eines Beherbergungsvertrages ab. Der Vertrag kommt mit der Buchungsbestätigung und der erfolgreichen Zahlungsabwicklung zustande.<br />
               (2) Die Zahlung erfolgt im Voraus über die angebotenen Zahlungsarten unseres Zahlungsdienstleisters (z. B. Mollie: Kreditkarte, PayPal, Klarna/Sofortüberweisung, Giropay). Nach Zahlungseingang wird dem Gast unverzüglich eine Buchungsbestätigung sowie eine ordnungsgemäße Rechnung im PDF-Format zur Verfügung gestellt.<br />
-              (3) Alle angegebenen Preise verstehen sich in Euro (€) inklusive der jeweils gültigen gesetzlichen Mehrwertsteuer (derzeit 7 % für Beherbergungsleistungen gem. § 12 Abs. 2 Nr. 11 UStG).
+              (3) Alle angegebenen Preise verstehen sich in Euro (€) inklusive der jeweils gültigen gesetzlichen Mehrwertsteuer (derzeit 7 % für Beherbergungsleistungen gem. § 12 Abs. 2 Nr. 11 UStG). Zusätzlich fällt die kommunale Beherbergungssteuer der Stadt Neustadt am Rübenberge (4 % auf das Netto-Übernachtungsentgelt, zzgl. 7 % USt.) an, die im Buchungsprozess sowie auf der Rechnung gesondert ausgewiesen wird.
             </p>
 
             <h3>§ 3 Zimmerbereitstellung, An- und Abreise</h3>

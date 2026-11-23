@@ -10,7 +10,7 @@ import {
   Accessibility, Send, LayoutGrid, ChevronDown, ChevronUp, User, Building2, MapPin,
   ArrowLeftRight
 } from 'lucide-react';
-import { bookingStore, ROOM_DEFINITIONS } from '../services/bookingStore';
+import { bookingStore, ROOM_DEFINITIONS, calculateBookingTotals, splitTotalWithCityTax } from '../services/bookingStore';
 import { downloadInvoicePDF } from '../services/pdfGenerator';
 import { resendInvoiceEmail, sendCancellationEmail } from '../services/emailService';
 import './AdminPage.css';
@@ -157,7 +157,8 @@ export default function AdminPage() {
     roomNumber: '', // specific assigned room number 1-15 or '' for auto
     paymentStatus: 'paid', // 'paid' | 'pending'
     paymentMethod: 'bar', // 'bar' | 'ec' | 'ueberweisung' | 'rechnung' | 'online'
-    customPrice: ''
+    customPrice: '',
+    includeCityTax: true
   });
 
   // New Special Condition Form
@@ -903,6 +904,15 @@ export default function AdminPage() {
                 </span>
               </div>
 
+              {!isInquiry && Number(b.cityTaxGross || 0) > 0 && (
+                <div className="exp-field-row">
+                  <span className="exp-label">Davon Beherbergungssteuer ({b.cityTaxRate || 4} %):</span>
+                  <span className="exp-val text-muted">
+                    {Number(b.cityTaxGross).toFixed(2)} € (Netto: {Number(b.cityTaxNet || (b.cityTaxGross / 1.07)).toFixed(2)} €)
+                  </span>
+                </div>
+              )}
+
               <div className="exp-field-row">
                 <span className="exp-label">Zahlungsstatus:</span>
                 <span className="exp-val">
@@ -1215,7 +1225,8 @@ export default function AdminPage() {
     const countEZ = initialDef ? (initialDef.typeId === 'einzelzimmer' ? 1 : 0) : 1;
     const countDZ = initialDef ? (initialDef.typeId === 'doppelzimmer' ? 1 : 0) : 0;
 
-    const calcEZ = bookingStore.calculateRoomPrice(initialDef?.typeId || 'einzelzimmer', checkinStr, checkoutStr);
+    const calcRoom = bookingStore.calculateRoomPrice(initialDef?.typeId || 'einzelzimmer', checkinStr, checkoutStr);
+    const initTotals = calculateBookingTotals(calcRoom.total || 0, settings.cityTaxRate ?? 4, settings.taxRate ?? 7);
 
     setManualBooking({
       firstName: '',
@@ -1234,12 +1245,13 @@ export default function AdminPage() {
       roomNumber: initialRoomNumber ? String(initialRoomNumber) : '',
       paymentStatus: 'paid',
       paymentMethod: 'bar',
-      customPrice: calcEZ.total
+      customPrice: initTotals.totalPrice,
+      includeCityTax: true
     });
     setShowManualBookingModal(true);
   };
 
-  const updateManualSuggestedPrice = (checkin, checkout, countEZ, countDZ) => {
+  const updateManualSuggestedPrice = (checkin, checkout, countEZ, countDZ, includeTaxOverride = null) => {
     if (!checkin || !checkout) return;
     let sum = 0;
     if (countEZ > 0) {
@@ -1250,7 +1262,10 @@ export default function AdminPage() {
       const calcDZ = bookingStore.calculateRoomPrice('doppelzimmer', checkin, checkout);
       sum += (calcDZ.total || 0) * countDZ;
     }
-    setManualBooking(prev => ({ ...prev, customPrice: sum }));
+    const useCityTax = includeTaxOverride !== null ? includeTaxOverride : (manualBooking.includeCityTax !== false);
+    const cityTaxRate = useCityTax ? (settings.cityTaxRate ?? 4) : 0;
+    const totals = calculateBookingTotals(sum, cityTaxRate, settings.taxRate ?? 7);
+    setManualBooking(prev => ({ ...prev, customPrice: totals.totalPrice }));
   };
 
   const handleSaveManualBooking = (e) => {
@@ -1311,7 +1326,8 @@ export default function AdminPage() {
         },
         paymentStatus: manualBooking.paymentStatus,
         paymentMethod: manualBooking.paymentMethod,
-        customPrice: manualBooking.customPrice !== '' ? Number(manualBooking.customPrice) : null
+        customPrice: manualBooking.customPrice !== '' ? Number(manualBooking.customPrice) : null,
+        includeCityTax: manualBooking.includeCityTax !== false
       });
 
       loadData();
@@ -3414,6 +3430,35 @@ export default function AdminPage() {
                           />
                           <span>€</span>
                         </div>
+                        {(() => {
+                          const useTax = manualBooking.includeCityTax !== false;
+                          const previewSplit = splitTotalWithCityTax(
+                            Number(manualBooking.customPrice || 0),
+                            useTax ? (settings.cityTaxRate ?? 4) : 0,
+                            settings.taxRate ?? 7
+                          );
+                          return (
+                            <div style={{ marginTop: '0.45rem', fontSize: '0.78rem', color: '#475569' }}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontWeight: 500, marginBottom: '0.25rem' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={useTax}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setManualBooking(prev => ({ ...prev, includeCityTax: checked }));
+                                    updateManualSuggestedPrice(manualBooking.checkin, manualBooking.checkout, manualBooking.countEZ, manualBooking.countDZ, checked);
+                                  }}
+                                />
+                                <span>Beherbergungssteuer ({settings.cityTaxRate ?? 4} % auf Netto) ausweisen</span>
+                              </label>
+                              {useTax && Number(manualBooking.customPrice || 0) > 0 && (
+                                <small className="form-help-muted" style={{ display: 'block', color: '#0f2b5c' }}>
+                                  Zimmeranteil: <strong>{previewSplit.lodgingGross.toFixed(2)} €</strong> · Beherbergungssteuer: <strong>{previewSplit.cityTaxGross.toFixed(2)} €</strong>
+                                </small>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
 

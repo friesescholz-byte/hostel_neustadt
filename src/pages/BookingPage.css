@@ -673,7 +673,9 @@
   gap: 0.5rem;
   font-weight: 500;
   font-size: 0.92rem;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
 }
 
 .summary-label svg {
@@ -687,6 +689,7 @@
   color: #0f172a;
   font-size: 0.92rem;
   word-break: break-word;
+  flex-shrink: 0;
 }
 
 .summary-divider {
@@ -1144,6 +1147,54 @@
     gap: 0.5rem;
     padding: 0.85rem 1rem;
   }
+}
+
+/* ============ Beherbergungssteuer Cart & Sidebar Row ============ */
+.cart-citytax-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.15rem;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+}
+
+.cart-citytax-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.cart-citytax-info strong {
+  font-size: 0.92rem;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.cart-citytax-info small {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.cart-citytax-val {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #0f2b5c;
+  white-space: nowrap;
+}
+
+.sidebar-citytax-row {
+  color: #475569;
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+
+.sidebar-citytax-row span:last-child {
+  font-weight: 600;
+  color: #0f2b5c;
+  white-space: nowrap;
 }
 
 /* ============ Inline Cart Checkout Action ============ */

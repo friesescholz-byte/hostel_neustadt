@@ -187,8 +187,82 @@ const DEFAULT_SETTINGS = {
   ustId: 'DE463070397',
   taxId: 'DE463070397',
   taxRate: 7,
+  cityTaxRate: 4, // 4% Beherbergungssteuer Stadt Neustadt a. Rbge. auf Nettoentgelt
   currency: 'EUR'
 };
+
+export const roundCents = (val) => Math.round((Number(val || 0) + Number.EPSILON) * 100) / 100;
+
+/**
+ * Berechnet aus dem Zimmer-Bruttobetrag (inkl. 7 % USt.) die kommunale Beherbergungssteuer
+ * (4 % auf das Netto-Übernachtungsentgelt; da der Betrieb Steuerschuldner ist, fällt darauf
+ * ebenfalls 7 % USt. an) sowie alle Netto-/Brutto-Summen auf den Cent genau.
+ */
+export function calculateBookingTotals(lodgingGrossInput, cityTaxRate = 4, vatRate = 7) {
+  const lodgingGross = roundCents(lodgingGrossInput);
+  const vatFactor = 1 + vatRate / 100;
+  const lodgingNet = roundCents(lodgingGross / vatFactor);
+  const effectiveCityTaxRate = Number(cityTaxRate) > 0 ? Number(cityTaxRate) : 0;
+  const cityTaxNet = effectiveCityTaxRate > 0 ? roundCents(lodgingNet * (effectiveCityTaxRate / 100)) : 0;
+  const cityTaxGross = effectiveCityTaxRate > 0 ? roundCents(cityTaxNet * vatFactor) : 0;
+  const totalPrice = roundCents(lodgingGross + cityTaxGross);
+  const netTotal = roundCents(totalPrice / vatFactor);
+  const taxAmount = roundCents(totalPrice - netTotal);
+
+  return {
+    lodgingGross,
+    lodgingNet,
+    cityTaxRate: effectiveCityTaxRate,
+    cityTaxNet,
+    cityTaxGross,
+    netTotal,
+    taxAmount,
+    totalPrice
+  };
+}
+
+/**
+ * Rückrechnung aus einem manuell festgelegten Gesamtpreis (brutto inkl. Beherbergungssteuer),
+ * sodass Zimmeranteil + Beherbergungssteuer exakt den eingegebenen Endbetrag ergeben.
+ */
+export function splitTotalWithCityTax(finalTotalInput, cityTaxRate = 4, vatRate = 7) {
+  const totalPrice = roundCents(finalTotalInput);
+  const vatFactor = 1 + vatRate / 100;
+  const effectiveCityTaxRate = Number(cityTaxRate) > 0 ? Number(cityTaxRate) : 0;
+
+  if (effectiveCityTaxRate <= 0) {
+    const netTotal = roundCents(totalPrice / vatFactor);
+    return {
+      lodgingGross: totalPrice,
+      lodgingNet: netTotal,
+      cityTaxRate: 0,
+      cityTaxNet: 0,
+      cityTaxGross: 0,
+      netTotal,
+      taxAmount: roundCents(totalPrice - netTotal),
+      totalPrice
+    };
+  }
+
+  const taxFactor = 1 + effectiveCityTaxRate / 100;
+  const lodgingGross = roundCents(totalPrice / taxFactor);
+  const cityTaxGross = roundCents(totalPrice - lodgingGross);
+  const lodgingNet = roundCents(lodgingGross / vatFactor);
+  const cityTaxNet = roundCents(cityTaxGross / vatFactor);
+  const netTotal = roundCents(totalPrice / vatFactor);
+  const taxAmount = roundCents(totalPrice - netTotal);
+
+  return {
+    lodgingGross,
+    lodgingNet,
+    cityTaxRate: effectiveCityTaxRate,
+    cityTaxNet,
+    cityTaxGross,
+    netTotal,
+    taxAmount,
+    totalPrice
+  };
+}
 
 const DEFAULT_BOOKINGS = [
   {
@@ -590,7 +664,8 @@ export const bookingStore = {
 
   // ---- Settings ----
   getSettings() {
-    return readStorage(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
+    const stored = readStorage(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
+    return { ...DEFAULT_SETTINGS, ...(stored || {}) };
   },
 
   setSettings(settings) {
@@ -1162,6 +1237,9 @@ export const bookingStore = {
       mollie_applepay: 'Apple Pay'
     };
 
+    const settings = this.getSettings();
+    const totals = calculateBookingTotals(grandTotal, settings.cityTaxRate ?? 4, settings.taxRate ?? 7);
+
     const newBooking = {
       id: `b-${Date.now()}`,
       bookingNumber,
@@ -1174,7 +1252,12 @@ export const bookingStore = {
       rooms: roomItems,
       roomNumbers: roomItems.map(r => r.roomNumber).filter(Boolean),
       roomNumber: roomItems[0]?.roomNumber || null,
-      totalPrice: grandTotal,
+      lodgingTotal: totals.lodgingGross,
+      lodgingNet: totals.lodgingNet,
+      cityTaxRate: totals.cityTaxRate,
+      cityTaxNet: totals.cityTaxNet,
+      cityTaxGross: totals.cityTaxGross,
+      totalPrice: totals.totalPrice,
       guest: {
         firstName: mainGuest.firstName || '',
         lastName: mainGuest.lastName || '',
@@ -1199,7 +1282,7 @@ export const bookingStore = {
         status: 'paid',
         transactionId,
         paidAt: nowIso,
-        amount: grandTotal
+        amount: totals.totalPrice
       }
     };
 
@@ -1227,7 +1310,8 @@ export const bookingStore = {
     guest, // { firstName, lastName, email, phone, company, street, zip, city, notes }
     paymentStatus = 'paid', // 'paid' | 'pending'
     paymentMethod = 'bar', // 'bar' | 'ec' | 'ueberweisung' | 'rechnung' | 'online'
-    customPrice = null
+    customPrice = null,
+    includeCityTax = true
   }) {
     if (!checkin || !checkout) {
       throw new Error('Bitte wählen Sie Anreise- und Abreisedatum aus.');
@@ -1294,9 +1378,46 @@ export const bookingStore = {
       }
     }
 
-    const finalTotal = (customPrice !== null && customPrice !== undefined && !isNaN(customPrice) && Number(customPrice) >= 0)
-      ? Number(customPrice)
-      : calculatedTotal;
+    const settings = this.getSettings();
+    const effectiveCityTaxRate = includeCityTax ? (settings.cityTaxRate ?? 4) : 0;
+    const vatRate = settings.taxRate ?? 7;
+
+    const hasCustomPrice = customPrice !== null && customPrice !== undefined && customPrice !== '' && !isNaN(customPrice) && Number(customPrice) >= 0;
+    const totals = hasCustomPrice
+      ? splitTotalWithCityTax(Number(customPrice), effectiveCityTaxRate, vatRate)
+      : calculateBookingTotals(calculatedTotal, effectiveCityTaxRate, vatRate);
+
+    // Falls der manuelle Zimmerpreis vom Standardtarif abweicht, Positionspreise sauber anpassen,
+    // damit Einzelpositionen + Beherbergungssteuer auf der Rechnung exakt den Gesamtbetrag ergeben.
+    if (roomItems.length > 0 && roundCents(totals.lodgingGross) !== roundCents(calculatedTotal)) {
+      if (calculatedTotal > 0) {
+        let allocated = 0;
+        roomItems.forEach((item, idx) => {
+          if (idx === roomItems.length - 1) {
+            item.totalPrice = roundCents(totals.lodgingGross - allocated);
+          } else {
+            const share = roundCents((item.totalPrice / calculatedTotal) * totals.lodgingGross);
+            item.totalPrice = share;
+            allocated = roundCents(allocated + share);
+          }
+          item.pricePerNight = roundCents(item.totalPrice / (item.nights || 1));
+        });
+      } else {
+        const perRoom = roundCents(totals.lodgingGross / roomItems.length);
+        let allocated = 0;
+        roomItems.forEach((item, idx) => {
+          if (idx === roomItems.length - 1) {
+            item.totalPrice = roundCents(totals.lodgingGross - allocated);
+          } else {
+            item.totalPrice = perRoom;
+            allocated = roundCents(allocated + perRoom);
+          }
+          item.pricePerNight = roundCents(item.totalPrice / (item.nights || 1));
+        });
+      }
+    }
+
+    const finalTotal = totals.totalPrice;
 
     const bookingNumber = this.getNextBookingNumber();
     const invoiceNumber = this.getNextInvoiceNumber();
@@ -1323,6 +1444,11 @@ export const bookingStore = {
       rooms: roomItems,
       roomNumbers: roomItems.map(r => r.roomNumber).filter(Boolean),
       roomNumber: roomItems[0]?.roomNumber || null,
+      lodgingTotal: totals.lodgingGross,
+      lodgingNet: totals.lodgingNet,
+      cityTaxRate: totals.cityTaxRate,
+      cityTaxNet: totals.cityTaxNet,
+      cityTaxGross: totals.cityTaxGross,
       totalPrice: finalTotal,
       paymentStatus: isPaid ? 'paid' : 'pending',
       guest: {

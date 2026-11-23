@@ -19,14 +19,30 @@ export async function generateInvoicePDF(booking) {
     format: 'a4'
   });
 
+  const roundCents = (val) => Math.round((Number(val || 0) + Number.EPSILON) * 100) / 100;
+
   const guest = booking.guest || {};
   const payment = booking.payment || {};
   const rooms = booking.rooms || [];
   const taxRate = 7; // 7% Hotel USt (§ 12 Abs. 2 Nr. 11 UStG)
 
-  const grossTotal = Number(booking.totalPrice || 0);
-  const netTotal = grossTotal / (1 + taxRate / 100);
-  const taxAmount = grossTotal - netTotal;
+  const cityTaxGross = roundCents(booking.cityTaxGross || 0);
+  const hasCityTax = cityTaxGross > 0;
+  const cityTaxRate = Number(booking.cityTaxRate || 4);
+
+  const grossTotal = roundCents(booking.totalPrice || 0);
+  const netTotal = roundCents(grossTotal / (1 + taxRate / 100));
+  const taxAmount = roundCents(grossTotal - netTotal);
+
+  const lodgingGross = booking.lodgingTotal !== undefined
+    ? roundCents(booking.lodgingTotal)
+    : roundCents(grossTotal - cityTaxGross);
+  const lodgingNet = booking.lodgingNet !== undefined
+    ? roundCents(booking.lodgingNet)
+    : roundCents(lodgingGross / (1 + taxRate / 100));
+  const cityTaxNet = booking.cityTaxNet !== undefined
+    ? roundCents(booking.cityTaxNet)
+    : roundCents(cityTaxGross / (1 + taxRate / 100));
 
   const invoiceDate = booking.createdAt 
     ? new Date(booking.createdAt).toLocaleDateString('de-DE') 
@@ -40,6 +56,40 @@ export async function generateInvoicePDF(booking) {
   const COLOR_DARK = [40, 45, 55];
   const COLOR_MUTED = [105, 115, 130];
   const COLOR_LINE = [200, 205, 215];
+
+  const drawFooter = () => {
+    const footY = 268;
+    doc.setDrawColor(...COLOR_LINE);
+    doc.setLineWidth(0.25);
+    doc.line(20, footY - 4, 190, footY - 4);
+
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_MUTED);
+
+    // Col 1: Anschrift
+    doc.setFont('helvetica', 'bold');
+    doc.text('Hostel Neustadt', 20, footY);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Bertha-Sicius-Str. 6 a und b', 20, footY + 3.5);
+    doc.text('31535 Neustadt am Rübenberge', 20, footY + 7);
+    doc.text('vermietung@bh-am-ruebenberge.de', 20, footY + 10.5);
+
+    // Col 2: Bankverbindung
+    doc.setFont('helvetica', 'bold');
+    doc.text('Bankverbindung', 85, footY);
+    doc.setFont('helvetica', 'normal');
+    doc.text('IBAN: DE98 2506 9262 0011 3700 00', 85, footY + 3.5);
+    doc.text('Verwendungszweck: ' + (booking.invoiceNumber || booking.bookingNumber), 85, footY + 7);
+    doc.text('WhatsApp: +49 172 8572368', 85, footY + 10.5);
+
+    // Col 3: Steuer & Register
+    doc.setFont('helvetica', 'bold');
+    doc.text('Unternehmensdaten', 145, footY);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Eigentümergemeinschaft GbR', 145, footY + 3.5);
+    doc.text('Ahmed Bagari & Corinna Pasqualini', 145, footY + 7);
+    doc.text('USt-IdNr.: DE463070397', 145, footY + 10.5);
+  };
 
   // --- 1. Header (Logo on left, Company details on right) ---
   let logoDrawn = false;
@@ -69,7 +119,7 @@ export async function generateInvoicePDF(booking) {
   doc.text('31535 Neustadt am Rübenberge', 190, 26, { align: 'right' });
   doc.text('Telefon: +49 172 8572368', 190, 30.5, { align: 'right' });
   doc.text('E-Mail: vermietung@bh-am-ruebenberge.de', 190, 35, { align: 'right' });
-  doc.text('Web: www.hostel-neustadt.de', 190, 39.5, { align: 'right' });
+  doc.text('Web: www.bh-am-ruebenberge.de', 190, 39.5, { align: 'right' });
 
   // Thin header rule
   doc.setDrawColor(...COLOR_LINE);
@@ -77,7 +127,6 @@ export async function generateInvoicePDF(booking) {
   doc.line(20, 44, 190, 44);
 
   // --- 2. DIN 5008 Address Window (Left Column) ---
-  // Small single-line sender address
   doc.setFontSize(7);
   doc.setTextColor(...COLOR_MUTED);
   doc.text('Hostel Neustadt · Bertha-Sicius-Str. 6 a und b · 31535 Neustadt am Rübenberge', 20, 50);
@@ -163,48 +212,67 @@ export async function generateInvoicePDF(booking) {
     : 'wir bedanken uns für Ihre Buchung und stellen Ihnen die vereinbarten Leistungen wie folgt in Rechnung:';
   doc.text(introMsg, 20, yPos);
 
+  const drawTableHeader = () => {
+    doc.setDrawColor(...COLOR_BLACK);
+    doc.setLineWidth(0.35);
+    doc.line(20, yPos, 190, yPos);
+
+    yPos += 4.5;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...COLOR_BLACK);
+    doc.text('Pos.', 22, yPos);
+    doc.text('Leistungsbeschreibung / Zimmer', 34, yPos);
+    doc.text('Nächte / Satz', 114, yPos, { align: 'center' });
+    doc.text('Einzelpreis netto', 153, yPos, { align: 'right' });
+    doc.text('Gesamtbetrag', 188, yPos, { align: 'right' });
+
+    yPos += 2.5;
+    doc.line(20, yPos, 190, yPos);
+  };
+
+  const ensureSpace = (neededHeight, withTableHeader = false) => {
+    if (yPos + neededHeight > 256) {
+      drawFooter();
+      doc.addPage();
+      yPos = 22;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...COLOR_MUTED);
+      doc.text(`${docTitle} · Fortsetzung`, 20, yPos);
+      yPos += 5;
+      if (withTableHeader) {
+        drawTableHeader();
+      }
+    }
+  };
+
   // --- 5. Table Header ---
   yPos += 9;
-  doc.setDrawColor(...COLOR_BLACK);
-  doc.setLineWidth(0.35);
-  doc.line(20, yPos, 190, yPos);
-
-  yPos += 4.5;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(...COLOR_BLACK);
-  doc.text('Pos.', 22, yPos);
-  doc.text('Leistungsbeschreibung / Zimmer', 34, yPos);
-  doc.text('Nächte', 114, yPos, { align: 'center' });
-  doc.text('Einzelpreis netto', 150, yPos, { align: 'right' });
-  doc.text('Gesamtbetrag', 188, yPos, { align: 'right' });
-
-  yPos += 2.5;
-  doc.line(20, yPos, 190, yPos);
+  drawTableHeader();
 
   // --- 6. Table Line Items ---
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-
   rooms.forEach((r, idx) => {
+    ensureSpace(16, true);
     yPos += 6;
 
     const roomTitle = r.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer';
     const qtyText = r.count > 1 ? `${r.count}x ` : '';
     const tierInfo = r.tierName ? ` (${r.tierName})` : '';
     const roomNumStr = r.roomNumber 
-      ? ` · Zimmer ${r.roomNumber}${r.roomNumber === 2 ? ' (Barrierefrei ♿)' : ''}` 
+      ? ` · Zimmer ${r.roomNumber}${r.roomNumber === 2 ? ' (Barrierefrei)' : ''}` 
       : '';
 
     const itemInFmt = r.checkin ? new Date(r.checkin).toLocaleDateString('de-DE') : checkinFmt;
     const itemOutFmt = r.checkout ? new Date(r.checkout).toLocaleDateString('de-DE') : checkoutFmt;
     const itemNights = r.nights || booking.nights || 1;
 
-    const itemGross = Number(r.totalPrice || 0);
+    const itemGross = roundCents(r.totalPrice || 0);
     const itemNet = itemGross / (1 + taxRate / 100);
     const singlePriceNet = itemNet / (r.count || 1) / itemNights;
 
     doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
     doc.setTextColor(...COLOR_DARK);
     doc.text(String(idx + 1), 22, yPos);
 
@@ -213,7 +281,7 @@ export async function generateInvoicePDF(booking) {
 
     doc.setFont('helvetica', 'normal');
     doc.text(String(itemNights), 114, yPos, { align: 'center' });
-    doc.text(formatEuro(singlePriceNet), 150, yPos, { align: 'right' });
+    doc.text(formatEuro(singlePriceNet), 153, yPos, { align: 'right' });
     doc.text(formatEuro(itemGross), 188, yPos, { align: 'right' });
 
     yPos += 4.5;
@@ -227,7 +295,37 @@ export async function generateInvoicePDF(booking) {
     doc.line(20, yPos, 190, yPos);
   });
 
+  // --- 6b. Dedicated Line Item: Beherbergungssteuer Stadt Neustadt a. Rbge. ---
+  if (hasCityTax) {
+    ensureSpace(16, true);
+    yPos += 6;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...COLOR_DARK);
+    doc.text(String(rooms.length + 1), 22, yPos);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Beherbergungssteuer Stadt Neustadt a. Rbge.', 34, yPos);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${cityTaxRate} %`, 114, yPos, { align: 'center' });
+    doc.text(formatEuro(cityTaxNet), 153, yPos, { align: 'right' });
+    doc.text(formatEuro(cityTaxGross), 188, yPos, { align: 'right' });
+
+    yPos += 4.5;
+    doc.setFontSize(7.5);
+    doc.setTextColor(...COLOR_MUTED);
+    doc.text(`Kommunale Abgabe (${cityTaxRate} % auf Netto-Übernachtungsentgelt ${formatEuro(lodgingNet)}) · inkl. 7% USt.`, 34, yPos);
+
+    yPos += 3.5;
+    doc.setDrawColor(...COLOR_LINE);
+    doc.setLineWidth(0.2);
+    doc.line(20, yPos, 190, yPos);
+  }
+
   // --- 7. Totals Block ---
+  ensureSpace(62, false);
   yPos += 7;
   const totLabelX = 98;
   const totValX = 188;
@@ -289,12 +387,12 @@ export async function generateInvoicePDF(booking) {
     const methodLabel = payment.methodLabel || 'Online-Zahlung';
     const txInfo = payment.transactionId ? ` (Transaktion: ${payment.transactionId})` : '';
 
-    doc.text(
+    const paidLines = doc.splitTextToSize(
       `Der Rechnungsbetrag in Höhe von ${formatEuro(grossTotal)} wurde am ${paidDate} vollständig per ${methodLabel}${txInfo} beglichen.`,
-      20,
-      yPos
+      170
     );
-    yPos += 4;
+    doc.text(paidLines, 20, yPos);
+    yPos += paidLines.length * 4;
     doc.text('Es ist kein weiterer Ausgleich erforderlich. Vielen Dank für Ihren Besuch!', 20, yPos);
   } else {
     // Unpaid / Pending
@@ -303,12 +401,12 @@ export async function generateInvoicePDF(booking) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...COLOR_DARK);
-    doc.text(
+    const pendingLines = doc.splitTextToSize(
       `Der Rechnungsbetrag in Höhe von ${formatEuro(grossTotal)} ist noch offen und zahlbar bei Anreise vor Ort (bar oder EC-/Kreditkarte) bzw. vorab per Banküberweisung.`,
-      20,
-      yPos
+      170
     );
-    yPos += 4;
+    doc.text(pendingLines, 20, yPos);
+    yPos += pendingLines.length * 4;
     doc.text(
       `Fälligkeit: Bei Check-in am ${checkinFmt}. Bitte geben Sie bei Überweisungen stets die Rechnungsnummer ${booking.invoiceNumber || 'HN'} an.`,
       20,
@@ -320,40 +418,14 @@ export async function generateInvoicePDF(booking) {
   yPos += 8;
   doc.setFontSize(7.5);
   doc.setTextColor(...COLOR_MUTED);
-  doc.text('Hinweis: Beherbergungsleistungen unterliegen dem ermäßigten Steuersatz gem. § 12 Abs. 2 Nr. 11 UStG.', 20, yPos);
+  const fiscalText = hasCityTax
+    ? 'Hinweis: Beherbergungsleistungen inkl. weiterberechneter Beherbergungssteuer der Stadt Neustadt a. Rbge. unterliegen gem. § 12 Abs. 2 Nr. 11 UStG dem ermäßigten Steuersatz von 7 %.'
+    : 'Hinweis: Beherbergungsleistungen unterliegen dem ermäßigten Steuersatz gem. § 12 Abs. 2 Nr. 11 UStG.';
+  const fiscalLines = doc.splitTextToSize(fiscalText, 170);
+  doc.text(fiscalLines, 20, yPos);
 
   // --- 9. Official DIN 5008 Three-Column Footer ---
-  const footY = 268;
-  doc.setDrawColor(...COLOR_LINE);
-  doc.setLineWidth(0.25);
-  doc.line(20, footY - 4, 190, footY - 4);
-
-  doc.setFontSize(7);
-  doc.setTextColor(...COLOR_MUTED);
-
-  // Col 1: Anschrift
-  doc.setFont('helvetica', 'bold');
-  doc.text('Hostel Neustadt', 20, footY);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Bertha-Sicius-Str. 6 a und b', 20, footY + 3.5);
-  doc.text('31535 Neustadt am Rübenberge', 20, footY + 7);
-  doc.text('vermietung@bh-am-ruebenberge.de', 20, footY + 10.5);
-
-  // Col 2: Bankverbindung
-  doc.setFont('helvetica', 'bold');
-  doc.text('Bankverbindung', 85, footY);
-  doc.setFont('helvetica', 'normal');
-  doc.text('IBAN: DE98 2506 9262 0011 3700 00', 85, footY + 3.5);
-  doc.text('Verwendungszweck: ' + (booking.invoiceNumber || booking.bookingNumber), 85, footY + 7);
-  doc.text('WhatsApp: +49 172 8572368', 85, footY + 10.5);
-
-  // Col 3: Steuer & Register
-  doc.setFont('helvetica', 'bold');
-  doc.text('Unternehmensdaten', 145, footY);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Eigentümergemeinschaft GbR', 145, footY + 3.5);
-  doc.text('Ahmed Bagari & Corinna Pasqualini', 145, footY + 7);
-  doc.text('USt-IdNr.: DE463070397', 145, footY + 10.5);
+  drawFooter();
 
   return doc;
 }
