@@ -152,14 +152,32 @@ export default {
           });
         }
 
+        // Parse HttpOnly trusted device cookie as resilient fallback (survives Safari ITP / cache clear)
+        const cookieHeader = request.headers.get('Cookie') || '';
+        const cookieMatch = cookieHeader.match(/(?:^|;\s*)hostel_trusted_device=([^;]+)/);
+        const cookieDeviceToken = cookieMatch ? decodeURIComponent(cookieMatch[1]) : '';
+        const effectiveDeviceToken = deviceToken || cookieDeviceToken;
+
         // If device was previously verified
-        if (deviceToken && env?.HOSTEL_KV) {
-          const isTrusted = await env.HOSTEL_KV.get('trusted_device_' + deviceToken);
+        if (effectiveDeviceToken && env?.HOSTEL_KV) {
+          const isTrusted = await env.HOSTEL_KV.get('trusted_device_' + effectiveDeviceToken);
           if (isTrusted) {
+            // Upgrade any older 30-day TTL key to permanent (no expiration)
+            await env.HOSTEL_KV.put('trusted_device_' + effectiveDeviceToken, '1');
             const token = btoa(`hostel_auth_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
-            return new Response(JSON.stringify({ success: true, token, trusted: true }), {
+            const secureAttr = url.protocol === 'https:' ? '; Secure' : '';
+            return new Response(JSON.stringify({
+              success: true,
+              token,
+              trusted: true,
+              deviceToken: effectiveDeviceToken
+            }), {
               status: 200,
-              headers: { 'Content-Type': 'application/json', ...corsHeaders }
+              headers: {
+                'Content-Type': 'application/json',
+                'Set-Cookie': `hostel_trusted_device=${encodeURIComponent(effectiveDeviceToken)}; Path=/; Max-Age=315360000; HttpOnly${secureAttr}; SameSite=Lax`,
+                ...corsHeaders
+              }
             });
           }
         }
@@ -224,10 +242,13 @@ export default {
 
         const token = btoa(`hostel_auth_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
         let newDeviceToken = null;
+        const responseHeaders = { 'Content-Type': 'application/json', ...corsHeaders };
 
-        if (rememberDevice && env?.HOSTEL_KV) {
+        if (rememberDevice !== false && env?.HOSTEL_KV) {
           newDeviceToken = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 10);
-          await env.HOSTEL_KV.put('trusted_device_' + newDeviceToken, '1', { expirationTtl: 60 * 60 * 24 * 30 });
+          await env.HOSTEL_KV.put('trusted_device_' + newDeviceToken, '1');
+          const secureAttr = url.protocol === 'https:' ? '; Secure' : '';
+          responseHeaders['Set-Cookie'] = `hostel_trusted_device=${encodeURIComponent(newDeviceToken)}; Path=/; Max-Age=315360000; HttpOnly${secureAttr}; SameSite=Lax`;
         }
 
         return new Response(JSON.stringify({
@@ -236,7 +257,7 @@ export default {
           deviceToken: newDeviceToken
         }), {
           status: 200,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+          headers: responseHeaders
         });
       } catch (err) {
         return new Response(JSON.stringify({ error: err.message || 'Verifizierungsfehler' }), {

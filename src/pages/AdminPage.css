@@ -593,6 +593,11 @@
     align-items: stretch;
     width: 100%;
   }
+
+  .admin-search-wrap input {
+    min-width: 0;
+    font-size: 16px;
+  }
 }
 
 /* Search Wrap */
@@ -601,6 +606,7 @@
   display: flex;
   align-items: center;
   flex: 1;
+  min-width: 0;
 }
 
 .admin-search-wrap .search-icon {
@@ -616,7 +622,7 @@
   border-radius: 6px;
   font-size: 0.875rem;
   background: #ffffff;
-  min-width: 240px;
+  min-width: 0;
   width: 100%;
   outline: none;
   transition: border-color 0.15s ease;
@@ -1404,8 +1410,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 999;
+  z-index: 99999;
   padding: 1rem;
+  overscroll-behavior: contain;
 }
 
 .admin-modal-card {
@@ -1414,36 +1421,21 @@
   max-width: 640px;
   width: 100%;
   max-height: 90vh;
+  max-height: 90dvh;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  overscroll-behavior: contain;
 }
 
-@media (max-width: 640px) {
-  .admin-modal-backdrop {
-    padding: 0;
-    align-items: flex-end;
-  }
-
-  .admin-modal-card {
-    max-height: 92vh;
-    border-radius: 18px 18px 0 0;
-    width: 100%;
-  }
-
-  .modal-header {
-    padding: 1rem 1.25rem !important;
-  }
-
-  .modal-body {
-    padding: 1.25rem !important;
-    gap: 1.25rem !important;
-  }
-
-  .modal-footer {
-    padding: 1rem 1.25rem !important;
-  }
+.admin-modal-card > .admin-form {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
 }
 
 .modal-header {
@@ -1492,8 +1484,11 @@
   flex-direction: column;
   gap: 1.5rem;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
   flex: 1;
+  min-height: 0;
 }
 
 .modal-section {
@@ -1564,12 +1559,45 @@
   flex-shrink: 0;
 }
 
-@media (max-width: 520px) {
-  .modal-footer {
-    flex-direction: column;
+@media (max-width: 640px) {
+  .admin-modal-backdrop {
+    padding: 0;
+    align-items: flex-end;
   }
+
+  .admin-modal-card,
+  .admin-modal-card.modal-large {
+    max-height: 92vh !important;
+    max-height: 92dvh !important;
+    border-radius: 18px 18px 0 0;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .modal-header {
+    padding: 1rem 1.15rem !important;
+  }
+
+  .modal-body {
+    padding: 1rem 1.15rem !important;
+    gap: 1.1rem !important;
+  }
+
+  .modal-footer {
+    padding: 0.9rem 1.15rem max(0.9rem, env(safe-area-inset-bottom)) !important;
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+  }
+
   .modal-footer button {
     width: 100%;
+    justify-content: center;
+  }
+
+  .admin-modal-card input:not([type="checkbox"]):not([type="radio"]),
+  .admin-modal-card select,
+  .admin-modal-card textarea {
+    font-size: 16px;
   }
 }
 
@@ -2538,6 +2566,17 @@
   gap: 0.75rem;
 }
 
+@media (max-width: 520px) {
+  .payment-toggle-group {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .manual-booking-section {
+    padding: 0.9rem;
+  }
+}
+
 .payment-toggle-btn {
   display: flex;
   align-items: center;
@@ -2824,8 +2863,8 @@
   }
 
   .mobile-card-action-bar {
-    display: grid;
-    grid-template-columns: 1fr auto auto auto;
+    display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
     margin-top: 0.25rem;
     padding-top: 0.75rem;
@@ -2833,6 +2872,7 @@
   }
 
   .btn-mobile-act-primary {
+    flex: 1 1 auto;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -4081,5 +4121,107 @@
   color: #0f172a;
 }
 
+/* ==========================================================================
+   MOBILE PANEL POLISH & MANUAL INVOICE CONFIRMATION
+   ========================================================================== */
+.manual-created-success-box {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
 
+.manual-created-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 1rem 1.15rem;
+  color: #166534;
+}
 
+.manual-created-banner h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+  color: #14532d;
+}
+
+.manual-created-banner p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #15803d;
+}
+
+.manual-created-summary-grid {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.manual-created-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+@media (max-width: 640px) {
+  .admin-page-wrapper,
+  .admin-container {
+    overflow-x: hidden;
+  }
+
+  .mobile-expanded-booking-panel .expanded-booking-panel-inner {
+    padding: 0.65rem 0 0 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    margin-bottom: 0;
+    background: transparent;
+  }
+
+  .exp-info-box,
+  .exp-room-card {
+    padding: 0.9rem;
+  }
+
+  .exp-field-row {
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+  }
+
+  .exp-bottom-actions-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .exp-actions-left,
+  .exp-actions-right {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .exp-actions-left > *,
+  .exp-actions-right > *,
+  .manual-created-actions-row > * {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .exp-traveler-switch-wrap {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .exp-traveler-switch-select {
+    max-width: none;
+    width: 100%;
+    font-size: 14px;
+  }
+}

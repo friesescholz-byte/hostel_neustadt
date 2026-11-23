@@ -112,6 +112,7 @@ export default function AdminPage() {
     doppelzimmer: { tier1_3: 100, tier4_6: 90, tier7plus: 80 }
   });
   const [customPeriods, setCustomPeriods] = useState([]);
+  const [settings, setSettings] = useState(() => bookingStore.getSettings());
 
   // UI States
   const [searchTerm, setSearchTerm] = useState('');
@@ -140,6 +141,7 @@ export default function AdminPage() {
 
   // Manual Booking Modal State
   const [showManualBookingModal, setShowManualBookingModal] = useState(false);
+  const [createdManualBooking, setCreatedManualBooking] = useState(null);
   const [manualBooking, setManualBooking] = useState({
     firstName: '',
     lastName: '',
@@ -181,6 +183,7 @@ export default function AdminPage() {
     setInventory(bookingStore.getInventory());
     setPricing(bookingStore.getPricing());
     setCustomPeriods(bookingStore.getCustomPeriods());
+    setSettings(bookingStore.getSettings());
   };
 
   useEffect(() => {
@@ -210,6 +213,22 @@ export default function AdminPage() {
       clearInterval(ticker);
     };
   }, [isAuthenticated]);
+
+  // Prevent background page scrolling while any modal is open (especially on mobile)
+  useEffect(() => {
+    const anyModalOpen = showManualBookingModal || showAddPeriodModal || showEditPeriodModal;
+    if (!anyModalOpen) return;
+
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.overflow = prevBodyOverflow;
+    };
+  }, [showManualBookingModal, showAddPeriodModal, showEditPeriodModal]);
 
   const formatHoldTimer = (expiresAt) => {
     if (!expiresAt) return '';
@@ -916,7 +935,9 @@ export default function AdminPage() {
               <div className="exp-field-row">
                 <span className="exp-label">Zahlungsstatus:</span>
                 <span className="exp-val">
-                  {isCancelled ? (
+                  {isInquiry ? (
+                    <span className="badge-pending-inline" style={{ color: '#6d28d9' }}>✨ Offene Anfrage (noch keine Rechnung)</span>
+                  ) : isCancelled ? (
                     <span className="badge-cancelled-inline">✕ Storniert</span>
                   ) : isPendingPayment ? (
                     <span className="badge-pending-inline">⏳ Offen (nicht bezahlt)</span>
@@ -1153,10 +1174,18 @@ export default function AdminPage() {
 
             {isInquiry && (
               <>
+                <button
+                  type="button"
+                  className="btn-admin-primary"
+                  onClick={() => handleOpenManualFromInquiry(b)}
+                  title="Aus dieser Anfrage eine verbindliche Buchung mit Preis & PDF-Rechnung erstellen"
+                >
+                  <FileText size={15} /> Buchung & Rechnung erstellen
+                </button>
                 {b.guest?.email && (
                   <a 
                     href={`mailto:${b.guest.email}?subject=Angebot%20f%C3%BCr%20Ihre%20Buchungsanfrage%20${b.bookingNumber}%20-%20Hostel%20Neustadt`}
-                    className="btn-admin-primary"
+                    className="btn-admin-secondary"
                     style={{ textDecoration: 'none' }}
                   >
                     <Mail size={15} /> Angebot per E-Mail senden
@@ -1210,6 +1239,7 @@ export default function AdminPage() {
 
   // --- Handlers: Manual Bookings (Admin Hub) ---
   const handleOpenManualBooking = (initialDate = null, initialRoomNumber = null) => {
+    setCreatedManualBooking(null);
     const today = new Date();
     const checkinDate = initialDate ? new Date(initialDate) : today;
     const checkoutDate = new Date(checkinDate);
@@ -1245,6 +1275,46 @@ export default function AdminPage() {
       roomNumber: initialRoomNumber ? String(initialRoomNumber) : '',
       paymentStatus: 'paid',
       paymentMethod: 'bar',
+      customPrice: initTotals.totalPrice,
+      includeCityTax: true
+    });
+    setShowManualBookingModal(true);
+  };
+
+  const handleOpenManualFromInquiry = (inquiry) => {
+    if (!inquiry) return;
+    setCreatedManualBooking(null);
+    const checkinStr = inquiry.checkin || new Date().toISOString().split('T')[0];
+    const checkoutStr = inquiry.checkout || checkinStr;
+    const countEZ = (inquiry.rooms || []).filter(r => r.typeId === 'einzelzimmer').reduce((sum, r) => sum + (r.count || 1), 0);
+    const countDZ = (inquiry.rooms || []).filter(r => r.typeId === 'doppelzimmer').reduce((sum, r) => sum + (r.count || 1), 0);
+
+    let sum = 0;
+    if (countEZ > 0) {
+      sum += (bookingStore.calculateRoomPrice('einzelzimmer', checkinStr, checkoutStr).total || 0) * countEZ;
+    }
+    if (countDZ > 0) {
+      sum += (bookingStore.calculateRoomPrice('doppelzimmer', checkinStr, checkoutStr).total || 0) * countDZ;
+    }
+    const initTotals = calculateBookingTotals(sum, settings.cityTaxRate ?? 4, settings.taxRate ?? 7);
+
+    setManualBooking({
+      firstName: inquiry.guest?.firstName || '',
+      lastName: inquiry.guest?.lastName || '',
+      company: inquiry.guest?.company || '',
+      phone: inquiry.guest?.phone || '',
+      email: inquiry.guest?.email || '',
+      street: inquiry.guest?.street || '',
+      zip: inquiry.guest?.zip || '',
+      city: inquiry.guest?.city || '',
+      notes: inquiry.guest?.notes || `Aus Anfrage ${inquiry.bookingNumber}`,
+      checkin: checkinStr,
+      checkout: checkoutStr,
+      countEZ,
+      countDZ,
+      roomNumber: '',
+      paymentStatus: 'pending',
+      paymentMethod: 'pending',
       customPrice: initTotals.totalPrice,
       includeCityTax: true
     });
@@ -1331,8 +1401,10 @@ export default function AdminPage() {
       });
 
       loadData();
-      setShowManualBookingModal(false);
-      triggerSaveNotification(`Buchung ${newB.bookingNumber} (${newB.guest.firstName} ${newB.guest.lastName}) erfolgreich angelegt!`);
+      setStatusFilter('all');
+      setExpandedBookingId(newB.id);
+      setCreatedManualBooking(newB);
+      triggerSaveNotification(`Buchung ${newB.bookingNumber} & Rechnung ${newB.invoiceNumber} angelegt!`);
     } catch (err) {
       alert(err.message || 'Fehler beim Anlegen der Buchung');
     }
@@ -1480,9 +1552,9 @@ export default function AdminPage() {
       if (b.status === 'inquiry' && a.status !== 'inquiry') return 1;
       if (a.status === 'open' && b.status !== 'open') return -1;
       if (b.status === 'open' && a.status !== 'open') return 1;
-      const dateA = getBookingCheckin(a);
-      const dateB = getBookingCheckin(b);
-      return dateA.localeCompare(dateB);
+      const createdA = a.createdAt || getBookingCheckin(a);
+      const createdB = b.createdAt || getBookingCheckin(b);
+      return createdB.localeCompare(createdA);
     });
   }, [bookings, statusFilter, searchTerm, todayStr]);
 
@@ -1669,7 +1741,7 @@ export default function AdminPage() {
                     checked={rememberDevice} 
                     onChange={(e) => setRememberDevice(e.target.checked)} 
                   />
-                  <span>Dieses Gerät für 30 Tage merken</span>
+                  <span>Dieses Gerät dauerhaft merken (2FA nur beim ersten Mal)</span>
                 </label>
               </div>
 
@@ -3156,7 +3228,7 @@ export default function AdminPage() {
          ========================================================================= */}
       <AnimatePresence>
         {showManualBookingModal && (
-          <div className="admin-modal-backdrop" onClick={() => setShowManualBookingModal(false)}>
+          <div className="admin-modal-backdrop" onClick={() => { setShowManualBookingModal(false); setCreatedManualBooking(null); }}>
             <motion.div 
               className="admin-modal-card modal-large"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -3166,12 +3238,113 @@ export default function AdminPage() {
             >
               <div className="modal-header">
                 <div>
-                  <span className="modal-badge">Manuelle Reservierung</span>
-                  <h3>Neue Buchung anlegen</h3>
+                  <span className="modal-badge">{createdManualBooking ? createdManualBooking.invoiceNumber : 'Manuelle Reservierung'}</span>
+                  <h3>{createdManualBooking ? 'Buchung & Rechnung erstellt' : 'Neue Buchung anlegen'}</h3>
                 </div>
-                <button className="modal-close" onClick={() => setShowManualBookingModal(false)}>×</button>
+                <button className="modal-close" onClick={() => { setShowManualBookingModal(false); setCreatedManualBooking(null); }}>×</button>
               </div>
 
+              {createdManualBooking ? (
+                <div className="admin-form">
+                  <div className="modal-body">
+                    <div className="manual-created-success-box">
+                      <div className="manual-created-banner">
+                        <CheckCircle2 size={24} style={{ flexShrink: 0, marginTop: '2px' }} />
+                        <div>
+                          <h4>Buchung erfolgreich gespeichert!</h4>
+                          <p>
+                            Die Rechnung <strong>{createdManualBooking.invoiceNumber}</strong> wurde sofort erzeugt und kann jetzt heruntergeladen oder per E-Mail versendet werden.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="manual-created-summary-grid">
+                        <div className="exp-field-row">
+                          <span className="exp-label">Buchungs-Nr.:</span>
+                          <span className="exp-val font-mono"><strong>{createdManualBooking.bookingNumber}</strong></span>
+                        </div>
+                        <div className="exp-field-row">
+                          <span className="exp-label">Rechnungs-Nr.:</span>
+                          <span className="exp-val font-mono"><strong>{createdManualBooking.invoiceNumber}</strong></span>
+                        </div>
+                        <div className="exp-field-row">
+                          <span className="exp-label">Gast:</span>
+                          <span className="exp-val">
+                            <strong>{createdManualBooking.guest?.firstName} {createdManualBooking.guest?.lastName}</strong>
+                            {createdManualBooking.guest?.company ? ` (${createdManualBooking.guest.company})` : ''}
+                          </span>
+                        </div>
+                        <div className="exp-field-row">
+                          <span className="exp-label">Zeitraum:</span>
+                          <span className="exp-val">
+                            {new Date(createdManualBooking.checkin).toLocaleDateString('de-DE')} – {new Date(createdManualBooking.checkout).toLocaleDateString('de-DE')} ({createdManualBooking.nights} {createdManualBooking.nights === 1 ? 'Nacht' : 'Nächte'})
+                          </span>
+                        </div>
+                        <div className="exp-field-row">
+                          <span className="exp-label">Zugewiesenes Zimmer:</span>
+                          <span className="exp-val">
+                            {(createdManualBooking.rooms || []).map(r => r.roomNumber ? `Zimmer ${r.roomNumber}` : r.name).join(', ')}
+                          </span>
+                        </div>
+                        <div className="exp-field-row">
+                          <span className="exp-label">Gesamtbetrag (brutto):</span>
+                          <span className="exp-val exp-price-highlight">{Number(createdManualBooking.totalPrice || 0).toFixed(2)} €</span>
+                        </div>
+                        {Number(createdManualBooking.cityTaxGross || 0) > 0 && (
+                          <div className="exp-field-row">
+                            <span className="exp-label">Davon Beherbergungssteuer ({createdManualBooking.cityTaxRate || 4} %):</span>
+                            <span className="exp-val text-muted">{Number(createdManualBooking.cityTaxGross).toFixed(2)} €</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="manual-created-actions-row">
+                        <button
+                          type="button"
+                          className="btn-admin-primary"
+                          onClick={() => downloadInvoicePDF(createdManualBooking)}
+                        >
+                          <Download size={16} /> PDF-Rechnung herunterladen
+                        </button>
+
+                        {createdManualBooking.guest?.email && (
+                          <button
+                            type="button"
+                            className="btn-admin-secondary"
+                            onClick={() => handleResendInvoice(createdManualBooking)}
+                            disabled={isResendingInvoice}
+                          >
+                            {isResendingInvoice ? <RefreshCw size={15} className="spin-icon" /> : <Mail size={15} />}
+                            Rechnung per E-Mail senden
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      className="btn-admin-secondary"
+                      onClick={() => {
+                        const targetBooking = createdManualBooking;
+                        setShowManualBookingModal(false);
+                        setCreatedManualBooking(null);
+                        handleSelectBookingFromCalendar(targetBooking);
+                      }}
+                    >
+                      <Eye size={15} /> In Buchungsliste öffnen
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-admin-primary"
+                      onClick={() => { setShowManualBookingModal(false); setCreatedManualBooking(null); }}
+                    >
+                      <Check size={16} /> Fertig
+                    </button>
+                  </div>
+                </div>
+              ) : (
               <form onSubmit={handleSaveManualBooking} className="admin-form">
                 <div className="modal-body">
                   {/* Reisedaten & Zimmer */}
@@ -3475,14 +3648,15 @@ export default function AdminPage() {
                 </div>
 
                 <div className="modal-footer">
-                  <button type="button" className="btn-admin-secondary" onClick={() => setShowManualBookingModal(false)}>
+                  <button type="button" className="btn-admin-secondary" onClick={() => { setShowManualBookingModal(false); setCreatedManualBooking(null); }}>
                     Abbrechen
                   </button>
                   <button type="submit" className="btn-admin-primary">
-                    <Check size={16} /> Buchung verbindlich speichern
+                    <Check size={16} /> Speichern & Rechnung erstellen
                   </button>
                 </div>
               </form>
+              )}
             </motion.div>
           </div>
         )}
