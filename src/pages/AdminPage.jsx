@@ -151,17 +151,23 @@ export default function AdminPage() {
     street: '',
     zip: '',
     city: '',
+    country: '',
     notes: '',
     checkin: '',
     checkout: '',
     countEZ: 1,
     countDZ: 0,
+    guestsCount: 1,
     roomNumber: '', // specific assigned room number 1-15 or '' for auto
     paymentStatus: 'paid', // 'paid' | 'pending'
     paymentMethod: 'bar', // 'bar' | 'ec' | 'ueberweisung' | 'rechnung' | 'online'
     customPrice: '',
     includeCityTax: true
   });
+
+  // Retroactive Booking Edit Modal State
+  const [editingBooking, setEditingBooking] = useState(null);
+  const [editedSavedBooking, setEditedSavedBooking] = useState(null);
 
   // New Special Condition Form
   const [newPeriod, setNewPeriod] = useState({
@@ -216,7 +222,7 @@ export default function AdminPage() {
 
   // Prevent background page scrolling while any modal is open (especially on mobile)
   useEffect(() => {
-    const anyModalOpen = showManualBookingModal || showAddPeriodModal || showEditPeriodModal;
+    const anyModalOpen = showManualBookingModal || Boolean(editingBooking) || showAddPeriodModal || showEditPeriodModal;
     if (!anyModalOpen) return;
 
     const prevHtmlOverflow = document.documentElement.style.overflow;
@@ -228,7 +234,7 @@ export default function AdminPage() {
       document.documentElement.style.overflow = prevHtmlOverflow;
       document.body.style.overflow = prevBodyOverflow;
     };
-  }, [showManualBookingModal, showAddPeriodModal, showEditPeriodModal]);
+  }, [showManualBookingModal, editingBooking, showAddPeriodModal, showEditPeriodModal]);
 
   const formatHoldTimer = (expiresAt) => {
     if (!expiresAt) return '';
@@ -892,6 +898,7 @@ export default function AdminPage() {
                   <span className="exp-label">Anschrift:</span>
                   <span className="exp-val">
                     {b.guest?.street ? `${b.guest.street}, ` : ''}{b.guest?.zip || ''} {b.guest?.city || ''}
+                    {b.guest?.country && b.guest.country.trim().toLowerCase() !== 'deutschland' ? `, ${b.guest.country.trim()}` : ''}
                   </span>
                 </div>
               )}
@@ -1151,11 +1158,21 @@ export default function AdminPage() {
             {!isOpenHold && !isInquiry && (
               <>
                 <button 
+                  type="button"
                   className="btn-admin-primary" 
                   onClick={() => downloadInvoicePDF(b)}
                   title="PDF-Rechnung herunterladen"
                 >
                   <Download size={15} /> PDF-Rechnung
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-admin-secondary"
+                  onClick={() => handleOpenEditBooking(b)}
+                  title="Buchung, Rechnungsanschrift, Zimmer oder Preis nachträglich bearbeiten"
+                >
+                  <Edit3 size={15} /> Bearbeiten
                 </button>
 
                 {b.guest?.email && (
@@ -1267,11 +1284,13 @@ export default function AdminPage() {
       street: '',
       zip: '',
       city: '',
+      country: '',
       notes: '',
       checkin: checkinStr,
       checkout: checkoutStr,
       countEZ,
       countDZ,
+      guestsCount: countEZ * 1 + countDZ * 2,
       roomNumber: initialRoomNumber ? String(initialRoomNumber) : '',
       paymentStatus: 'paid',
       paymentMethod: 'bar',
@@ -1288,6 +1307,10 @@ export default function AdminPage() {
     const checkoutStr = inquiry.checkout || checkinStr;
     const countEZ = (inquiry.rooms || []).filter(r => r.typeId === 'einzelzimmer').reduce((sum, r) => sum + (r.count || 1), 0);
     const countDZ = (inquiry.rooms || []).filter(r => r.typeId === 'doppelzimmer').reduce((sum, r) => sum + (r.count || 1), 0);
+    const totalGuests = Math.max(
+      1,
+      (inquiry.rooms || []).reduce((sum, r) => sum + ((r.guests || (r.typeId === 'doppelzimmer' ? 2 : 1)) * (r.count || 1)), 0)
+    );
 
     let sum = 0;
     if (countEZ > 0) {
@@ -1307,11 +1330,13 @@ export default function AdminPage() {
       street: inquiry.guest?.street || '',
       zip: inquiry.guest?.zip || '',
       city: inquiry.guest?.city || '',
+      country: inquiry.guest?.country || '',
       notes: inquiry.guest?.notes || `Aus Anfrage ${inquiry.bookingNumber}`,
       checkin: checkinStr,
       checkout: checkoutStr,
       countEZ,
       countDZ,
+      guestsCount: totalGuests,
       roomNumber: '',
       paymentStatus: 'pending',
       paymentMethod: 'pending',
@@ -1348,6 +1373,10 @@ export default function AdminPage() {
       alert('Bitte geben Sie Anreise- und Abreisedatum ein.');
       return;
     }
+    if (manualBooking.checkout <= manualBooking.checkin) {
+      alert('Das Abreisedatum muss nach dem Anreisedatum liegen.');
+      return;
+    }
     const countEZ = Number(manualBooking.countEZ) || 0;
     const countDZ = Number(manualBooking.countDZ) || 0;
     if (countEZ === 0 && countDZ === 0 && !manualBooking.roomNumber) {
@@ -1362,21 +1391,39 @@ export default function AdminPage() {
         : null;
 
       if (chosenRoomDef) {
+        const defaultGuests = chosenRoomDef.typeId === 'doppelzimmer' ? 2 : 1;
         roomsToBook.push({
           typeId: chosenRoomDef.typeId,
           count: 1,
-          guests: chosenRoomDef.typeId === 'doppelzimmer' ? 2 : 1,
+          guests: Math.max(1, Number(manualBooking.guestsCount) || defaultGuests),
           roomNumber: chosenRoomDef.number,
           accessible: chosenRoomDef.accessible,
           name: chosenRoomDef.typeLabel
         });
       } else {
-        if (countEZ > 0) {
-          roomsToBook.push({ typeId: 'einzelzimmer', count: countEZ, guests: 1 });
+        const defaultTotalGuests = countEZ * 1 + countDZ * 2;
+        const totalGuests = Math.max(1, Number(manualBooking.guestsCount) || defaultTotalGuests);
+        const slots = [];
+        for (let i = 0; i < countEZ; i++) slots.push({ typeId: 'einzelzimmer', guests: 0 });
+        for (let i = 0; i < countDZ; i++) slots.push({ typeId: 'doppelzimmer', guests: 0 });
+
+        let remaining = totalGuests;
+        for (let i = 0; i < slots.length && remaining > 0; i++) {
+          slots[i].guests += 1;
+          remaining -= 1;
         }
-        if (countDZ > 0) {
-          roomsToBook.push({ typeId: 'doppelzimmer', count: countDZ, guests: 2 });
+        for (let i = 0; i < slots.length && remaining > 0; i++) {
+          if (slots[i].typeId === 'doppelzimmer' && slots[i].guests < 2) {
+            slots[i].guests += 1;
+            remaining -= 1;
+          }
         }
+        if (remaining > 0 && slots.length > 0) {
+          slots[slots.length - 1].guests += remaining;
+        }
+        slots.forEach(s => {
+          roomsToBook.push({ typeId: s.typeId, count: 1, guests: Math.max(1, s.guests) });
+        });
       }
 
       const newB = bookingStore.createManualBooking({
@@ -1392,6 +1439,7 @@ export default function AdminPage() {
           street: manualBooking.street,
           zip: manualBooking.zip,
           city: manualBooking.city,
+          country: manualBooking.country,
           notes: manualBooking.notes
         },
         paymentStatus: manualBooking.paymentStatus,
@@ -1407,6 +1455,142 @@ export default function AdminPage() {
       triggerSaveNotification(`Buchung ${newB.bookingNumber} & Rechnung ${newB.invoiceNumber} angelegt!`);
     } catch (err) {
       alert(err.message || 'Fehler beim Anlegen der Buchung');
+    }
+  };
+
+  // --- Handlers: Retroactive Booking Edit (Admin Hub) ---
+  const calculateStandardTotalForSlots = (checkin, checkout, slots, includeTax, cityTaxRateOverride = null) => {
+    if (!checkin || !checkout || !Array.isArray(slots) || slots.length === 0) return 0;
+    let lodgingSum = 0;
+    slots.forEach(s => {
+      const calc = bookingStore.calculateRoomPrice(s.typeId || 'einzelzimmer', checkin, checkout);
+      lodgingSum += (calc.total || 0);
+    });
+    const taxRateToUse = includeTax ? (cityTaxRateOverride ?? settings.cityTaxRate ?? 4) : 0;
+    const totals = calculateBookingTotals(lodgingSum, taxRateToUse, settings.taxRate ?? 7);
+    return totals.totalPrice;
+  };
+
+  const handleOpenEditBooking = (booking) => {
+    if (!booking) return;
+    setEditedSavedBooking(null);
+
+    const flatRooms = [];
+    const srcRooms = Array.isArray(booking.rooms) && booking.rooms.length > 0
+      ? booking.rooms
+      : [{ typeId: 'einzelzimmer', roomNumber: booking.roomNumber || null, count: 1, guests: 1 }];
+
+    srcRooms.forEach(r => {
+      const count = Math.max(1, Number(r.count) || 1);
+      const rnDef = r.roomNumber ? ROOM_DEFINITIONS.find(d => d.number === Number(r.roomNumber)) : null;
+      const resolvedTypeId = rnDef?.typeId || (r.typeId === 'doppelzimmer' ? 'doppelzimmer' : 'einzelzimmer');
+      for (let c = 0; c < count; c++) {
+        const rNum = (c === 0 && r.roomNumber) ? r.roomNumber : (r.roomNumbers?.[c] || r.roomNumber || '');
+        flatRooms.push({
+          typeId: resolvedTypeId,
+          roomNumber: rNum ? String(rNum) : '',
+          accessible: Boolean(r.accessible || Number(rNum) === 2),
+          guests: Math.max(1, Number(r.guests) || (resolvedTypeId === 'doppelzimmer' ? 2 : 1))
+        });
+      }
+    });
+
+    const isPaid = !(booking.paymentStatus === 'pending' || booking.payment?.status === 'pending');
+    const rawMethod = booking.payment?.method;
+    const resolvedMethod = isPaid
+      ? (rawMethod === 'mollie'
+          ? 'online'
+          : (['bar', 'ec', 'ueberweisung', 'rechnung', 'online'].includes(rawMethod) ? rawMethod : 'online'))
+      : 'bar';
+
+    const hasCityTax = Number(booking.cityTaxGross || 0) > 0;
+    const bookingCityTaxRate = Number(booking.cityTaxRate || 0) > 0
+      ? Number(booking.cityTaxRate)
+      : (settings.cityTaxRate ?? 4);
+
+    setEditingBooking({
+      id: booking.id,
+      bookingNumber: booking.bookingNumber,
+      invoiceNumber: booking.invoiceNumber,
+      status: booking.status,
+      cityTaxRate: bookingCityTaxRate,
+      checkin: booking.checkin || '',
+      checkout: booking.checkout || '',
+      rooms: flatRooms,
+      firstName: booking.guest?.firstName || '',
+      lastName: booking.guest?.lastName || '',
+      company: booking.guest?.company || '',
+      phone: booking.guest?.phone || '',
+      email: booking.guest?.email || '',
+      street: booking.guest?.street || '',
+      zip: booking.guest?.zip || '',
+      city: booking.guest?.city || '',
+      country: booking.guest?.country || '',
+      notes: booking.guest?.notes || '',
+      paymentStatus: isPaid ? 'paid' : 'pending',
+      paymentMethod: resolvedMethod,
+      totalPrice: Number(booking.totalPrice || 0).toFixed(2),
+      includeCityTax: hasCityTax
+    });
+  };
+
+  const handleSaveEditedBooking = (e) => {
+    e.preventDefault();
+    if (!editingBooking) return;
+    if (!editingBooking.firstName?.trim() || !editingBooking.lastName?.trim()) {
+      alert('Bitte geben Sie mindestens Vor- und Nachname des Gastes ein.');
+      return;
+    }
+    if (!editingBooking.checkin || !editingBooking.checkout) {
+      alert('Bitte geben Sie Anreise- und Abreisedatum ein.');
+      return;
+    }
+    if (editingBooking.checkout <= editingBooking.checkin) {
+      alert('Das Abreisedatum muss nach dem Anreisedatum liegen.');
+      return;
+    }
+    if (!editingBooking.rooms || editingBooking.rooms.length === 0) {
+      alert('Bitte wählen Sie mindestens 1 Zimmer aus.');
+      return;
+    }
+
+    try {
+      const updated = bookingStore.updateBookingDetails(editingBooking.id, {
+        checkin: editingBooking.checkin,
+        checkout: editingBooking.checkout,
+        rooms: editingBooking.rooms.map(r => ({
+          typeId: r.typeId,
+          roomNumber: r.roomNumber ? Number(r.roomNumber) : null,
+          accessible: Boolean(r.accessible),
+          guests: Math.max(1, Number(r.guests) || 1)
+        })),
+        guest: {
+          firstName: editingBooking.firstName,
+          lastName: editingBooking.lastName,
+          company: editingBooking.company,
+          phone: editingBooking.phone,
+          email: editingBooking.email,
+          street: editingBooking.street,
+          zip: editingBooking.zip,
+          city: editingBooking.city,
+          country: editingBooking.country,
+          notes: editingBooking.notes
+        },
+        paymentStatus: editingBooking.paymentStatus,
+        paymentMethod: editingBooking.paymentMethod,
+        totalPrice: editingBooking.totalPrice !== '' ? Number(editingBooking.totalPrice) : 0,
+        includeCityTax: Boolean(editingBooking.includeCityTax)
+      });
+
+      loadData();
+      if (selectedBooking && (selectedBooking.id === updated.id || selectedBooking.bookingNumber === updated.bookingNumber)) {
+        setSelectedBooking(updated);
+      }
+      setExpandedBookingId(updated.id);
+      setEditedSavedBooking(updated);
+      triggerSaveNotification(`Buchung ${updated.bookingNumber} aktualisiert – PDF-Rechnung passt sich automatisch an!`);
+    } catch (err) {
+      alert(err.message || 'Fehler beim Speichern der Änderungen');
     }
   };
 
@@ -1628,6 +1812,19 @@ export default function AdminPage() {
     if (!manualBooking.checkin || !manualBooking.checkout) return [];
     return bookingStore.getOccupiedRoomNumbers(manualBooking.checkin, manualBooking.checkout);
   }, [manualBooking.checkin, manualBooking.checkout, bookings]);
+
+  // Live availability in Booking Edit Modal (excludes the booking being edited)
+  const editModalAvailability = useMemo(() => {
+    if (!editingBooking?.checkin || !editingBooking?.checkout) return null;
+    return bookingStore.getAvailableRooms(editingBooking.checkin, editingBooking.checkout, {
+      excludeBookingId: editingBooking.id
+    });
+  }, [editingBooking?.id, editingBooking?.checkin, editingBooking?.checkout, bookings]);
+
+  const editOccupiedRooms = useMemo(() => {
+    if (!editingBooking?.checkin || !editingBooking?.checkout) return [];
+    return bookingStore.getOccupiedRoomNumbers(editingBooking.checkin, editingBooking.checkout, editingBooking.id);
+  }, [editingBooking?.id, editingBooking?.checkin, editingBooking?.checkout, bookings]);
 
   // 7 Days of the currently selected week (Monday to Sunday)
   const currentWeekDays = useMemo(() => {
@@ -2243,13 +2440,22 @@ export default function AdminPage() {
                                       <Eye size={16} />
                                     </button>
                                     {!isOpenHold && !isInquiry && (
-                                      <button 
-                                        className="btn-icon" 
-                                        title="PDF-Rechnung herunterladen"
-                                        onClick={() => downloadInvoicePDF(b)}
-                                      >
-                                        <Download size={16} />
-                                      </button>
+                                      <>
+                                        <button 
+                                          className="btn-icon" 
+                                          title="Buchung & Rechnungsanschrift bearbeiten"
+                                          onClick={() => handleOpenEditBooking(b)}
+                                        >
+                                          <Edit3 size={16} />
+                                        </button>
+                                        <button 
+                                          className="btn-icon" 
+                                          title="PDF-Rechnung herunterladen"
+                                          onClick={() => downloadInvoicePDF(b)}
+                                        >
+                                          <Download size={16} />
+                                        </button>
+                                      </>
                                     )}
                                   </div>
                                 </td>
@@ -2396,13 +2602,22 @@ export default function AdminPage() {
                             </button>
 
                             {!isOpenHold && !isInquiry && (
-                              <button 
-                                className="btn-mobile-act-sec" 
-                                title="Rechnung PDF herunterladen"
-                                onClick={() => downloadInvoicePDF(b)}
-                              >
-                                <Download size={15} /> PDF
-                              </button>
+                              <>
+                                <button 
+                                  className="btn-mobile-act-sec" 
+                                  title="Buchung & Rechnungsanschrift bearbeiten"
+                                  onClick={() => handleOpenEditBooking(b)}
+                                >
+                                  <Edit3 size={15} /> Bearbeiten
+                                </button>
+                                <button 
+                                  className="btn-mobile-act-sec" 
+                                  title="Rechnung PDF herunterladen"
+                                  onClick={() => downloadInvoicePDF(b)}
+                                >
+                                  <Download size={15} /> PDF
+                                </button>
+                              </>
                             )}
                           </div>
 
@@ -3274,6 +3489,18 @@ export default function AdminPage() {
                             {createdManualBooking.guest?.company ? ` (${createdManualBooking.guest.company})` : ''}
                           </span>
                         </div>
+                        {(createdManualBooking.guest?.street || createdManualBooking.guest?.city) && (
+                          <div className="exp-field-row">
+                            <span className="exp-label">Rechnungsanschrift:</span>
+                            <span className="exp-val">
+                              {createdManualBooking.guest?.street ? `${createdManualBooking.guest.street}, ` : ''}
+                              {createdManualBooking.guest?.zip || ''} {createdManualBooking.guest?.city || ''}
+                              {createdManualBooking.guest?.country && createdManualBooking.guest.country.trim().toLowerCase() !== 'deutschland'
+                                ? `, ${createdManualBooking.guest.country.trim()}`
+                                : ''}
+                            </span>
+                          </div>
+                        )}
                         <div className="exp-field-row">
                           <span className="exp-label">Zeitraum:</span>
                           <span className="exp-val">
@@ -3318,6 +3545,19 @@ export default function AdminPage() {
                             Rechnung per E-Mail senden
                           </button>
                         )}
+
+                        <button
+                          type="button"
+                          className="btn-admin-secondary"
+                          onClick={() => {
+                            const target = createdManualBooking;
+                            setShowManualBookingModal(false);
+                            setCreatedManualBooking(null);
+                            handleOpenEditBooking(target);
+                          }}
+                        >
+                          <Edit3 size={15} /> Daten bearbeiten
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -3409,7 +3649,8 @@ export default function AdminPage() {
                               ...prev,
                               roomNumber: chosenNum,
                               countEZ: newEZ,
-                              countDZ: newDZ
+                              countDZ: newDZ,
+                              guestsCount: Math.max(1, newEZ * 1 + newDZ * 2)
                             }));
                             updateManualSuggestedPrice(manualBooking.checkin, manualBooking.checkout, newEZ, newDZ);
                           }
@@ -3446,8 +3687,12 @@ export default function AdminPage() {
                           value={manualBooking.countEZ} 
                           disabled={Boolean(manualBooking.roomNumber)}
                           onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
-                            setManualBooking(prev => ({ ...prev, countEZ: val }));
+                            const val = parseInt(e.target.value, 10) || 0;
+                            setManualBooking(prev => ({
+                              ...prev,
+                              countEZ: val,
+                              guestsCount: Math.max(1, val * 1 + (Number(prev.countDZ) || 0) * 2)
+                            }));
                             updateManualSuggestedPrice(manualBooking.checkin, manualBooking.checkout, val, manualBooking.countDZ);
                           }}
                         />
@@ -3461,12 +3706,30 @@ export default function AdminPage() {
                           value={manualBooking.countDZ} 
                           disabled={Boolean(manualBooking.roomNumber)}
                           onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
-                            setManualBooking(prev => ({ ...prev, countDZ: val }));
+                            const val = parseInt(e.target.value, 10) || 0;
+                            setManualBooking(prev => ({
+                              ...prev,
+                              countDZ: val,
+                              guestsCount: Math.max(1, (Number(prev.countEZ) || 0) * 1 + val * 2)
+                            }));
                             updateManualSuggestedPrice(manualBooking.checkin, manualBooking.checkout, manualBooking.countEZ, val);
                           }}
                         />
                       </div>
+                    </div>
+
+                    <div className="form-group-admin mt-3">
+                      <label>Anzahl Personen / Gäste gesamt (für Rechnung)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="40"
+                        value={manualBooking.guestsCount}
+                        onChange={(e) => setManualBooking(prev => ({ ...prev, guestsCount: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+                      />
+                      <small className="form-help-text">
+                        Standard: 1 pro Einzelzimmer, 2 pro Doppelzimmer (z. B. auf 1 setzen bei Einzelnutzung eines Doppelzimmers).
+                      </small>
                     </div>
                   </div>
 
@@ -3524,6 +3787,47 @@ export default function AdminPage() {
                         placeholder="gast@beispiel.de"
                         value={manualBooking.email}
                         onChange={(e) => setManualBooking({ ...manualBooking, email: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="form-group-admin">
+                      <label>Straße & Hausnummer (Rechnungsanschrift)</label>
+                      <input 
+                        type="text" 
+                        placeholder="z. B. Musterstraße 12a"
+                        value={manualBooking.street}
+                        onChange={(e) => setManualBooking({ ...manualBooking, street: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="form-grid-2-admin">
+                      <div className="form-group-admin">
+                        <label>PLZ</label>
+                        <input 
+                          type="text" 
+                          placeholder="z. B. 31535"
+                          value={manualBooking.zip}
+                          onChange={(e) => setManualBooking({ ...manualBooking, zip: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group-admin">
+                        <label>Stadt / Ort</label>
+                        <input 
+                          type="text" 
+                          placeholder="z. B. Neustadt am Rübenberge"
+                          value={manualBooking.city}
+                          onChange={(e) => setManualBooking({ ...manualBooking, city: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group-admin">
+                      <label>Land (optional, Standard: Deutschland)</label>
+                      <input 
+                        type="text" 
+                        placeholder="Deutschland"
+                        value={manualBooking.country}
+                        onChange={(e) => setManualBooking({ ...manualBooking, country: e.target.value })}
                       />
                     </div>
                   </div>
@@ -3610,6 +3914,9 @@ export default function AdminPage() {
                             useTax ? (settings.cityTaxRate ?? 4) : 0,
                             settings.taxRate ?? 7
                           );
+                          const nightsCount = (manualBooking.checkin && manualBooking.checkout && manualBooking.checkout > manualBooking.checkin)
+                            ? Math.max(1, Math.ceil((new Date(manualBooking.checkout) - new Date(manualBooking.checkin)) / 86400000))
+                            : 1;
                           return (
                             <div style={{ marginTop: '0.45rem', fontSize: '0.78rem', color: '#475569' }}>
                               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontWeight: 500, marginBottom: '0.25rem' }}>
@@ -3624,9 +3931,10 @@ export default function AdminPage() {
                                 />
                                 <span>Beherbergungssteuer ({settings.cityTaxRate ?? 4} % auf Netto) ausweisen</span>
                               </label>
-                              {useTax && Number(manualBooking.customPrice || 0) > 0 && (
+                              {Number(manualBooking.customPrice || 0) > 0 && (
                                 <small className="form-help-muted" style={{ display: 'block', color: '#0f2b5c' }}>
-                                  Zimmeranteil: <strong>{previewSplit.lodgingGross.toFixed(2)} €</strong> · Beherbergungssteuer: <strong>{previewSplit.cityTaxGross.toFixed(2)} €</strong>
+                                  {(Number(manualBooking.customPrice || 0) / nightsCount).toFixed(2)} € / Nacht ({nightsCount} {nightsCount === 1 ? 'Nacht' : 'Nächte'})
+                                  {useTax ? ` · Zimmeranteil: ${previewSplit.lodgingGross.toFixed(2)} € · Beherbergungssteuer: ${previewSplit.cityTaxGross.toFixed(2)} €` : ''}
                                 </small>
                               )}
                             </div>
@@ -3656,6 +3964,553 @@ export default function AdminPage() {
                   </button>
                 </div>
               </form>
+              )}
+            </motion.div>
+          </div>
+        )}
+
+        {/* MODAL: BUCHUNG & RECHNUNG NACHTRÄGLICH BEARBEITEN */}
+        {editingBooking && (
+          <div className="admin-modal-backdrop" onClick={() => { setEditingBooking(null); setEditedSavedBooking(null); }}>
+            <motion.div
+              className="admin-modal-card modal-large"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-header">
+                <div>
+                  <span className="modal-badge">
+                    {editedSavedBooking
+                      ? (editedSavedBooking.invoiceNumber || editedSavedBooking.bookingNumber)
+                      : `${editingBooking.bookingNumber}${editingBooking.invoiceNumber ? ` · ${editingBooking.invoiceNumber}` : ''}`}
+                  </span>
+                  <h3>{editedSavedBooking ? 'Buchung & PDF aktualisiert' : 'Buchung & Rechnung bearbeiten'}</h3>
+                </div>
+                <button className="modal-close" onClick={() => { setEditingBooking(null); setEditedSavedBooking(null); }}>×</button>
+              </div>
+
+              {editedSavedBooking ? (
+                <div className="admin-form">
+                  <div className="modal-body">
+                    <div className="manual-created-success-box">
+                      <div className="manual-created-banner">
+                        <CheckCircle2 size={24} style={{ flexShrink: 0, marginTop: '2px' }} />
+                        <div>
+                          <h4>Änderungen erfolgreich gespeichert!</h4>
+                          <p>
+                            Alle Buchungsdaten wurden aktualisiert. Beim Herunterladen oder erneuten Versenden wird automatisch eine neue PDF-Rechnung (<strong>{editedSavedBooking.invoiceNumber || editedSavedBooking.bookingNumber}</strong>) mit dem aktuellen Stand erstellt.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="manual-created-summary-grid">
+                        <div className="exp-field-row">
+                          <span className="exp-label">Buchungs-Nr.:</span>
+                          <span className="exp-val font-mono"><strong>{editedSavedBooking.bookingNumber}</strong></span>
+                        </div>
+                        <div className="exp-field-row">
+                          <span className="exp-label">Rechnungs-Nr.:</span>
+                          <span className="exp-val font-mono"><strong>{editedSavedBooking.invoiceNumber || '-'}</strong></span>
+                        </div>
+                        <div className="exp-field-row">
+                          <span className="exp-label">Gast / Firma:</span>
+                          <span className="exp-val">
+                            <strong>{editedSavedBooking.guest?.firstName} {editedSavedBooking.guest?.lastName}</strong>
+                            {editedSavedBooking.guest?.company ? ` (${editedSavedBooking.guest.company})` : ''}
+                          </span>
+                        </div>
+                        {(editedSavedBooking.guest?.street || editedSavedBooking.guest?.city) && (
+                          <div className="exp-field-row">
+                            <span className="exp-label">Rechnungsanschrift:</span>
+                            <span className="exp-val">
+                              {editedSavedBooking.guest?.street ? `${editedSavedBooking.guest.street}, ` : ''}
+                              {editedSavedBooking.guest?.zip || ''} {editedSavedBooking.guest?.city || ''}
+                              {editedSavedBooking.guest?.country && editedSavedBooking.guest.country.trim().toLowerCase() !== 'deutschland'
+                                ? `, ${editedSavedBooking.guest.country.trim()}`
+                                : ''}
+                            </span>
+                          </div>
+                        )}
+                        <div className="exp-field-row">
+                          <span className="exp-label">Zeitraum:</span>
+                          <span className="exp-val">
+                            {new Date(editedSavedBooking.checkin).toLocaleDateString('de-DE')} – {new Date(editedSavedBooking.checkout).toLocaleDateString('de-DE')} ({editedSavedBooking.nights} {editedSavedBooking.nights === 1 ? 'Nacht' : 'Nächte'})
+                          </span>
+                        </div>
+                        <div className="exp-field-row">
+                          <span className="exp-label">Zimmer:</span>
+                          <span className="exp-val">
+                            {(editedSavedBooking.rooms || []).map(r => `${r.roomNumber ? `Zimmer ${r.roomNumber} (${r.name})` : r.name} · ${r.guests || 1} P.`).join(', ')}
+                          </span>
+                        </div>
+                        <div className="exp-field-row">
+                          <span className="exp-label">Gesamtbetrag (brutto):</span>
+                          <span className="exp-val exp-price-highlight">{Number(editedSavedBooking.totalPrice || 0).toFixed(2)} €</span>
+                        </div>
+                        {Number(editedSavedBooking.cityTaxGross || 0) > 0 && (
+                          <div className="exp-field-row">
+                            <span className="exp-label">Davon Beherbergungssteuer ({editedSavedBooking.cityTaxRate || 4} %):</span>
+                            <span className="exp-val text-muted">{Number(editedSavedBooking.cityTaxGross).toFixed(2)} €</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="manual-created-actions-row">
+                        <button
+                          type="button"
+                          className="btn-admin-primary"
+                          onClick={() => downloadInvoicePDF(editedSavedBooking)}
+                        >
+                          <Download size={16} /> Aktualisierte PDF-Rechnung herunterladen
+                        </button>
+
+                        {editedSavedBooking.guest?.email && (
+                          <button
+                            type="button"
+                            className="btn-admin-secondary"
+                            onClick={() => handleResendInvoice(editedSavedBooking)}
+                            disabled={isResendingInvoice}
+                          >
+                            {isResendingInvoice ? <RefreshCw size={15} className="spin-icon" /> : <Mail size={15} />}
+                            Aktualisierte Rechnung per E-Mail senden
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      className="btn-admin-secondary"
+                      onClick={() => handleOpenEditBooking(editedSavedBooking)}
+                    >
+                      <Edit3 size={15} /> Weiter bearbeiten
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-admin-primary"
+                      onClick={() => { setEditingBooking(null); setEditedSavedBooking(null); }}
+                    >
+                      <Check size={16} /> Fertig
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleSaveEditedBooking} className="admin-form">
+                  <div className="modal-body">
+                    <div className="availability-hint-banner" style={{ marginBottom: '1rem', background: '#f8fafc', borderColor: '#cbd5e1', color: '#334155' }}>
+                      <FileText size={16} style={{ flexShrink: 0 }} />
+                      <span>
+                        Rechnungs-Nr. <strong>{editingBooking.invoiceNumber || editingBooking.bookingNumber}</strong> bleibt erhalten. Nach dem Speichern erzeugt jeder PDF-Download automatisch die aktualisierte Rechnung.
+                      </span>
+                    </div>
+
+                    {/* 1. Zeitraum & Zimmer */}
+                    <div className="manual-booking-section">
+                      <h4>1. Reisedaten & Zimmer</h4>
+                      <div className="form-grid-2-admin">
+                        <div className="form-group-admin">
+                          <label>Anreise-Datum *</label>
+                          <input
+                            type="date"
+                            value={editingBooking.checkin}
+                            onChange={(e) => setEditingBooking(prev => ({ ...prev, checkin: e.target.value }))}
+                            required
+                          />
+                        </div>
+                        <div className="form-group-admin">
+                          <label>Abreise-Datum *</label>
+                          <input
+                            type="date"
+                            value={editingBooking.checkout}
+                            min={editingBooking.checkin}
+                            onChange={(e) => setEditingBooking(prev => ({ ...prev, checkout: e.target.value }))}
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      {editModalAvailability && (
+                        <div className="availability-hint-banner">
+                          <ShieldCheck size={16} />
+                          <span>
+                            Verfügbar in diesem Zeitraum (inkl. dieser Buchung):
+                            <strong> {editModalAvailability.einzelzimmer} Einzelzimmer</strong>,
+                            <strong> {editModalAvailability.doppelzimmer} Doppelzimmer</strong>
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="edit-rooms-stack mt-3">
+                        {editingBooking.rooms.map((slot, sIdx) => {
+                          const occupiedOtherSlots = editingBooking.rooms
+                            .filter((other, idx) => idx !== sIdx && other.roomNumber)
+                            .map(other => Number(other.roomNumber));
+                          const occupiedForSlot = new Set([...editOccupiedRooms, ...occupiedOtherSlots]);
+
+                          return (
+                            <div key={sIdx} className="edit-room-slot-card">
+                              <div className="edit-room-slot-header">
+                                <span>
+                                  <DoorOpen size={14} style={{ verticalAlign: 'middle', marginRight: '5px' }} />
+                                  Zimmer-Position {sIdx + 1}
+                                </span>
+                                {editingBooking.rooms.length > 1 && (
+                                  <button
+                                    type="button"
+                                    className="btn-edit-remove-room"
+                                    onClick={() => setEditingBooking(prev => ({
+                                      ...prev,
+                                      rooms: prev.rooms.filter((_, idx) => idx !== sIdx)
+                                    }))}
+                                  >
+                                    Entfernen
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="edit-room-slot-grid">
+                                <div className="form-group-admin">
+                                  <label>Kategorie</label>
+                                  <select
+                                    value={slot.typeId}
+                                    onChange={(e) => {
+                                      const newType = e.target.value;
+                                      setEditingBooking(prev => ({
+                                        ...prev,
+                                        rooms: prev.rooms.map((item, idx) => {
+                                          if (idx !== sIdx) return item;
+                                          const curDef = item.roomNumber
+                                            ? ROOM_DEFINITIONS.find(r => r.number === Number(item.roomNumber))
+                                            : null;
+                                          const keepRoom = curDef && curDef.typeId === newType ? item.roomNumber : '';
+                                          return {
+                                            ...item,
+                                            typeId: newType,
+                                            roomNumber: keepRoom,
+                                            accessible: keepRoom === '2',
+                                            guests: newType === 'einzelzimmer' ? 1 : Math.max(1, Number(item.guests) || 2)
+                                          };
+                                        })
+                                      }));
+                                    }}
+                                  >
+                                    <option value="einzelzimmer">Einzelzimmer</option>
+                                    <option value="doppelzimmer">Doppelzimmer</option>
+                                  </select>
+                                </div>
+
+                                <div className="form-group-admin">
+                                  <label>Zimmernummer (1–15)</label>
+                                  <select
+                                    value={slot.roomNumber}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      const rnDef = val ? ROOM_DEFINITIONS.find(r => r.number === Number(val)) : null;
+                                      setEditingBooking(prev => ({
+                                        ...prev,
+                                        rooms: prev.rooms.map((item, idx) => {
+                                          if (idx !== sIdx) return item;
+                                          return {
+                                            ...item,
+                                            roomNumber: val,
+                                            typeId: rnDef ? rnDef.typeId : item.typeId,
+                                            accessible: rnDef ? Boolean(rnDef.accessible) : false,
+                                            guests: rnDef?.typeId === 'einzelzimmer' ? 1 : item.guests
+                                          };
+                                        })
+                                      }));
+                                    }}
+                                  >
+                                    <option value="">Automatisch zuweisen</option>
+                                    {ROOM_DEFINITIONS.map(def => {
+                                      const isTaken = occupiedForSlot.has(def.number) && Number(slot.roomNumber) !== def.number;
+                                      return (
+                                        <option key={def.number} value={String(def.number)} disabled={isTaken}>
+                                          Zimmer {def.number} · {def.typeLabel} {def.accessible ? '♿' : ''} {isTaken ? '— [Belegt]' : '— [Frei]'}
+                                        </option>
+                                      );
+                                    })}
+                                  </select>
+                                </div>
+
+                                <div className="form-group-admin">
+                                  <label>Gäste</label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="4"
+                                    value={slot.guests}
+                                    onChange={(e) => {
+                                      const gVal = Math.max(1, parseInt(e.target.value, 10) || 1);
+                                      setEditingBooking(prev => ({
+                                        ...prev,
+                                        rooms: prev.rooms.map((item, idx) => idx === sIdx ? { ...item, guests: gVal } : item)
+                                      }));
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        <button
+                          type="button"
+                          className="btn-admin-secondary mt-2"
+                          style={{ alignSelf: 'flex-start' }}
+                          onClick={() => setEditingBooking(prev => ({
+                            ...prev,
+                            rooms: [...prev.rooms, { typeId: 'einzelzimmer', roomNumber: '', accessible: false, guests: 1 }]
+                          }))}
+                        >
+                          <Plus size={14} /> Weiteres Zimmer hinzufügen
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 2. Gast- & Rechnungsanschrift */}
+                    <div className="manual-booking-section mt-3">
+                      <h4>2. Gastdaten & Rechnungsanschrift</h4>
+                      <div className="form-grid-2-admin">
+                        <div className="form-group-admin">
+                          <label>Vorname des Gastes *</label>
+                          <input
+                            type="text"
+                            value={editingBooking.firstName}
+                            onChange={(e) => setEditingBooking({ ...editingBooking, firstName: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="form-group-admin">
+                          <label>Nachname des Gastes *</label>
+                          <input
+                            type="text"
+                            value={editingBooking.lastName}
+                            onChange={(e) => setEditingBooking({ ...editingBooking, lastName: e.target.value })}
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-grid-2-admin">
+                        <div className="form-group-admin">
+                          <label>Firma / Organisation (optional)</label>
+                          <input
+                            type="text"
+                            placeholder="z. B. Musterfirma GmbH"
+                            value={editingBooking.company}
+                            onChange={(e) => setEditingBooking({ ...editingBooking, company: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group-admin">
+                          <label>Telefonnummer</label>
+                          <input
+                            type="text"
+                            value={editingBooking.phone}
+                            onChange={(e) => setEditingBooking({ ...editingBooking, phone: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-group-admin">
+                        <label>E-Mail-Adresse (für Rechnungsversand)</label>
+                        <input
+                          type="email"
+                          value={editingBooking.email}
+                          onChange={(e) => setEditingBooking({ ...editingBooking, email: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="form-group-admin">
+                        <label>Straße & Hausnummer (Rechnungsanschrift)</label>
+                        <input
+                          type="text"
+                          placeholder="z. B. Musterstraße 12a"
+                          value={editingBooking.street}
+                          onChange={(e) => setEditingBooking({ ...editingBooking, street: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="form-grid-2-admin">
+                        <div className="form-group-admin">
+                          <label>PLZ</label>
+                          <input
+                            type="text"
+                            placeholder="z. B. 31535"
+                            value={editingBooking.zip}
+                            onChange={(e) => setEditingBooking({ ...editingBooking, zip: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group-admin">
+                          <label>Stadt / Ort</label>
+                          <input
+                            type="text"
+                            placeholder="z. B. Neustadt am Rübenberge"
+                            value={editingBooking.city}
+                            onChange={(e) => setEditingBooking({ ...editingBooking, city: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-group-admin">
+                        <label>Land (optional, Standard: Deutschland)</label>
+                        <input
+                          type="text"
+                          placeholder="Deutschland"
+                          value={editingBooking.country}
+                          onChange={(e) => setEditingBooking({ ...editingBooking, country: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    {/* 3. Abrechnung & Zahlungsstatus */}
+                    <div className="manual-booking-section mt-3">
+                      <h4>3. Abrechnung & Zahlungsstatus</h4>
+
+                      <div className="form-group-admin">
+                        <label>Zahlungsstatus</label>
+                        <div className="payment-toggle-group">
+                          <label className={`payment-toggle-btn ${editingBooking.paymentStatus === 'paid' ? 'active-green' : ''}`}>
+                            <input
+                              type="radio"
+                              name="editPaymentStatus"
+                              checked={editingBooking.paymentStatus === 'paid'}
+                              onChange={() => setEditingBooking(prev => ({
+                                ...prev,
+                                paymentStatus: 'paid',
+                                paymentMethod: prev.paymentMethod === 'pending' ? 'bar' : prev.paymentMethod
+                              }))}
+                            />
+                            <CheckCircle2 size={16} /> Bezahlt
+                          </label>
+                          <label className={`payment-toggle-btn ${editingBooking.paymentStatus === 'pending' ? 'active-amber' : ''}`}>
+                            <input
+                              type="radio"
+                              name="editPaymentStatus"
+                              checked={editingBooking.paymentStatus === 'pending'}
+                              onChange={() => setEditingBooking(prev => ({ ...prev, paymentStatus: 'pending' }))}
+                            />
+                            <Clock size={16} /> Zahlung offen (Rechnung / vor Ort)
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="form-grid-2-admin mt-2">
+                        <div className="form-group-admin">
+                          <label>Zahlungsart</label>
+                          {editingBooking.paymentStatus === 'pending' ? (
+                            <div className="payment-method-locked-hint">
+                              <span className="badge-locked">⏳ Zahlung noch offen</span>
+                              <small className="form-help-muted">
+                                Auf der Rechnung erscheint „Zahlung offen“.
+                              </small>
+                            </div>
+                          ) : (
+                            <select
+                              value={editingBooking.paymentMethod}
+                              onChange={(e) => setEditingBooking({ ...editingBooking, paymentMethod: e.target.value })}
+                            >
+                              <option value="bar">Barzahlung vor Ort</option>
+                              <option value="ec">EC-Karte / Terminal vor Ort</option>
+                              <option value="ueberweisung">Banküberweisung</option>
+                              <option value="rechnung">Rechnung auf Ziel</option>
+                              <option value="online">Online bezahlt</option>
+                            </select>
+                          )}
+                        </div>
+
+                        <div className="form-group-admin">
+                          <label>Gesamtbetrag in € (brutto)</label>
+                          <div className="input-euro">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={editingBooking.totalPrice}
+                              onChange={(e) => setEditingBooking({ ...editingBooking, totalPrice: e.target.value })}
+                              required
+                            />
+                            <span>€</span>
+                          </div>
+                          {(() => {
+                            const useTax = Boolean(editingBooking.includeCityTax);
+                            const taxRatePct = editingBooking.cityTaxRate || settings.cityTaxRate || 4;
+                            const previewSplit = splitTotalWithCityTax(
+                              Number(editingBooking.totalPrice || 0),
+                              useTax ? taxRatePct : 0,
+                              settings.taxRate ?? 7
+                            );
+                            const suggestedStd = calculateStandardTotalForSlots(
+                              editingBooking.checkin,
+                              editingBooking.checkout,
+                              editingBooking.rooms,
+                              useTax,
+                              taxRatePct
+                            );
+                            const differsFromStd = Math.abs(Number(editingBooking.totalPrice || 0) - suggestedStd) > 0.01;
+                            const nightsCount = (editingBooking.checkin && editingBooking.checkout && editingBooking.checkout > editingBooking.checkin)
+                              ? Math.max(1, Math.ceil((new Date(editingBooking.checkout) - new Date(editingBooking.checkin)) / 86400000))
+                              : 1;
+
+                            return (
+                              <div style={{ marginTop: '0.45rem', fontSize: '0.78rem', color: '#475569' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontWeight: 500, marginBottom: '0.3rem' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={useTax}
+                                    onChange={(e) => setEditingBooking(prev => ({ ...prev, includeCityTax: e.target.checked }))}
+                                  />
+                                  <span>Beherbergungssteuer ({taxRatePct} % auf Netto) ausweisen</span>
+                                </label>
+                                {Number(editingBooking.totalPrice || 0) > 0 && (
+                                  <small className="form-help-muted" style={{ display: 'block', color: '#0f2b5c', marginBottom: differsFromStd ? '0.4rem' : 0 }}>
+                                    {(Number(editingBooking.totalPrice || 0) / nightsCount).toFixed(2)} € / Nacht ({nightsCount} {nightsCount === 1 ? 'Nacht' : 'Nächte'})
+                                    {useTax ? ` · Zimmeranteil: ${previewSplit.lodgingGross.toFixed(2)} € · Beherbergungssteuer: ${previewSplit.cityTaxGross.toFixed(2)} €` : ''}
+                                  </small>
+                                )}
+                                {differsFromStd && (
+                                  <button
+                                    type="button"
+                                    className="btn-edit-recalc"
+                                    onClick={() => setEditingBooking(prev => ({ ...prev, totalPrice: suggestedStd.toFixed(2) }))}
+                                  >
+                                    <RefreshCw size={12} /> Regulären Systemtarif übernehmen ({suggestedStd.toFixed(2)} €)
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+
+                      <div className="form-group-admin mt-2">
+                        <label>Interne Notiz / Bemerkung</label>
+                        <textarea
+                          rows="2"
+                          value={editingBooking.notes}
+                          onChange={(e) => setEditingBooking({ ...editingBooking, notes: e.target.value })}
+                        ></textarea>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      className="btn-admin-secondary"
+                      onClick={() => { setEditingBooking(null); setEditedSavedBooking(null); }}
+                    >
+                      Abbrechen
+                    </button>
+                    <button type="submit" className="btn-admin-primary">
+                      <Check size={16} /> Änderungen speichern
+                    </button>
+                  </div>
+                </form>
               )}
             </motion.div>
           </div>

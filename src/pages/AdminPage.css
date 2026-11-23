@@ -4225,3 +4225,98 @@
     font-size: 14px;
   }
 }
+
+/* ============================================================================
+   EDIT BOOKING MODAL (ROOM SLOTS & RATE RECALCULATION)
+   ============================================================================ */
+.edit-rooms-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.edit-room-slot-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+}
+
+.edit-room-slot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #0f2b5c;
+}
+
+.edit-room-slot-grid {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.15fr) minmax(220px, 1.95fr) 86px;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.admin-modal-card .form-group-admin select {
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: #ffffff;
+  color: #0f172a;
+  outline: none;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-modal-card .form-group-admin select:focus {
+  border-color: #0f2b5c;
+}
+
+.edit-room-slot-grid select,
+.edit-room-slot-grid input[type="number"] {
+  height: 42px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .edit-room-slot-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.btn-edit-remove-room {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-edit-remove-room:hover {
+  background: #fecaca;
+}
+
+.btn-edit-recalc {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-edit-recalc:hover {
+  background: #dbeafe;
+}

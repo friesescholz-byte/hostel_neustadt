@@ -159,7 +159,7 @@ export async function generateInvoicePDF(booking) {
     doc.text(`${guest.zip || ''} ${guest.city || ''}`.trim(), 20, yPos);
     yPos += 4.8;
   }
-  doc.text('Deutschland', 20, yPos);
+  doc.text((guest.country || '').trim() || 'Deutschland', 20, yPos);
 
   // --- 3. Invoice Metadata (Right Column - Clean Key/Value) ---
   const metaLabelsX = 130;

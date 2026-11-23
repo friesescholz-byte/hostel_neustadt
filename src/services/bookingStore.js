@@ -1316,6 +1316,9 @@ export const bookingStore = {
     if (!checkin || !checkout) {
       throw new Error('Bitte wählen Sie Anreise- und Abreisedatum aus.');
     }
+    if (checkout <= checkin) {
+      throw new Error('Das Abreisedatum muss nach dem Anreisedatum liegen.');
+    }
     const d1 = new Date(checkin);
     const d2 = new Date(checkout);
     const nights = Math.max(1, Math.ceil((d2 - d1) / (1000 * 60 * 60 * 24)));
@@ -1330,6 +1333,13 @@ export const bookingStore = {
     }
     if (totalDZ > available.doppelzimmer) {
       throw new Error(`Für den gewählten Zeitraum sind nur noch ${available.doppelzimmer} Doppelzimmer verfügbar.`);
+    }
+
+    const occupiedNumbers = this.getOccupiedRoomNumbers(checkin, checkout);
+    for (const r of (rooms || [])) {
+      if (r.roomNumber && occupiedNumbers.includes(Number(r.roomNumber))) {
+        throw new Error(`Zimmer ${r.roomNumber} ist im gewählten Zeitraum bereits belegt.`);
+      }
     }
 
     const roomItems = [];
@@ -1452,15 +1462,16 @@ export const bookingStore = {
       totalPrice: finalTotal,
       paymentStatus: isPaid ? 'paid' : 'pending',
       guest: {
-        firstName: guest.firstName || '',
-        lastName: guest.lastName || '',
-        email: guest.email || '',
-        phone: guest.phone || '',
-        company: guest.company || '',
-        street: guest.street || '',
-        zip: guest.zip || '',
-        city: guest.city || '',
-        notes: guest.notes || '',
+        firstName: (guest.firstName || '').trim(),
+        lastName: (guest.lastName || '').trim(),
+        email: (guest.email || '').trim(),
+        phone: (guest.phone || '').trim(),
+        company: (guest.company || '').trim(),
+        street: (guest.street || '').trim(),
+        zip: (guest.zip || '').trim(),
+        city: (guest.city || '').trim(),
+        country: (guest.country || '').trim(),
+        notes: (guest.notes || '').trim(),
         additionalGuests: []
       },
       payment: {
@@ -1620,6 +1631,283 @@ export const bookingStore = {
       return b;
     });
     this.setBookings(updated);
+    return updatedBooking;
+  },
+
+  /**
+   * Retroactively edits an existing booking (guest/billing address, dates, rooms,
+   * total price, Beherbergungssteuer toggle, payment status/method) while strictly
+   * preserving immutable identifiers (bookingNumber, invoiceNumber, createdAt).
+   */
+  updateBookingDetails(bookingId, {
+    checkin,
+    checkout,
+    rooms,
+    guest,
+    paymentStatus = 'paid',
+    paymentMethod = 'bar',
+    totalPrice,
+    includeCityTax = true
+  }) {
+    const bookings = this.getBookings();
+    const existing = bookings.find(b => b.id === bookingId || b.bookingNumber === bookingId);
+    if (!existing) {
+      throw new Error('Buchung wurde nicht gefunden.');
+    }
+
+    if (!checkin || !checkout) {
+      throw new Error('Bitte wählen Sie Anreise- und Abreisedatum aus.');
+    }
+    if (checkout <= checkin) {
+      throw new Error('Das Abreisedatum muss nach dem Anreisedatum liegen.');
+    }
+
+    const d1 = new Date(checkin);
+    const d2 = new Date(checkout);
+    const nights = Math.max(1, Math.ceil((d2 - d1) / (1000 * 60 * 60 * 24)));
+
+    if (!Array.isArray(rooms) || rooms.length === 0) {
+      throw new Error('Bitte wählen Sie mindestens 1 Zimmer aus.');
+    }
+
+    // Normalize each room slot so typeId always matches explicitly chosen roomNumber (1–15)
+    const normalizedSlots = rooms.map(r => {
+      const rn = r.roomNumber ? Number(r.roomNumber) : null;
+      const roomDef = rn ? ROOM_DEFINITIONS.find(def => def.number === rn) : null;
+      const effectiveTypeId = roomDef ? roomDef.typeId : (r.typeId === 'doppelzimmer' ? 'doppelzimmer' : 'einzelzimmer');
+      const accessible = Boolean(roomDef?.accessible || rn === 2 || r.accessible);
+      return {
+        typeId: effectiveTypeId,
+        roomNumber: rn,
+        accessible,
+        guests: Math.max(1, Number(r.guests) || (effectiveTypeId === 'doppelzimmer' ? 2 : 1))
+      };
+    });
+
+    if (existing.status === 'confirmed') {
+      const available = this.getAvailableRooms(checkin, checkout, { excludeBookingId: existing.id });
+      const reqEZ = normalizedSlots.filter(s => s.typeId === 'einzelzimmer').length;
+      const reqDZ = normalizedSlots.filter(s => s.typeId === 'doppelzimmer').length;
+
+      if (reqEZ > available.einzelzimmer) {
+        throw new Error(`Für den gewählten Zeitraum sind nur noch ${available.einzelzimmer} Einzelzimmer verfügbar.`);
+      }
+      if (reqDZ > available.doppelzimmer) {
+        throw new Error(`Für den gewählten Zeitraum sind nur noch ${available.doppelzimmer} Doppelzimmer verfügbar.`);
+      }
+
+      const occupiedByOthers = new Set(this.getOccupiedRoomNumbers(checkin, checkout, existing.id));
+      const seenNumbers = new Set();
+      for (const s of normalizedSlots) {
+        if (s.roomNumber) {
+          if (occupiedByOthers.has(s.roomNumber)) {
+            throw new Error(
+              `Zimmer ${s.roomNumber} ist im Zeitraum ${new Date(checkin).toLocaleDateString('de-DE')} – ${new Date(checkout).toLocaleDateString('de-DE')} bereits belegt.`
+            );
+          }
+          if (seenNumbers.has(s.roomNumber)) {
+            throw new Error(`Zimmer ${s.roomNumber} wurde in dieser Buchung doppelt ausgewählt.`);
+          }
+          seenNumbers.add(s.roomNumber);
+        }
+      }
+    }
+
+    const assignedSoFar = normalizedSlots.map(s => s.roomNumber).filter(Boolean);
+    const roomItems = [];
+    let calculatedTotal = 0;
+
+    for (const s of normalizedSlots) {
+      const calc = this.calculateRoomPrice(s.typeId, checkin, checkout);
+      calculatedTotal += calc.total;
+
+      let assignedRoom = s.roomNumber;
+      if (!assignedRoom && existing.status !== 'cancelled') {
+        assignedRoom = this.findAvailableRoomNumber(
+          s.typeId,
+          checkin,
+          checkout,
+          s.accessible,
+          existing.id,
+          assignedSoFar
+        );
+        if (assignedRoom) assignedSoFar.push(assignedRoom);
+      }
+
+      const isAccessible = Boolean(assignedRoom === 2 || s.accessible);
+      const typeLabel = isAccessible
+        ? 'Einzelzimmer (Barrierefrei ♿)'
+        : (s.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer');
+
+      roomItems.push({
+        typeId: s.typeId,
+        name: typeLabel,
+        roomNumber: assignedRoom || null,
+        accessible: isAccessible,
+        checkin,
+        checkout,
+        nights,
+        guests: s.guests,
+        count: 1,
+        pricePerNight: calc.avgPerNight,
+        totalPrice: calc.total,
+        tierName: calc.tierName,
+        hasCustomPeriod: calc.hasCustomPeriod,
+        periodName: calc.hasCustomPeriod ? calc.breakdown?.find(b => b.isCustomPeriod)?.periodName : null
+      });
+    }
+
+    const settings = this.getSettings();
+    const vatRate = settings.taxRate ?? 7;
+    const baseCityTaxRate = Number(existing.cityTaxRate || 0) > 0
+      ? Number(existing.cityTaxRate)
+      : (settings.cityTaxRate ?? 4);
+    const effectiveCityTaxRate = includeCityTax ? baseCityTaxRate : 0;
+
+    const hasExplicitTotal = totalPrice !== null && totalPrice !== undefined && totalPrice !== '' && !isNaN(totalPrice);
+    const parsedTotal = hasExplicitTotal ? Number(totalPrice) : Number(existing.totalPrice || 0);
+    if (isNaN(parsedTotal) || parsedTotal < 0) {
+      throw new Error('Bitte geben Sie einen gültigen Gesamtbetrag ein.');
+    }
+
+    const totals = splitTotalWithCityTax(parsedTotal, effectiveCityTaxRate, vatRate);
+
+    if (roomItems.length > 0 && roundCents(totals.lodgingGross) !== roundCents(calculatedTotal)) {
+      if (calculatedTotal > 0) {
+        let allocated = 0;
+        roomItems.forEach((item, idx) => {
+          if (idx === roomItems.length - 1) {
+            item.totalPrice = roundCents(totals.lodgingGross - allocated);
+          } else {
+            const share = roundCents((item.totalPrice / calculatedTotal) * totals.lodgingGross);
+            item.totalPrice = share;
+            allocated = roundCents(allocated + share);
+          }
+          item.pricePerNight = roundCents(item.totalPrice / (item.nights || 1));
+        });
+      } else {
+        const perRoom = roundCents(totals.lodgingGross / roomItems.length);
+        let allocated = 0;
+        roomItems.forEach((item, idx) => {
+          if (idx === roomItems.length - 1) {
+            item.totalPrice = roundCents(totals.lodgingGross - allocated);
+          } else {
+            item.totalPrice = perRoom;
+            allocated = roundCents(allocated + perRoom);
+          }
+          item.pricePerNight = roundCents(item.totalPrice / (item.nights || 1));
+        });
+      }
+    }
+
+    const prevGuest = existing.guest || {};
+    const firstName = (guest?.firstName ?? prevGuest.firstName ?? '').trim();
+    const lastName = (guest?.lastName ?? prevGuest.lastName ?? '').trim();
+    const fullName = `${firstName} ${lastName}`.trim();
+
+    let updatedAllGuests = prevGuest.allGuests;
+    if (Array.isArray(updatedAllGuests) && updatedAllGuests.length > 0) {
+      let mainUpdated = false;
+      updatedAllGuests = updatedAllGuests.map((g, i) => {
+        if (g.isMain || (!mainUpdated && i === 0)) {
+          mainUpdated = true;
+          return { ...g, firstName, lastName, fullName, isMain: true };
+        }
+        return g;
+      });
+    }
+
+    const updatedGuest = {
+      ...prevGuest,
+      firstName,
+      lastName,
+      email: (guest?.email ?? prevGuest.email ?? '').trim(),
+      phone: (guest?.phone ?? prevGuest.phone ?? '').trim(),
+      company: (guest?.company ?? prevGuest.company ?? '').trim(),
+      street: (guest?.street ?? prevGuest.street ?? '').trim(),
+      zip: (guest?.zip ?? prevGuest.zip ?? '').trim(),
+      city: (guest?.city ?? prevGuest.city ?? '').trim(),
+      country: (guest?.country ?? prevGuest.country ?? '').trim(),
+      notes: (guest?.notes ?? prevGuest.notes ?? '').trim(),
+      ...(updatedAllGuests ? { allGuests: updatedAllGuests } : {})
+    };
+
+    const nowIso = new Date().toISOString();
+    const isPaid = paymentStatus === 'paid';
+    const methodLabels = {
+      bar: 'Barzahlung vor Ort',
+      ec: 'EC-Karte / Terminal vor Ort',
+      ueberweisung: 'Banküberweisung',
+      rechnung: 'Rechnung auf Ziel',
+      online: 'Online bezahlt',
+      mollie: 'Online bezahlt'
+    };
+
+    const prevPayment = existing.payment || {};
+    let updatedPayment;
+    if (isPaid) {
+      const keepExistingOnline =
+        (paymentMethod === 'online' || paymentMethod === 'mollie') &&
+        (prevPayment.method === 'mollie' || prevPayment.method === 'online');
+
+      updatedPayment = {
+        ...prevPayment,
+        method: keepExistingOnline ? prevPayment.method : paymentMethod,
+        methodLabel: keepExistingOnline
+          ? (prevPayment.methodLabel || 'Online bezahlt')
+          : (methodLabels[paymentMethod] || 'Vor Ort / Manuell'),
+        status: 'paid',
+        transactionId: prevPayment.transactionId || `man_${Date.now().toString(36)}`,
+        paidAt: prevPayment.paidAt || nowIso,
+        amount: totals.totalPrice
+      };
+    } else {
+      updatedPayment = {
+        ...prevPayment,
+        method: 'pending',
+        methodLabel: 'Zahlung offen (bei Anreise)',
+        status: 'pending',
+        transactionId: prevPayment.status === 'pending' ? (prevPayment.transactionId || null) : null,
+        paidAt: null,
+        amount: totals.totalPrice
+      };
+    }
+
+    const existingFlatRoomCount = (existing.rooms || []).reduce((sum, r) => sum + Math.max(1, Number(r.count) || 1), 0);
+    const keepCustomGuestAssignments =
+      Array.isArray(existing.customGuestAssignments) && existingFlatRoomCount === roomItems.length;
+
+    const roomNumbers = roomItems.map(r => r.roomNumber).filter(Boolean);
+
+    let updatedBooking = null;
+    const updatedList = bookings.map(b => {
+      if (b.id === existing.id) {
+        updatedBooking = {
+          ...b,
+          checkin,
+          checkout,
+          nights,
+          rooms: roomItems,
+          roomNumbers,
+          roomNumber: roomNumbers[0] || null,
+          lodgingTotal: totals.lodgingGross,
+          lodgingNet: totals.lodgingNet,
+          cityTaxRate: totals.cityTaxRate,
+          cityTaxNet: totals.cityTaxNet,
+          cityTaxGross: totals.cityTaxGross,
+          totalPrice: totals.totalPrice,
+          paymentStatus: isPaid ? 'paid' : 'pending',
+          guest: updatedGuest,
+          payment: updatedPayment,
+          customGuestAssignments: keepCustomGuestAssignments ? existing.customGuestAssignments : undefined,
+          updatedAt: nowIso
+        };
+        return updatedBooking;
+      }
+      return b;
+    });
+
+    this.setBookings(updatedList);
     return updatedBooking;
   }
 };
