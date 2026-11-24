@@ -630,7 +630,20 @@ export default {
 
     // 7. Fallback: Serve static assets (Cloudflare Workers / Pages)
     if (env?.ASSETS && typeof env.ASSETS.fetch === 'function') {
-      return env.ASSETS.fetch(request);
+      const assetRes = await env.ASSETS.fetch(request);
+      const contentType = assetRes.headers.get('Content-Type') || '';
+      if (contentType.includes('text/html') || !url.pathname.includes('.')) {
+        const newHeaders = new Headers(assetRes.headers);
+        newHeaders.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        newHeaders.set('Pragma', 'no-cache');
+        newHeaders.set('Expires', '0');
+        return new Response(assetRes.body, {
+          status: assetRes.status,
+          statusText: assetRes.statusText,
+          headers: newHeaders
+        });
+      }
+      return assetRes;
     }
 
     return fetch(request);

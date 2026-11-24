@@ -259,7 +259,10 @@ export async function generateInvoicePDF(booking) {
 
     const roomTitle = r.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer';
     const qtyText = r.count > 1 ? `${r.count}x ` : '';
-    const tierInfo = r.tierName ? ` (${r.tierName})` : '';
+    const cleanTierName = r.tierName
+      ? String(r.tierName).replace(/\s*\(Individuelles Angebot\)/i, '').trim()
+      : '';
+    const tierInfo = cleanTierName ? ` (${cleanTierName})` : '';
     const roomNumStr = r.roomNumber 
       ? ` · Zimmer ${r.roomNumber}${r.roomNumber === 2 ? ' (Barrierefrei)' : ''}` 
       : '';
