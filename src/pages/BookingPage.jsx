@@ -1127,9 +1127,21 @@ const BookingPage = () => {
                   ))}
                 </div>
               </div>
+              {confirmedBooking.lodgingNet !== undefined && (
+                <>
+                  <div className="success-detail-row">
+                    <span>Nettobetrag (ohne USt.):</span>
+                    <strong>{Number(confirmedBooking.lodgingNet).toFixed(2)} €</strong>
+                  </div>
+                  <div className="success-detail-row">
+                    <span>Zuzüglich 7,0 % USt. (Beherbergung):</span>
+                    <strong>{Number((confirmedBooking.lodgingTotal ?? confirmedBooking.totalPrice) - confirmedBooking.lodgingNet).toFixed(2)} €</strong>
+                  </div>
+                </>
+              )}
               {Number(confirmedBooking.cityTaxGross || 0) > 0 && (
                 <div className="success-detail-row">
-                  <span>Beherbergungssteuer ({confirmedBooking.cityTaxRate || 4} % auf Netto):</span>
+                  <span>Beherbergungssteuer Stadt Neustadt a. Rbge. ({confirmedBooking.cityTaxRate || 4} %):</span>
                   <strong>{Number(confirmedBooking.cityTaxGross).toFixed(2)} €</strong>
                 </div>
               )}
@@ -1755,35 +1767,44 @@ const BookingPage = () => {
                           </div>
                         </div>
                       ))}
-
-                      {bookingTotals.cityTaxGross > 0 && (
-                        <div className="cart-citytax-row">
-                          <div className="cart-citytax-info">
-                            <strong>Beherbergungssteuer Stadt Neustadt a. Rbge.</strong>
-                            <small>{bookingTotals.cityTaxRate} % auf Netto-Übernachtungsentgelt (inkl. 7 % USt.)</small>
-                          </div>
-                          <span className="cart-citytax-val">+{bookingTotals.cityTaxGross.toFixed(2)} €</span>
-                        </div>
-                      )}
                     </div>
                   )}
 
                   {cart.length > 0 && (
-                    <div className="cart-checkout-action-row">
-                      <div className="cart-checkout-subtotal">
-                        <span>Gesamtbetrag ({cart.length} {cart.length === 1 ? 'Zimmer' : 'Zimmer'} · {totalCartNights} {totalCartNights === 1 ? 'Nacht' : 'Nächte'} inkl. Beherbergungssteuer):</span>
-                        <strong className="cart-checkout-subtotal-val">{totalPrice.toFixed(2)} €</strong>
+                    <>
+                      <div className="cart-tax-breakdown">
+                        <div className="cart-tax-line">
+                          <span>Nettobetrag (ohne USt.):</span>
+                          <span>{bookingTotals.lodgingNet.toFixed(2)} €</span>
+                        </div>
+                        <div className="cart-tax-line">
+                          <span>Zuzüglich 7,0 % USt. (Beherbergung):</span>
+                          <span>{(bookingTotals.lodgingGross - bookingTotals.lodgingNet).toFixed(2)} €</span>
+                        </div>
+                        {bookingTotals.cityTaxGross > 0 && (
+                          <div className="cart-tax-line">
+                            <span>Beherbergungssteuer Stadt Neustadt a. Rbge. ({bookingTotals.cityTaxRate} %):</span>
+                            <span>+{bookingTotals.cityTaxGross.toFixed(2)} €</span>
+                          </div>
+                        )}
                       </div>
-                      <button 
-                        type="button" 
-                        className="btn-cart-proceed-inline"
-                        onClick={handleNext}
-                        disabled={isCheckingHold}
-                      >
-                        <span>{isCheckingHold ? 'Verfügbarkeit wird geprüft...' : 'Weiter zu Gastdaten'}</span>
-                        <ArrowRight size={18} />
-                      </button>
-                    </div>
+
+                      <div className="cart-checkout-action-row">
+                        <div className="cart-checkout-subtotal">
+                          <span>Gesamtbetrag ({cart.length} {cart.length === 1 ? 'Zimmer' : 'Zimmer'} · {totalCartNights} {totalCartNights === 1 ? 'Nacht' : 'Nächte'} inkl. USt. & Beherbergungssteuer):</span>
+                          <strong className="cart-checkout-subtotal-val">{totalPrice.toFixed(2)} €</strong>
+                        </div>
+                        <button 
+                          type="button" 
+                          className="btn-cart-proceed-inline"
+                          onClick={handleNext}
+                          disabled={isCheckingHold}
+                        >
+                          <span>{isCheckingHold ? 'Verfügbarkeit wird geprüft...' : 'Weiter zu Gastdaten'}</span>
+                          <ArrowRight size={18} />
+                        </button>
+                      </div>
+                    </>
                   )}
 
                   {errors.cart && <p className="field-error mt-3">{errors.cart}</p>}
@@ -1953,25 +1974,19 @@ const BookingPage = () => {
 
                     <div className="summary-divider" />
                     <div className="summary-row">
-                      <span className="summary-label">Zimmerpreis (inkl. 7 % USt.)</span>
-                      <span className="summary-value">{bookingTotals.lodgingGross.toFixed(2)} €</span>
+                      <span className="summary-label">Nettobetrag (ohne USt.)</span>
+                      <span className="summary-value">{bookingTotals.lodgingNet.toFixed(2)} €</span>
+                    </div>
+                    <div className="summary-row">
+                      <span className="summary-label">Zuzüglich 7,0 % USt. (Beherbergung)</span>
+                      <span className="summary-value">{(bookingTotals.lodgingGross - bookingTotals.lodgingNet).toFixed(2)} €</span>
                     </div>
                     {bookingTotals.cityTaxGross > 0 && (
                       <div className="summary-row">
-                        <span className="summary-label">Beherbergungssteuer ({bookingTotals.cityTaxRate} % auf Netto, inkl. 7 % USt.)</span>
+                        <span className="summary-label">Beherbergungssteuer Stadt Neustadt a. Rbge. ({bookingTotals.cityTaxRate} %)</span>
                         <span className="summary-value">+{bookingTotals.cityTaxGross.toFixed(2)} €</span>
                       </div>
                     )}
-
-                    <div className="summary-divider" />
-                    <div className="summary-row">
-                      <span className="summary-label">Nettobetrag gesamt (ohne USt.)</span>
-                      <span className="summary-value">{bookingTotals.netTotal.toFixed(2)} €</span>
-                    </div>
-                    <div className="summary-row">
-                      <span className="summary-label">7 % Beherbergungs-USt.</span>
-                      <span className="summary-value">{bookingTotals.taxAmount.toFixed(2)} €</span>
-                    </div>
                     <div className="summary-row summary-total">
                       <span className="summary-label">Gesamtbetrag (brutto)</span>
                       <span className="summary-value">{bookingTotals.totalPrice.toFixed(2)} €</span>
@@ -2112,14 +2127,20 @@ const BookingPage = () => {
                   </div>
                 ))}
 
+                <div className="sidebar-divider" />
+                <div className="sidebar-row sidebar-citytax-row">
+                  <span>Nettobetrag (ohne USt.)</span>
+                  <span>{bookingTotals.lodgingNet.toFixed(2)} €</span>
+                </div>
+                <div className="sidebar-row sidebar-citytax-row">
+                  <span>Zuzüglich 7,0 % USt.</span>
+                  <span>{(bookingTotals.lodgingGross - bookingTotals.lodgingNet).toFixed(2)} €</span>
+                </div>
                 {bookingTotals.cityTaxGross > 0 && (
-                  <>
-                    <div className="sidebar-divider" />
-                    <div className="sidebar-row sidebar-citytax-row">
-                      <span>Beherbergungssteuer ({bookingTotals.cityTaxRate} %)</span>
-                      <span>+{bookingTotals.cityTaxGross.toFixed(2)} €</span>
-                    </div>
-                  </>
+                  <div className="sidebar-row sidebar-citytax-row">
+                    <span>Beherbergungssteuer Stadt Neustadt ({bookingTotals.cityTaxRate} %)</span>
+                    <span>+{bookingTotals.cityTaxGross.toFixed(2)} €</span>
+                  </div>
                 )}
                 
                 <div className="sidebar-divider" />

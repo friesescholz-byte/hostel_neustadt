@@ -1150,37 +1150,28 @@
 }
 
 /* ============ Beherbergungssteuer Cart & Sidebar Row ============ */
-.cart-citytax-row {
+.cart-tax-breakdown {
+  margin-top: 1.25rem;
+  padding: 0.9rem 1.15rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cart-tax-line {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.85rem 1.15rem;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
-  border-radius: 10px;
+  font-size: 0.88rem;
+  color: #475569;
 }
 
-.cart-citytax-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.cart-citytax-info strong {
-  font-size: 0.92rem;
-  color: #1e293b;
+.cart-tax-line span:last-child {
   font-weight: 600;
-}
-
-.cart-citytax-info small {
-  font-size: 0.78rem;
-  color: #64748b;
-}
-
-.cart-citytax-val {
-  font-size: 0.98rem;
-  font-weight: 700;
   color: #0f2b5c;
   white-space: nowrap;
 }
@@ -1199,7 +1190,7 @@
 
 /* ============ Inline Cart Checkout Action ============ */
 .cart-checkout-action-row {
-  margin-top: 1.5rem;
+  margin-top: 1rem;
   padding-top: 1.25rem;
   border-top: 1px solid var(--border-color);
   display: flex;

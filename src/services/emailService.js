@@ -12,9 +12,11 @@ const formatEuro = (val) => {
   }) + ' €';
 };
 
+const roundCents = (val) => Math.round((Number(val || 0) + Number.EPSILON) * 100) / 100;
+
 function buildBookingItemsRowsHtml(booking, checkinDE, checkoutDE) {
   const rooms = booking.rooms || [];
-  const roomsHtml = rooms.map(r => {
+  return rooms.map(r => {
     const title = r.name || (r.typeId === 'einzelzimmer' ? 'Einzelzimmer' : 'Doppelzimmer');
     const rIn = r.checkin ? new Date(r.checkin).toLocaleDateString('de-DE') : checkinDE;
     const rOut = r.checkout ? new Date(r.checkout).toLocaleDateString('de-DE') : checkoutDE;
@@ -37,24 +39,41 @@ function buildBookingItemsRowsHtml(booking, checkinDE, checkoutDE) {
       </tr>
     `;
   }).join('');
+}
 
-  const cityTaxGross = Number(booking.cityTaxGross || 0);
-  if (cityTaxGross > 0) {
-    const taxRate = Number(booking.cityTaxRate || 4);
-    return roomsHtml + `
-      <tr>
-        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; color: #1e293b;">
-          <strong>Beherbergungssteuer Stadt Neustadt a. Rbge.</strong><br>
-          <span style="font-size: 12px; color: #64748b;">Kommunale Abgabe (${taxRate} % auf Netto-Übernachtungsentgelt · inkl. 7 % USt.)</span>
-        </td>
-        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #0f172a; white-space: nowrap;">
-          ${formatEuro(cityTaxGross)}
-        </td>
-      </tr>
-    `;
-  }
+function buildBookingTotalsRowsHtml(booking) {
+  const grossTotal = roundCents(booking.totalPrice || 0);
+  const cityTaxGross = roundCents(booking.cityTaxGross || 0);
+  const hasCityTax = cityTaxGross > 0;
+  const cityTaxRate = Number(booking.cityTaxRate || 4);
+  const lodgingGross = booking.lodgingTotal !== undefined
+    ? roundCents(booking.lodgingTotal)
+    : roundCents(grossTotal - cityTaxGross);
+  const lodgingNet = booking.lodgingNet !== undefined
+    ? roundCents(booking.lodgingNet)
+    : roundCents(lodgingGross / 1.07);
+  const lodgingTax = roundCents(lodgingGross - lodgingNet);
 
-  return roomsHtml;
+  return `
+    <tr>
+      <td style="padding: 10px 0 3px 0; color: #64748b; font-size: 13px;">Nettobetrag (ohne USt.):</td>
+      <td style="padding: 10px 0 3px 0; text-align: right; color: #1e293b; font-size: 13px; white-space: nowrap;">${formatEuro(lodgingNet)}</td>
+    </tr>
+    <tr>
+      <td style="padding: 3px 0 ${hasCityTax ? '3px' : '10px'} 0; color: #64748b; font-size: 13px;">Zuzüglich 7,0 % USt. (Beherbergung):</td>
+      <td style="padding: 3px 0 ${hasCityTax ? '3px' : '10px'} 0; text-align: right; color: #1e293b; font-size: 13px; white-space: nowrap;">${formatEuro(lodgingTax)}</td>
+    </tr>
+    ${hasCityTax ? `
+    <tr>
+      <td style="padding: 3px 0 10px 0; color: #64748b; font-size: 13px;">Beherbergungssteuer Stadt Neustadt a. Rbge. (${cityTaxRate} %):</td>
+      <td style="padding: 3px 0 10px 0; text-align: right; color: #1e293b; font-size: 13px; white-space: nowrap;">${formatEuro(cityTaxGross)}</td>
+    </tr>
+    ` : ''}
+    <tr class="total-row">
+      <td style="padding: 12px 0 6px 0; border-top: 2px solid #0F2B5C; font-size: 16px; font-weight: 700; color: #0F2B5C;">Rechnungsbetrag (brutto):</td>
+      <td style="padding: 12px 0 6px 0; border-top: 2px solid #0F2B5C; text-align: right; font-size: 16px; font-weight: 700; color: #0F2B5C; white-space: nowrap;">${formatEuro(grossTotal)}</td>
+    </tr>
+  `;
 }
 
 /**
@@ -134,8 +153,9 @@ export async function sendBookingConfirmationEmails(booking) {
     console.error('[EmailService] Failed to generate PDF invoice attachment:', pdfErr);
   }
 
-  // 2. Build Room items & Beherbergungssteuer HTML rows
+  // 2. Build Room items & Totals HTML rows
   const roomsHtml = buildBookingItemsRowsHtml(booking, checkinDE, checkoutDE);
+  const totalsHtml = buildBookingTotalsRowsHtml(booking);
 
   // 3. Customer Email HTML
   const customerSalutation = guest.lastName ? `Sehr geehrte(r) Frau/Herr ${guest.lastName},` : 'Sehr geehrte Damen und Herren,';
@@ -200,10 +220,7 @@ export async function sendBookingConfirmationEmails(booking) {
           <table class="table">
             <tbody>
               ${roomsHtml}
-              <tr class="total-row">
-                <td>Gesamtbetrag (inkl. 7% USt.):</td>
-                <td style="text-align: right; color: #0F2B5C;">${formatEuro(booking.totalPrice)}</td>
-              </tr>
+              ${totalsHtml}
             </tbody>
           </table>
 
@@ -276,6 +293,7 @@ export async function sendBookingConfirmationEmails(booking) {
         <table class="table">
           <tbody>
             ${roomsHtml}
+            ${totalsHtml}
           </tbody>
         </table>
 
@@ -578,6 +596,7 @@ export async function resendInvoiceEmail(booking, targetEmail = null) {
   }
 
   const roomsHtml = buildBookingItemsRowsHtml(booking, checkinDE, checkoutDE);
+  const totalsHtml = buildBookingTotalsRowsHtml(booking);
 
   const customerSalutation = guest.lastName ? `Sehr geehrte(r) Frau/Herr ${guest.lastName},` : 'Sehr geehrte Damen und Herren,';
 
@@ -620,10 +639,7 @@ export async function resendInvoiceEmail(booking, targetEmail = null) {
           <table class="table">
             <tbody>
               ${roomsHtml}
-              <tr class="total-row">
-                <td>Gesamtbetrag (inkl. 7% USt.):</td>
-                <td style="text-align: right; color: #0F2B5C;">${formatEuro(booking.totalPrice)}</td>
-              </tr>
+              ${totalsHtml}
             </tbody>
           </table>
 

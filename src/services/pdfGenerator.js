@@ -40,6 +40,7 @@ export async function generateInvoicePDF(booking) {
   const lodgingNet = booking.lodgingNet !== undefined
     ? roundCents(booking.lodgingNet)
     : roundCents(lodgingGross / (1 + taxRate / 100));
+  const lodgingTax = roundCents(lodgingGross - lodgingNet);
   const cityTaxNet = booking.cityTaxNet !== undefined
     ? roundCents(booking.cityTaxNet)
     : roundCents(cityTaxGross / (1 + taxRate / 100));
@@ -223,7 +224,7 @@ export async function generateInvoicePDF(booking) {
     doc.setTextColor(...COLOR_BLACK);
     doc.text('Pos.', 22, yPos);
     doc.text('Leistungsbeschreibung / Zimmer', 34, yPos);
-    doc.text('Nächte / Satz', 114, yPos, { align: 'center' });
+    doc.text('Nächte', 114, yPos, { align: 'center' });
     doc.text('Einzelpreis netto', 153, yPos, { align: 'right' });
     doc.text('Gesamtbetrag', 188, yPos, { align: 'right' });
 
@@ -251,7 +252,7 @@ export async function generateInvoicePDF(booking) {
   yPos += 9;
   drawTableHeader();
 
-  // --- 6. Table Line Items ---
+  // --- 6. Table Line Items (Zimmer) ---
   rooms.forEach((r, idx) => {
     ensureSpace(16, true);
     yPos += 6;
@@ -295,39 +296,10 @@ export async function generateInvoicePDF(booking) {
     doc.line(20, yPos, 190, yPos);
   });
 
-  // --- 6b. Dedicated Line Item: Beherbergungssteuer Stadt Neustadt a. Rbge. ---
-  if (hasCityTax) {
-    ensureSpace(16, true);
-    yPos += 6;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(...COLOR_DARK);
-    doc.text(String(rooms.length + 1), 22, yPos);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('Beherbergungssteuer Stadt Neustadt a. Rbge.', 34, yPos);
-
-    doc.setFont('helvetica', 'normal');
-    doc.text(`${cityTaxRate} %`, 114, yPos, { align: 'center' });
-    doc.text(formatEuro(cityTaxNet), 153, yPos, { align: 'right' });
-    doc.text(formatEuro(cityTaxGross), 188, yPos, { align: 'right' });
-
-    yPos += 4.5;
-    doc.setFontSize(7.5);
-    doc.setTextColor(...COLOR_MUTED);
-    doc.text(`Kommunale Abgabe (${cityTaxRate} % auf Netto-Übernachtungsentgelt ${formatEuro(lodgingNet)}) · inkl. 7% USt.`, 34, yPos);
-
-    yPos += 3.5;
-    doc.setDrawColor(...COLOR_LINE);
-    doc.setLineWidth(0.2);
-    doc.line(20, yPos, 190, yPos);
-  }
-
   // --- 7. Totals Block ---
-  ensureSpace(62, false);
+  ensureSpace(68, false);
   yPos += 7;
-  const totLabelX = 98;
+  const totLabelX = 90;
   const totValX = 188;
 
   doc.setFontSize(8.5);
@@ -335,13 +307,23 @@ export async function generateInvoicePDF(booking) {
   doc.setTextColor(...COLOR_MUTED);
   doc.text('Nettobetrag (ohne USt.):', totLabelX, yPos);
   doc.setTextColor(...COLOR_BLACK);
-  doc.text(formatEuro(netTotal), totValX, yPos, { align: 'right' });
+  doc.text(formatEuro(lodgingNet), totValX, yPos, { align: 'right' });
 
   yPos += 5;
+  doc.setFont('helvetica', 'normal');
   doc.setTextColor(...COLOR_MUTED);
-  doc.text(`Zuzüglich 7,0 % USt. (Beherbergung):`, totLabelX, yPos);
+  doc.text('Zuzüglich 7,0 % USt. (Beherbergung):', totLabelX, yPos);
   doc.setTextColor(...COLOR_BLACK);
-  doc.text(formatEuro(taxAmount), totValX, yPos, { align: 'right' });
+  doc.text(formatEuro(lodgingTax), totValX, yPos, { align: 'right' });
+
+  if (hasCityTax) {
+    yPos += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLOR_MUTED);
+    doc.text(`Beherbergungssteuer Stadt Neustadt a. Rbge. (${cityTaxRate} %):`, totLabelX, yPos);
+    doc.setTextColor(...COLOR_BLACK);
+    doc.text(formatEuro(cityTaxGross), totValX, yPos, { align: 'right' });
+  }
 
   yPos += 3;
   doc.setDrawColor(...COLOR_BLACK);
